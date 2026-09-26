@@ -1,0 +1,15 @@
+services:
+  mercure:
+    image: dunglas/mercure:latest
+    restart: unless-stopped
+    environment:
+      SERVER_NAME: ':3000'
+      MERCURE_PUBLISHER_JWT_KEY: '${MERCURE_JWT_SECRET}'
+      MERCURE_SUBSCRIBER_JWT_KEY: '${MERCURE_JWT_SECRET}'
+      MERCURE_EXTRA_DIRECTIVES: |
+        cors_origins http://127.0.0.1:8000 http://127.0.0.1:8001 http://localhost:8000 http://localhost:8001
+        publish_origins http://127.0.0.1:8000 http://127.0.0.1:8001 http://localhost:8000 http://localhost:8001
+        cookie_name mercure_access_token
+        subscriptions
+    ports:
+      - '3000:3000'
