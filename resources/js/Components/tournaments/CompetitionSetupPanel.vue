@@ -1,4 +1,3 @@
-```vue
 <script setup>
 import { useForm } from "@inertiajs/vue3";
 import FormErrors from "../common/FormErrors.vue";
@@ -289,4 +288,3 @@ const category = useForm({
         </section>
     </div>
 </template>
-```

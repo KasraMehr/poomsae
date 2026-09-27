@@ -1,6 +1,6 @@
-@import 'tailwindcss';
-@import './themes/operator.css';
-@import './themes/scoreboard.css';
+@import "tailwindcss";
+@import "./themes/operator.css";
+@import "./themes/scoreboard.css";
 @source '../**/*.vue';
 @source '../**/*.blade.php';
 
@@ -40,7 +40,7 @@
     }
 
     button:disabled {
-        opacity: .55;
+        opacity: 0.55;
         cursor: wait;
     }
 
@@ -136,7 +136,7 @@
 
 @keyframes pulse-live {
     50% {
-        opacity: .35;
+        opacity: 0.35;
         box-shadow: 0 0 16px #f3c85c;
     }
 }
