@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Actions\RunCompetition;
 use App\Actions\SubmitScore;
+use App\Models\AuditLog;
 use App\Models\Bout;
 use App\Models\Performance;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -133,6 +134,44 @@ class CompetitionWorkflowTest extends TestCase
         $this->actingAs($f['admin'])->post('/tournaments/'.$f['tournament']->id.'/bouts/'.$bout->id.'/resolve', ['winner_entry_id' => $winner, 'reason' => 'تصمیم سرداور طبق آیین‌نامه رویداد'])->assertSessionHasNoErrors();
         $this->assertSame($winner, $bout->fresh()->winner_entry_id);
         $this->assertDatabaseHas('audit_logs', ['action' => 'bout.tie_resolved', 'subject_id' => $bout->id]);
+    }
+
+    public function test_restored_judge_mean_breaks_a_tie_without_changing_published_scores(): void
+    {
+        $fixture = $this->competition();
+        $this->schedule($fixture);
+        $bout = Bout::firstOrFail();
+        $favoredEntryId = $bout->entries()->pluck('entries.id')[1];
+
+        foreach ($bout->performances()->orderBy('id')->get() as $performance) {
+            $this->startScoring($fixture, $performance);
+            $presentations = $performance->entry_id === $favoredEntryId
+                ? ['5.00', '5.00', '5.00', '5.00', '6.00']
+                : ['4.00', '5.00', '5.00', '5.00', '6.00'];
+
+            foreach ($fixture['judges'] as $seat => $judge) {
+                app(SubmitScore::class)->handle($judge, $fixture['tournament'], $performance, [
+                    'request_id' => (string) Str::uuid(),
+                    'expected_version' => $performance->fresh()->version,
+                    'expected_revision' => 0,
+                    'accuracy' => '2.50',
+                    'presentation' => $presentations[$seat],
+                ]);
+            }
+
+            app(RunCompetition::class)->command($fixture['admin'], $fixture['tournament'], $performance, [
+                'command' => 'approve', 'expected_version' => $performance->fresh()->version,
+            ]);
+        }
+
+        $this->assertSame($favoredEntryId, $bout->fresh()->winner_entry_id);
+        $this->assertSame('completed', $bout->fresh()->status);
+        $this->assertDatabaseCount('results', 4);
+        $this->assertSame(['7.500000'], $bout->performances()->with('result')->get()->pluck('result.score')->unique()->values()->all());
+        $this->assertDatabaseHas('audit_logs', ['action' => 'bout.tie_break_resolved', 'subject_id' => $bout->id]);
+        $comparison = AuditLog::where('action', 'bout.tie_break_resolved')->where('subject_id', $bout->id)->firstOrFail()->after['restored_mean_totals_micros'];
+        $this->assertSame(7700000, $comparison[$favoredEntryId]);
+        $this->assertSame(7500000, $comparison[$bout->entries()->where('entries.id', '!=', $favoredEntryId)->firstOrFail()->id]);
     }
 
     public function test_correction_requires_revision_and_is_audited(): void

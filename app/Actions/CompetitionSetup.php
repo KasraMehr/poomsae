@@ -80,7 +80,7 @@ class CompetitionSetup
             }
             $rule = ScoringRuleSet::create([
                 'name' => 'تنظیمات برگزارکننده '.Str::uuid(), 'version' => 1, 'discipline' => 'recognized',
-                'definition' => ['algorithm' => 'component_trimmed_mean_v1', 'accuracy_max' => (int) $data['accuracy_max'], 'presentation_max' => 1000 - (int) $data['accuracy_max'], 'discard_each_end' => $data['discard_extremes'] ? 1 : 0, 'aggregation' => 'mean_two_forms', 'tie_break' => 'operator_decision', 'age_basis' => 'birthday_on_start_date'],
+                'definition' => ['algorithm' => 'component_trimmed_mean_v1', 'accuracy_max' => (int) $data['accuracy_max'], 'presentation_max' => 1000 - (int) $data['accuracy_max'], 'discard_each_end' => $data['discard_extremes'] ? 1 : 0, 'aggregation' => 'mean_two_forms', 'tie_break' => 'restore_all_judges_mean_then_operator', 'age_basis' => 'birthday_on_start_date'],
                 'approved_by' => $actor->id, 'approved_at' => now(),
             ]);
             $formIds = collect($data['form_names'])->map(function (string $name): int {
@@ -130,7 +130,7 @@ class CompetitionSetup
             $this->editable($category);
             $before = ['status' => $entry->status];
             $entry->update(['status' => $status]);
-            $this->audit($actor,$tournament,'entry.status','entry',$entry->id,['status' => $status],$before);
+            $this->audit($actor, $tournament, 'entry.status', 'entry', $entry->id, ['status' => $status], $before);
         });
     }
 }

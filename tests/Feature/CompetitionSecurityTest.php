@@ -10,6 +10,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Tests\CreatesCompetition;
 use Tests\TestCase;
 
@@ -105,6 +106,45 @@ class CompetitionSecurityTest extends TestCase
         $run->command($f['admin'], $f['tournament'], $ps[0], ['command' => 'start', 'expected_version' => 1]);
         $this->actingAs($f['admin'])->post('/tournaments/'.$f['tournament']->id.'/performances/'.$ps[0]->id.'/command', ['command' => 'finish', 'expected_version' => 1])->assertStatus(409);
         $this->post('/tournaments/'.$f['tournament']->id.'/performances/'.$ps[2]->id.'/command', ['command' => 'start', 'expected_version' => 1])->assertSessionHasErrors('operation');
+    }
+
+    public function test_unknown_execution_command_cannot_approve_a_score(): void
+    {
+        $fixture = $this->competition();
+        $this->schedule($fixture);
+        $performance = Performance::firstOrFail();
+        $this->startScoring($fixture, $performance);
+        $this->scoreAll($fixture, $performance);
+
+        $this->expectException(ValidationException::class);
+
+        app(RunCompetition::class)->command($fixture['admin'], $fixture['tournament'], $performance, [
+            'command' => 'pause', 'expected_version' => $performance->fresh()->version,
+        ]);
+    }
+
+    public function test_unknown_bout_decision_cannot_resolve_a_tie(): void
+    {
+        $fixture = $this->competition();
+        $this->schedule($fixture);
+        $run = app(RunCompetition::class);
+
+        foreach (Performance::orderBy('id')->get() as $performance) {
+            $this->startScoring($fixture, $performance);
+            $this->scoreAll($fixture, $performance);
+            $run->command($fixture['admin'], $fixture['tournament'], $performance, [
+                'command' => 'approve', 'expected_version' => $performance->fresh()->version,
+            ]);
+        }
+
+        $bout = Bout::firstOrFail();
+        $this->expectException(ValidationException::class);
+
+        $run->resolve($fixture['admin'], $fixture['tournament'], $bout, [
+            'decision_type' => 'forfeit',
+            'winner_entry_id' => $bout->entries()->firstOrFail()->id,
+            'reason' => 'تصمیم ثبت‌شدهٔ سرداور',
+        ]);
     }
 
     public function test_published_score_is_immutable_and_idempotency_conflict_is_rejected(): void

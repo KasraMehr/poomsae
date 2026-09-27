@@ -21,14 +21,17 @@ class RunCompetition
         DB::transaction(function () use ($actor, $tournament, $performance, $data): void {
             $tournament = Tournament::lockForUpdate()->findOrFail($tournament->id);
             $performance = Performance::lockForUpdate()->findOrFail($performance->id);
-            $bout = Bout::with('round')->findOrFail($performance->bout_id);
-            $category = Category::with('scoringRuleSet')->findOrFail($bout->category_id);
+            $bout = Bout::lockForUpdate()->findOrFail($performance->bout_id);
+            $category = Category::lockForUpdate()->findOrFail($bout->category_id);
             abort_unless($category->tournament_id === $tournament->id, 404);
             abort_unless($performance->version === (int) $data['expected_version'], 409, 'وضعیت اجرا تغییر کرده؛ صفحه را تازه کنید.');
             $this->setup->check(in_array($tournament->status, ['ready', 'running']), 'مسابقه آماده یا در حال برگزاری نیست.');
+            $this->setup->check(in_array($data['command'], ['start', 'finish', 'approve'], true), 'فرمان اجرا معتبر نیست.');
             $before = $performance->toArray();
             if ($data['command'] === 'start') {
                 $this->setup->check($performance->status === 'pending', 'فقط اجرای در انتظار را می‌توان شروع کرد.');
+                $judgeIds = $bout->judges()->orderBy('user_id')->lockForUpdate()->pluck('user_id');
+                User::whereIn('id', $judgeIds)->orderBy('id')->lockForUpdate()->get();
                 $this->setup->check($bout->court_id !== null && $tournament->courts()->whereKey($bout->court_id)->exists(), 'زمین معتبر لازم است.');
                 $this->setup->check($bout->judges()->count() === $category->judge_count && $bout->judges()->whereHas('user', fn ($q) => $q->where('is_active', true))->count() === $category->judge_count, 'تمام داورهای پنل باید فعال باشند.');
                 $blocked = Bout::where('court_id', $bout->court_id)->where(function ($q) use ($bout) {
@@ -36,8 +39,6 @@ class RunCompetition
                         ->orWhere(fn ($other) => $other->where('id', '!=', $bout->id)->where('status', 'running'));
                 })->exists();
                 $this->setup->check(! $blocked, 'زمین در اختیار اجرای دیگر یا رقابت تعیین‌تکلیف‌نشده است.');
-                $judgeIds = $bout->judges()->pluck('user_id');
-                User::whereIn('id', $judgeIds)->orderBy('id')->lockForUpdate()->get();
                 $busyJudge = Bout::where('id', '!=', $bout->id)->whereHas('performances', fn ($p) => $p->whereIn('status', ['running', 'scoring']))->whereHas('judges', fn ($j) => $j->whereIn('user_id', $judgeIds))->exists();
                 $this->setup->check(! $busyJudge, 'یکی از داورها روی زمین دیگری مشغول داوری است.');
                 $prior = $bout->performances()->where('entry_id', $performance->entry_id)->where('form_number', '<', $performance->form_number)->where('status', '!=', 'approved')->exists();
@@ -80,18 +81,52 @@ class RunCompetition
         return $totals;
     }
 
+    private function restoredMeanTotals(Bout $bout): array
+    {
+        $totals = [];
+        foreach ($bout->performances()->with('result')->get()->groupBy('entry_id') as $entryId => $forms) {
+            if ($forms->count() !== 2 || ! $forms->every(fn ($performance) => $performance->status === 'approved' && $performance->result !== null)) {
+                continue;
+            }
+
+            $restoredMeans = $forms->map(fn ($performance) => $this->calculator->restoredMeanMicros($performance->result->calculation_snapshot));
+            if ($restoredMeans->containsStrict(null)) {
+                return [];
+            }
+
+            $totals[$entryId] = intdiv($restoredMeans->sum() + 1, 2);
+        }
+
+        return $totals;
+    }
+
     private function finalizeBout(User $actor, Tournament $tournament, Bout $bout): void
     {
         if ($bout->performances()->where('status', '!=', 'approved')->exists()) {
             return;
         }
         $totals = $this->totals($bout);
-        if (count($totals) !== 2 || count(array_unique($totals)) !== 2) {
+        if (count($totals) !== 2) {
             return;
         }
-        arsort($totals, SORT_NUMERIC);
-        $bout->update(['status' => 'completed', 'winner_entry_id' => array_key_first($totals), 'resolved_by' => $actor->id, 'resolution_reason' => 'بالاترین میانگین دو فرم']);
+
+        $isPrimaryTie = count(array_unique($totals)) === 1;
+        $comparison = $isPrimaryTie ? $this->restoredMeanTotals($bout) : $totals;
+        if (count($comparison) !== 2 || count(array_unique($comparison)) === 1) {
+            return;
+        }
+
+        arsort($comparison, SORT_NUMERIC);
+        $winnerEntryId = array_key_first($comparison);
+        $bout->update(['status' => 'completed', 'winner_entry_id' => $winnerEntryId, 'resolved_by' => $actor->id, 'resolution_reason' => $isPrimaryTie ? 'میانگین همهٔ نمره‌های داوران با بازگرداندن کمینه و بیشینه در دو فرم' : 'بالاترین میانگین دو فرم']);
         $this->completeRound($bout);
+        if ($isPrimaryTie) {
+            $this->setup->audit($actor, $tournament, 'bout.tie_break_resolved', 'bout', $bout->id, [
+                'winner_entry_id' => $winnerEntryId,
+                'primary_totals_micros' => $totals,
+                'restored_mean_totals_micros' => $comparison,
+            ]);
+        }
     }
 
     private function completeRound(Bout $bout): void
@@ -109,7 +144,9 @@ class RunCompetition
             $tournament = Tournament::lockForUpdate()->findOrFail($tournament->id);
             $bout = Bout::with('category')->findOrFail($bout->id);
             abort_unless($bout->category->tournament_id === $tournament->id, 404);
-            $walkover = ($data['decision_type'] ?? 'tie') === 'walkover';
+            $decisionType = $data['decision_type'] ?? 'tie';
+            $this->setup->check(in_array($decisionType, ['tie', 'walkover'], true), 'نوع تصمیم رقابت معتبر نیست.');
+            $walkover = $decisionType === 'walkover';
             $this->setup->check(in_array($tournament->status, ['ready', 'running']) && in_array($bout->status, ['pending', 'running']), 'رقابت برای تعیین برنده باز نیست.');
             $this->setup->check($bout->entries()->where('entries.id', $data['winner_entry_id'])->exists(), 'برنده باید یکی از طرفین همین رقابت باشد.');
             if ($walkover) {
@@ -124,6 +161,8 @@ class RunCompetition
                 $totals = $this->totals($bout);
                 $this->setup->check(count($totals) === 2 && count(array_unique($totals)) === 1, 'فقط تساوی دو نتیجهٔ نهایی با دلیل قابل تعیین برنده است.');
                 $this->setup->check(array_key_exists((int) $data['winner_entry_id'], $totals), 'برنده باید یکی از طرفین همین رقابت باشد.');
+                $restoredMeanTotals = $this->restoredMeanTotals($bout);
+                $this->setup->check(count($restoredMeanTotals) !== 2 || count(array_unique($restoredMeanTotals)) === 1, 'میانگین همهٔ نمره‌های داوران برنده را تعیین می‌کند؛ تصمیم دستی مجاز نیست.');
             }
             $bout->update(['status' => 'completed', 'winner_entry_id' => $data['winner_entry_id'], 'resolved_by' => $actor->id, 'resolution_reason' => $data['reason']]);
             $this->completeRound($bout);

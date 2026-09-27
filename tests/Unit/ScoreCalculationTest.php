@@ -15,7 +15,38 @@ class ScoreCalculationTest extends TestCase
         ], ['algorithm' => 'component_trimmed_mean_v1', 'accuracy_max' => 300, 'presentation_max' => 700, 'discard_each_end' => 1], 5);
         $this->assertSame('8.266666', $result['score']);
         $this->assertSame([200, 250, 280], $result['components']['accuracy']['kept_hundredths']);
+        $this->assertSame(7940000, $calculator->restoredMeanMicros($result));
         $this->assertSame(201, $calculator->hundredths('2.01'));
+    }
+
+    public function test_no_discarded_scores_leave_a_tie_for_operator_decision(): void
+    {
+        $calculator = new CalculateScore;
+        $scores = array_fill(0, 5, ['accuracy' => 250, 'presentation' => 500]);
+        $result = $calculator->calculate($scores, [
+            'algorithm' => 'component_trimmed_mean_v1',
+            'accuracy_max' => 300,
+            'presentation_max' => 700,
+            'discard_each_end' => 0,
+        ], 5);
+
+        $this->assertNull($calculator->restoredMeanMicros($result));
+    }
+
+    public function test_restored_mean_includes_all_seven_judges(): void
+    {
+        $calculator = new CalculateScore;
+        $scores = array_fill(0, 7, ['accuracy' => 250, 'presentation' => 500]);
+        $scores[6]['presentation'] = 600;
+        $result = $calculator->calculate($scores, [
+            'algorithm' => 'component_trimmed_mean_v1',
+            'accuracy_max' => 300,
+            'presentation_max' => 700,
+            'discard_each_end' => 1,
+        ], 7);
+
+        $this->assertSame('7.500000', $result['score']);
+        $this->assertSame(7642857, $calculator->restoredMeanMicros($result));
     }
 
     public function test_unknown_rule_never_silently_calculates(): void

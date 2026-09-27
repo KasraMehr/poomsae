@@ -28,6 +28,41 @@ class CalculateScore
         return (int) $whole * 1000000 + (int) str_pad($fraction, 6, '0');
     }
 
+    /** @param array<string, mixed> $calculationSnapshot */
+    public function restoredMeanMicros(array $calculationSnapshot): ?int
+    {
+        $discard = (int) ($calculationSnapshot['rules']['discard_each_end'] ?? -1);
+        if (! in_array($discard, [0, 1], true)) {
+            throw new InvalidArgumentException('Invalid trimming rule in calculation snapshot.');
+        }
+        if ($discard === 0) {
+            return null;
+        }
+
+        $judgeCount = (int) ($calculationSnapshot['judge_count'] ?? 0);
+        if (! in_array($judgeCount, [5, 7], true)) {
+            throw new InvalidArgumentException('Invalid judge count in calculation snapshot.');
+        }
+
+        $scores = array_fill(0, $judgeCount, []);
+        foreach (['accuracy', 'presentation'] as $criterion) {
+            $values = $calculationSnapshot['components'][$criterion]['sorted_hundredths'] ?? null;
+            if (! is_array($values) || count($values) !== $judgeCount || ! array_is_list($values)) {
+                throw new InvalidArgumentException('Incomplete score components in calculation snapshot.');
+            }
+            foreach ($values as $index => $value) {
+                if (! is_int($value)) {
+                    throw new InvalidArgumentException('Invalid score component in calculation snapshot.');
+                }
+                $scores[$index][$criterion] = $value;
+            }
+        }
+
+        $rules = [...$calculationSnapshot['rules'], 'discard_each_end' => 0];
+
+        return $this->micros($this->calculate($scores, $rules, $judgeCount)['score']);
+    }
+
     /** @param array<int,array{accuracy:int,presentation:int}> $scores */
     public function calculate(array $scores, array $rules, int $judgeCount): array
     {
