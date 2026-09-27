@@ -1,6 +1,6 @@
 <script setup>
 import { Head, useForm, usePage } from "@inertiajs/vue3";
-import Button from "../../Components/common/Button.vue";
+import Button from "../../Shared/Components/Button.vue";
 const page = usePage();
 const form = useForm({ email: "", password: "" });
 const submit = () =>

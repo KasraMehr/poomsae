@@ -1,9 +1,9 @@
 <script setup>
-import { useCompetitionUpdates } from "../../useCompetitionUpdates";
+import { useCompetitionUpdates } from "../../Shared/Composables/useCompetitionUpdates";
 import { computed } from "vue";
 import { Head, usePoll, usePage, Link } from "@inertiajs/vue3";
-import ArenaLayout from "../../Layouts/ArenaLayout.vue";
-import JudgeScoreForm from "../../Components/JudgeScoreForm.vue";
+import ArenaLayout from "../../Shared/Layouts/ArenaLayout.vue";
+import JudgeScoreForm from "../../Components/competition/judge/JudgeScoreForm.vue";
 const props = defineProps({ tournament: Object });
 const realtime = useCompetitionUpdates(props.tournament.id);
 const page = usePage();

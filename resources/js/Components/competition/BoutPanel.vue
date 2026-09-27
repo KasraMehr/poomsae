@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from "vue";
 import { useForm } from "@inertiajs/vue3";
-import FormErrors from "./common/FormErrors.vue";
+import FormErrors from "../../Shared/Components/FormErrors.vue";
 const props = defineProps({
     bout: Object,
     category: Object,

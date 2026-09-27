@@ -1,8 +1,8 @@
 <script setup>
 import { Head, Link, useForm, usePage } from "@inertiajs/vue3";
-import AppLayout from "../../Layouts/AppLayout.vue";
+import AppLayout from "../../Shared/Layouts/AppLayout.vue";
 import TournamentCard from "../../Components/tournaments/TournamentCard.vue";
-import Button from "../../Components/common/Button.vue";
+import Button from "../../Shared/Components/Button.vue";
 defineProps({ tournaments: Object });
 const page = usePage();
 const form = useForm({
