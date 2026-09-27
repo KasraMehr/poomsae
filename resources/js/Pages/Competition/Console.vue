@@ -4,7 +4,7 @@ import { Head, Link, useForm, usePoll } from '@inertiajs/vue3';
 import ArenaLayout from '../../Layouts/ArenaLayout.vue';
 import CourtConsole from '../../Components/CourtConsole.vue';
 import BoutPanel from '../../Components/BoutPanel.vue';
-import FormErrors from '../../Components/FormErrors.vue';
+import FormErrors from '../../Components/common/FormErrors.vue';
 import { useCompetitionUpdates } from '../../useCompetitionUpdates';
 import { useJudgePresence } from '../../useJudgePresence';
 

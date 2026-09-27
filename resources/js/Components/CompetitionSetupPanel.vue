@@ -1,6 +1,6 @@
 <script setup>
 import { useForm } from '@inertiajs/vue3';
-import FormErrors from './FormErrors.vue';
+import FormErrors from './common/FormErrors.vue';
 defineProps({ tournament: Object, base: String });
 const court = useForm({ name: '' });
 const member = useForm({ name: '', email: '', password: '', role: 'judge' });
@@ -51,4 +51,3 @@ const category = useForm({ name: '', gender: 'open', minimum_age: 10, maximum_ag
         </section>
     </div>
 </template>
-

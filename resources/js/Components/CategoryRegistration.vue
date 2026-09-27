@@ -1,6 +1,6 @@
 <script setup>
 import { useForm } from '@inertiajs/vue3';
-import FormErrors from './FormErrors.vue';
+import FormErrors from './common/FormErrors.vue';
 const props = defineProps({ category: Object, tournament: Object, base: String });
 const entry = useForm({ first_name: '', last_name: '', birth_date: '', gender: props.category.gender === 'female' ? 'female' : 'male', club: '' });
 const status = useForm({ status: '' });
@@ -41,4 +41,3 @@ const scheduleRound = () => schedule.post(props.base + '/categories/' + props.ca
         </section>
     </div>
 </template>
-

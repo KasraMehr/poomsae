@@ -1,7 +1,7 @@
 <script setup>
 import { ref, watch } from 'vue';
 import { useForm, usePage } from '@inertiajs/vue3';
-import FormErrors from './FormErrors.vue';
+import FormErrors from './common/FormErrors.vue';
 import { requestId } from '../requestId';
 const props = defineProps({ performance: Object, rules: Object, endpoint: String });
 const page = usePage();
@@ -58,4 +58,3 @@ const reloadOwn = () => {
         <div class="row-actions"><button class="button" :disabled="form.processing">{{ form.processing ? 'در حال ارسال…' : (form.expected_revision > 0 ? 'ثبت اصلاح نمره' : 'تأیید و ارسال نمره') }}</button><button v-if="(performance.own_score?.revision || 0) !== form.expected_revision" type="button" class="button secondary" @click="reloadOwn">دریافت نسخهٔ جدید نمره</button></div>
     </form>
 </template>
-

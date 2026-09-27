@@ -6,7 +6,7 @@ import AppLayout from '../../Layouts/AppLayout.vue';
 import CompetitionSetupPanel from '../../Components/CompetitionSetupPanel.vue';
 import CategoryRegistration from '../../Components/CategoryRegistration.vue';
 import BoutPanel from '../../Components/BoutPanel.vue';
-import FormErrors from '../../Components/FormErrors.vue';
+import FormErrors from '../../Components/common/FormErrors.vue';
 const props = defineProps({ tournament: Object, can: Object, competitionUrls: Object });
 useCompetitionUpdates(props.tournament.id);
 const tab = ref('setup');
@@ -35,4 +35,3 @@ usePoll(5000, { only: ['tournament','can'] });
         <section v-if="can.manage && tournament.status === 'running'" class="panel"><h2>پایان مسابقه</h2><p class="subtle">فقط وقتی همهٔ رده‌ها، از جمله فینال تک‌حذفی، پایان یافته‌اند فعال می‌شود.</p><FormErrors :errors="completion.errors"/><button class="button" :disabled="completion.processing || !tournament.categories.length || !tournament.categories.every(c=>c.completed)" @click="completion.post(competitionUrls.base + '/complete', {preserveScroll:true})">تأیید پایان مسابقه</button></section>
     </AppLayout>
 </template>
-

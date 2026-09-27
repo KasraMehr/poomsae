@@ -2,7 +2,7 @@
 import { computed, watch } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { requestId } from '../requestId';
-import FormErrors from './FormErrors.vue';
+import FormErrors from './common/FormErrors.vue';
 
 const props = defineProps({ performance: Object, rules: Object, endpoint: String });
 const missingJudges = computed(() => props.performance.judges.filter(judge => props.performance.missing_seats.includes(judge.seat)));
