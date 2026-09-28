@@ -487,6 +487,63 @@ ArenaLayout ≠ ScoreboardLayout
 
 ---
 
+## تم و فونت Scoreboard
+
+### تم — ثابت
+
+محل: `resources/css/themes/scoreboard.css`
+
+این فایل از `resources/css/app.css` import می‌شود و توکن‌های RTDS را در بر دارد.
+
+شامل:
+
+```text
+پس‌زمینه‌ها   --color-rtds-bg / bg-secondary / bg-card / bg-elevated
+glow backdrop  --color-rtds-glow-blue / glow-red + opacityها
+برند چونگ     --color-rtds-blue / blue-dark / blue-light
+برند هونگ     --color-rtds-red / red-dark / red-light
+اکسنت زرد     --color-rtds-yellow / yellow-bright / yellow-dark
+متن            --color-rtds-text / text-secondary / text-tertiary / text-on-*
+بوردر          --color-rtds-border / border-subtle / border-strong
+وضعیت          --color-rtds-success / warning / error / info
+داور           --color-rtds-judge
+```
+
+تم **ثابت** است و برای همهٔ Pageهای Scoreboard مشترک است.
+
+دسترسی از طریق کلاس‌های Tailwind: `bg-rtds-*`، `text-rtds-*`، `border-rtds-*` و …
+
+utilityها طبق رفتار Tailwind v4 فقط به‌محض استفاده در یک فایل تولید می‌شوند.
+
+توکن‌های قدیمی این فایل (`--color-scoreboard-*`) جایگزین شدند چون در هیچ فایلی استفاده نشده بودند.
+
+### فونت — متغیر
+
+محل: توکن `--font-rtds` داخل همان `resources/css/themes/scoreboard.css`.
+
+برخلاف تم، فونت **متغیر** است: بسته به فارسی یا انگلیسی بودن محتوا عوض می‌شود.
+
+نسخهٔ فعلی (فارسی):
+
+```css
+--font-rtds: "Oswald", ui-sans-serif, system-ui, sans-serif;
+```
+
+نکات:
+
+* این مقدار **موقتی** است و پس از مشخص شدن فونت نهایی توسط کارفرما، فقط همین‌جا ویرایش می‌شود.
+* توکن هم‌رتبه در تم اپراتور (`--font-operator` در `resources/css/themes/operator.css`) نیز ثبت شده تا هر سطح فونت خودش را داشته باشد.
+* در Layout از کلاس `font-rtds` استفاده می‌شود.
+
+> **محدودیت شناخته‌شده:**
+>
+> * مکانیزم لود فونت وب (فایل `@font-face` یا link به Google Fonts) هنوز در پروژه وجود ندارد.
+> * Oswald پوشش حروف فارسی/عربی ندارد.
+>
+> تا زمانی که فونت نهایی و روش لود آن مشخص شود، متن فارسی روی fallback سیستم رندر می‌شود. این مورد به تصمیم بعدی موکول است.
+
+---
+
 # ۷. Component Ownership
 
 | محل                                   | مسئولیت                                  | نمونه                                   |
