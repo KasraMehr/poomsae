@@ -49,6 +49,31 @@ class ScoreCalculationTest extends TestCase
         $this->assertSame(7642857, $calculator->restoredMeanMicros($result));
     }
 
+    public function test_two_scores_from_each_end_can_be_discarded_with_seven_judges(): void
+    {
+        $calculator = new CalculateScore;
+        $scores = [
+            ['accuracy' => 100, 'presentation' => 700],
+            ['accuracy' => 150, 'presentation' => 650],
+            ['accuracy' => 200, 'presentation' => 600],
+            ['accuracy' => 250, 'presentation' => 550],
+            ['accuracy' => 275, 'presentation' => 500],
+            ['accuracy' => 290, 'presentation' => 450],
+            ['accuracy' => 300, 'presentation' => 400],
+        ];
+        $rules = ['algorithm' => 'component_trimmed_mean_v1', 'accuracy_max' => 300, 'presentation_max' => 700, 'discard_each_end' => 2];
+
+        $result = $calculator->calculate($scores, $rules, 7);
+
+        $this->assertSame('7.916667', $result['score']);
+        $this->assertSame([200, 250, 275], $result['components']['accuracy']['kept_hundredths']);
+        $this->assertSame([500, 550, 600], $result['components']['presentation']['kept_hundredths']);
+        $this->assertSame(7735714, $calculator->restoredMeanMicros($result));
+
+        $this->expectException(\InvalidArgumentException::class);
+        $calculator->calculate(array_slice($scores, 0, 5), $rules, 5);
+    }
+
     public function test_unknown_rule_never_silently_calculates(): void
     {
         $this->expectException(\InvalidArgumentException::class);

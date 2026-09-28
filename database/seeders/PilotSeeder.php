@@ -28,7 +28,7 @@ class PilotSeeder extends Seeder
             $tournament = app(CreateTournament::class)->handle($admin, ['name' => 'پایلوت استاندارد انفرادی '.$suffix, 'starts_on' => '2026-10-01', 'venue' => 'سالن آزمایش', 'timezone' => 'Asia/Tehran']);
             $setup = app(CompetitionSetup::class);
             $setup->court($admin, $tournament, ['name' => 'زمین یک']);
-            $setup->category($admin, $tournament, ['name' => 'انفرادی آزمایشی', 'gender' => 'open', 'minimum_age' => 10, 'maximum_age' => 40, 'format' => 'knockout', 'judge_count' => 5, 'accuracy_max' => 300, 'discard_extremes' => true, 'rules_acknowledged' => true, 'form_names' => ['فرم آزمایشی اول', 'فرم آزمایشی دوم']]);
+            $setup->category($admin, $tournament, ['name' => 'انفرادی آزمایشی', 'gender' => 'open', 'minimum_age' => 10, 'maximum_age' => 40, 'format' => 'knockout', 'judge_count' => 5, 'accuracy_max' => 300, 'discard_each_end' => 1, 'rules_acknowledged' => true, 'form_names' => ['فرم آزمایشی اول', 'فرم آزمایشی دوم']]);
             $category = $tournament->categories()->firstOrFail();
             foreach ([['آرمان', 'آزمایشی'], ['کیان', 'نمونه']] as [$first,$last]) {
                 $setup->entry($admin, $tournament, $category, ['first_name' => $first, 'last_name' => $last, 'birth_date' => '2005-01-01', 'gender' => 'male', 'club' => 'تیم نمونه']);

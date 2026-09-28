@@ -31,7 +31,7 @@ class CompetitionSetupRequest extends FormRequest
                 'format' => ['required', Rule::in(['knockout', 'round_robin'])],
                 'judge_count' => ['required', 'integer', Rule::in([5, 7])],
                 'accuracy_max' => ['required', 'integer', 'min:1', 'max:999'],
-                'discard_extremes' => ['required', 'boolean'],
+                'discard_each_end' => ['required', 'integer', Rule::in($this->integer('judge_count') === 7 ? [1, 2] : [1])],
                 'rules_acknowledged' => ['accepted'],
                 'form_names' => ['required', 'array', 'size:2'],
                 'form_names.*' => ['required', 'string', 'max:100', 'distinct'],

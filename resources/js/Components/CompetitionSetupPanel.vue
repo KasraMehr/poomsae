@@ -1,10 +1,14 @@
 <script setup>
 import { useForm } from '@inertiajs/vue3';
+import { watch } from 'vue';
 import FormErrors from './FormErrors.vue';
 defineProps({ tournament: Object, base: String });
 const court = useForm({ name: '' });
 const member = useForm({ name: '', email: '', password: '', role: 'judge' });
-const category = useForm({ name: '', gender: 'open', minimum_age: 10, maximum_age: 40, format: 'knockout', judge_count: 5, accuracy_max: 300, discard_extremes: true, rules_acknowledged: false, form_names: ['', ''] });
+const category = useForm({ name: '', gender: 'open', minimum_age: 10, maximum_age: 40, format: 'knockout', judge_count: 5, accuracy_max: 300, discard_each_end: 1, rules_acknowledged: false, form_names: ['', ''] });
+watch(() => category.judge_count, (judgeCount) => {
+    if (judgeCount === 5) category.discard_each_end = 1;
+});
 </script>
 <template>
     <div class="setup-grid">
@@ -41,9 +45,14 @@ const category = useForm({ name: '', gender: 'open', minimum_age: 10, maximum_ag
                 <div><label for="form-two">نام فرم دوم</label><input id="form-two" v-model="category.form_names[1]" required maxlength="100"></div>
                 <div><label for="accuracy-max">سقف دقت از ۱۰</label><select id="accuracy-max" v-model.number="category.accuracy_max"><option v-for="n in 9" :key="n" :value="n * 100">{{ n }} دقت + {{ 10 - n }} اجرا</option></select></div>
                 <div class="rules-summary wide">
-                    <label class="check"><input v-model="category.discard_extremes" type="checkbox">حذف یک کمترین و یک بیشترین نمره، مستقل برای دقت و اجرا</label>
+                    <label for="discard-each-end">روش حذف نمره‌های داوران</label>
+                    <select id="discard-each-end" v-model.number="category.discard_each_end">
+                        <option :value="1">یک نمرهٔ بالا و یک نمرهٔ پایین · روش WT</option>
+                        <option :value="2" :disabled="category.judge_count !== 7">دو نمرهٔ بالا و دو نمرهٔ پایین · فقط ۷ داور، روش سفارشی</option>
+                    </select>
+                    <p>برای دقت و اجرا جداگانه اعمال می‌شود. روش دو نمره‌ای فقط با پنل ۷ داوره در دسترس است و میانگین سه نمرهٔ باقی‌مانده را می‌گیرد.</p>
                     <p>نتیجهٔ هر فرم = مجموع میانگین دو مؤلفه؛ نتیجهٔ رقابت = میانگین دو فرم. گردکردن هر مؤلفه تا شش رقم اعشار. تساوی با تصمیم ثبت‌شدهٔ سرداور تعیین می‌شود. سن با تاریخ تولد در روز شروع سنجیده می‌شود.</p>
-                    <p>این تنظیمات را با آیین‌نامهٔ رویداد تطبیق دهید. فرم‌ها برای تمام دورهای این رده ثابت‌اند؛ اجرای همزمان و پومسهٔ ابداعی در این نسخه فعال نیست.</p>
+                    <p>مدیر مسابقه روش محاسبه را پیش از قرعه برای رده تعیین می‌کند. این تنظیمات را با آیین‌نامهٔ رویداد تطبیق دهید. فرم‌ها برای تمام دورهای این رده ثابت‌اند؛ اجرای همزمان و پومسهٔ ابداعی در این نسخه فعال نیست.</p>
                     <label class="check"><input v-model="category.rules_acknowledged" type="checkbox" required>این روش محاسبه و شرایط رده را برای این رویداد تأیید می‌کنم.</label>
                 </div>
                 <FormErrors class="wide" :errors="category.errors"/><button class="button" :disabled="category.processing">ساخت رده</button>
@@ -51,4 +60,3 @@ const category = useForm({ name: '', gender: 'open', minimum_age: 10, maximum_ag
         </section>
     </div>
 </template>
-

@@ -78,9 +78,11 @@ class CompetitionSetup
                 abort_unless($category->tournament_id === $tournament->id, 404);
                 $this->editable($category);
             }
+            $discardEachEnd = (int) $data['discard_each_end'];
+            $this->check(in_array($discardEachEnd, [1, 2], true) && ($discardEachEnd === 1 || (int) $data['judge_count'] === 7), 'حذف دو نمره از هر طرف فقط با هفت داور مجاز است.');
             $rule = ScoringRuleSet::create([
                 'name' => 'تنظیمات برگزارکننده '.Str::uuid(), 'version' => 1, 'discipline' => 'recognized',
-                'definition' => ['algorithm' => 'component_trimmed_mean_v1', 'accuracy_max' => (int) $data['accuracy_max'], 'presentation_max' => 1000 - (int) $data['accuracy_max'], 'discard_each_end' => $data['discard_extremes'] ? 1 : 0, 'aggregation' => 'mean_two_forms', 'tie_break' => 'restore_all_judges_mean_then_operator', 'age_basis' => 'birthday_on_start_date'],
+                'definition' => ['algorithm' => 'component_trimmed_mean_v1', 'accuracy_max' => (int) $data['accuracy_max'], 'presentation_max' => 1000 - (int) $data['accuracy_max'], 'discard_each_end' => $discardEachEnd, 'aggregation' => 'mean_two_forms', 'tie_break' => 'restore_all_judges_mean_then_operator', 'age_basis' => 'birthday_on_start_date'],
                 'approved_by' => $actor->id, 'approved_at' => now(),
             ]);
             $formIds = collect($data['form_names'])->map(function (string $name): int {

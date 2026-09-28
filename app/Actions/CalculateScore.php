@@ -32,7 +32,7 @@ class CalculateScore
     public function restoredMeanMicros(array $calculationSnapshot): ?int
     {
         $discard = (int) ($calculationSnapshot['rules']['discard_each_end'] ?? -1);
-        if (! in_array($discard, [0, 1], true)) {
+        if (! in_array($discard, [0, 1, 2], true)) {
             throw new InvalidArgumentException('Invalid trimming rule in calculation snapshot.');
         }
         if ($discard === 0) {
@@ -40,7 +40,7 @@ class CalculateScore
         }
 
         $judgeCount = (int) ($calculationSnapshot['judge_count'] ?? 0);
-        if (! in_array($judgeCount, [5, 7], true)) {
+        if (! in_array($judgeCount, [5, 7], true) || ($discard === 2 && $judgeCount !== 7)) {
             throw new InvalidArgumentException('Invalid judge count in calculation snapshot.');
         }
 
@@ -70,7 +70,7 @@ class CalculateScore
             throw new InvalidArgumentException('Incomplete panel or unsupported rules.');
         }
         $discard = (int) $rules['discard_each_end'];
-        if (! in_array($discard, [0, 1], true)) {
+        if (! in_array($discard, [0, 1, 2], true) || ($discard === 2 && $judgeCount !== 7)) {
             throw new InvalidArgumentException('Invalid trimming rule.');
         }
         $total = 0;

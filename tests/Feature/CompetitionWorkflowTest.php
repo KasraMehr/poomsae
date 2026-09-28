@@ -48,7 +48,7 @@ class CompetitionWorkflowTest extends TestCase
         $this->assertDatabaseHas('users', ['email' => 'new-judge@example.test', 'is_admin' => false]);
         $this->post('/tournaments/'.$f['tournament']->id.'/categories', [
             'name' => 'رده دوم', 'gender' => 'female', 'minimum_age' => 12, 'maximum_age' => 20, 'format' => 'round_robin',
-            'judge_count' => 7, 'accuracy_max' => 300, 'discard_extremes' => true, 'rules_acknowledged' => true,
+            'judge_count' => 7, 'accuracy_max' => 300, 'discard_each_end' => 1, 'rules_acknowledged' => true,
             'form_names' => ['فرم سوم', 'فرم چهارم'],
         ])->assertSessionHasNoErrors()->assertRedirect();
         $this->assertDatabaseHas('categories', ['name' => 'رده دوم', 'judge_count' => '7']);
@@ -96,6 +96,56 @@ class CompetitionWorkflowTest extends TestCase
         }
         app(RunCompetition::class)->command($f['admin'], $f['tournament'], $p, ['command' => 'approve', 'expected_version' => $p->fresh()->version]);
         $this->assertSame('8.500000', $p->result()->firstOrFail()->score);
+    }
+
+    public function test_two_scores_from_each_end_are_applied_to_a_seven_judge_result(): void
+    {
+        $fixture = $this->competition(7, 2, 'knockout', 2);
+        $this->schedule($fixture);
+        $performance = Performance::firstOrFail();
+        $this->startScoring($fixture, $performance);
+        $accuracy = ['1.00', '1.50', '2.00', '2.50', '2.75', '2.90', '3.00'];
+        $presentation = ['7.00', '6.50', '6.00', '5.50', '5.00', '4.50', '4.00'];
+
+        foreach ($fixture['judges'] as $seat => $judge) {
+            app(SubmitScore::class)->handle($judge, $fixture['tournament'], $performance, [
+                'request_id' => (string) Str::uuid(),
+                'expected_version' => $performance->fresh()->version,
+                'expected_revision' => 0,
+                'accuracy' => $accuracy[$seat],
+                'presentation' => $presentation[$seat],
+            ]);
+        }
+
+        app(RunCompetition::class)->command($fixture['admin'], $fixture['tournament'], $performance, [
+            'command' => 'approve', 'expected_version' => $performance->fresh()->version,
+        ]);
+
+        $result = $performance->result()->firstOrFail();
+        $this->assertSame('7.916667', $result->score);
+        $this->assertSame(2, $result->calculation_snapshot['rules']['discard_each_end']);
+        $this->assertSame([200, 250, 275], $result->calculation_snapshot['components']['accuracy']['kept_hundredths']);
+    }
+
+    public function test_category_setup_rejects_two_discarded_scores_with_five_judges(): void
+    {
+        $fixture = $this->competition();
+        $data = [
+            'name' => 'رده دوم', 'gender' => 'open', 'minimum_age' => 10, 'maximum_age' => 40,
+            'format' => 'knockout', 'accuracy_max' => 300, 'discard_each_end' => 2,
+            'rules_acknowledged' => true, 'form_names' => ['فرم سوم', 'فرم چهارم'],
+        ];
+
+        $this->actingAs($fixture['admin'])->post('/tournaments/'.$fixture['tournament']->id.'/categories', [
+            ...$data, 'judge_count' => 5,
+        ])->assertSessionHasErrors('discard_each_end');
+
+        $this->post('/tournaments/'.$fixture['tournament']->id.'/categories', [
+            ...$data, 'judge_count' => 7,
+        ])->assertSessionHasNoErrors();
+
+        $category = $fixture['tournament']->categories()->where('name', 'رده دوم')->firstOrFail();
+        $this->assertSame(2, $category->scoringRuleSet->definition['discard_each_end']);
     }
 
     public function test_knockout_byes_do_not_create_phantom_performances(): void

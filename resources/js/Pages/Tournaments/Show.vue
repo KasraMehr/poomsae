@@ -25,7 +25,7 @@ usePoll(5000, { only: ['tournament','can'] });
         <div v-else>
             <div v-if="!tournament.categories.length" class="empty"><h2>ابتدا ردهٔ مسابقه را بسازید</h2><p>از آماده‌سازی، زمین، داور و رده را تعریف کنید.</p></div>
             <template v-if="selected">
-                <div class="category-switch"><label for="active-category">ردهٔ فعال</label><select id="active-category" v-model.number="selectedId"><option v-for="category in tournament.categories" :key="category.id" :value="category.id">{{ category.name }}</option></select><span class="badge">{{ selected.judge_count }} داور · {{ selected.format === 'knockout' ? 'تک‌حذفی' : 'دورهای' }}</span></div>
+                <div class="category-switch"><label for="active-category">ردهٔ فعال</label><select id="active-category" v-model.number="selectedId"><option v-for="category in tournament.categories" :key="category.id" :value="category.id">{{ category.name }}</option></select><span class="badge">{{ selected.judge_count }} داور · {{ selected.format === 'knockout' ? 'تک‌حذفی' : 'دورهای' }} · حذف {{ selected.rules?.discard_each_end ?? 0 }} نمره از هر طرف</span></div>
                 <details class="panel" v-if="can.manage && tournament.status !== 'completed'" :open="!selected.rounds.length"><summary>ثبت ورزشکار، پذیرش و ساخت دور</summary><CategoryRegistration :key="selected.id" :category="selected" :tournament="tournament" :base="competitionUrls.base"/></details>
                 <div v-if="selected.completed" class="notice">این رده پایان یافته است.<span v-if="selected.champion_id"> قهرمان: {{ selected.entries.find(e => e.id === selected.champion_id)?.name }}</span></div>
                 <section v-for="round in selected.rounds" :key="round.id"><div class="section-heading"><h2>{{ round.name }}</h2><span class="subtle">{{ round.bouts.length }} رقابت</span></div><BoutPanel v-for="bout in round.bouts" :key="bout.id" :bout="bout" :category="selected" :tournament="tournament" :base="competitionUrls.base" :can-operate="can.operate"/></section>
@@ -35,4 +35,3 @@ usePoll(5000, { only: ['tournament','can'] });
         <section v-if="can.manage && tournament.status === 'running'" class="panel"><h2>پایان مسابقه</h2><p class="subtle">فقط وقتی همهٔ رده‌ها، از جمله فینال تک‌حذفی، پایان یافته‌اند فعال می‌شود.</p><FormErrors :errors="completion.errors"/><button class="button" :disabled="completion.processing || !tournament.categories.length || !tournament.categories.every(c=>c.completed)" @click="completion.post(competitionUrls.base + '/complete', {preserveScroll:true})">تأیید پایان مسابقه</button></section>
     </AppLayout>
 </template>
-

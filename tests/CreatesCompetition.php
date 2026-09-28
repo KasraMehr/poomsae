@@ -13,7 +13,7 @@ use Illuminate\Support\Str;
 
 trait CreatesCompetition
 {
-    protected function competition(int $judgeCount = 5, int $entryCount = 2, string $format = 'knockout'): array
+    protected function competition(int $judgeCount = 5, int $entryCount = 2, string $format = 'knockout', int $discardEachEnd = 1): array
     {
         $admin = User::factory()->create(['is_admin' => true]);
         $tournament = Tournament::factory()->create(['created_by' => $admin->id]);
@@ -21,7 +21,7 @@ trait CreatesCompetition
         $setup->court($admin, $tournament, ['name' => 'زمین یک']);
         $setup->category($admin, $tournament, [
             'name' => 'انفرادی', 'gender' => 'open', 'minimum_age' => 10, 'maximum_age' => 40, 'format' => $format,
-            'judge_count' => $judgeCount, 'accuracy_max' => 300, 'discard_extremes' => true, 'rules_acknowledged' => true, 'form_names' => ['فرم اول', 'فرم دوم'],
+            'judge_count' => $judgeCount, 'accuracy_max' => 300, 'discard_each_end' => $discardEachEnd, 'rules_acknowledged' => true, 'form_names' => ['فرم اول', 'فرم دوم'],
         ]);
         $category = $tournament->categories()->firstOrFail();
         for ($i = 0; $i < $entryCount; $i++) {
