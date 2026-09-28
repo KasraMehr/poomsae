@@ -54,7 +54,7 @@ class CompetitionView
                                 'submitted_count' => $p->scoreSheets->where('status', 'submitted')->count(),
                                 'is_assigned' => ! $display && $ownJudge !== null,
                                 'own_score' => $own ? ['revision' => $own->revision, 'values' => $ownValues] : null,
-                                'scores' => $operate ? $p->scoreSheets->map(fn ($s) => ['seat' => $bout->judges->firstWhere('id', $s->judge_assignment_id)?->seat, 'revision' => $s->revision, 'submission_mode' => $s->submission_mode, 'submitted_by' => $s->submitted_by, 'values' => $components->get($s->id, collect())->pluck('value_hundredths', 'criterion')->all()])->values() : [],
+                                'scores' => $operate ? $p->scoreSheets->map(fn ($s) => ['id' => $s->id, 'seat' => $bout->judges->firstWhere('id', $s->judge_assignment_id)?->seat, 'revision' => $s->revision, 'status' => $s->status, 'submission_mode' => $s->submission_mode, 'submitted_by' => $s->submitted_by, 'confirmed_by' => $s->confirmed_by, 'confirmed_at' => $s->confirmed_at?->toISOString(), 'values' => $components->get($s->id, collect())->pluck('value_hundredths', 'criterion')->all()])->values() : [],
                             ];
                         })->values(),
                     ];

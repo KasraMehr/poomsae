@@ -22,7 +22,9 @@ class CompetitionConsole
                     return collect($bout['performances'])->map(function (array $performance) use ($category, $round, $bout, $entries) {
                         $scores = collect($performance['scores']);
                         $allSeats = collect($bout['judges'])->pluck('seat')->sort()->values();
-                        $scoredSeats = $scores->pluck('seat')->filter()->sort()->values();
+                        $receivedSeats = $scores->pluck('seat')->filter()->sort()->values();
+                        $submittedSeats = $scores->where('status', 'submitted')->pluck('seat')->filter()->sort()->values();
+                        $pendingReviewSeats = $scores->where('status', 'draft')->pluck('seat')->filter()->sort()->values();
 
                         return [
                             ...$performance,
@@ -38,8 +40,10 @@ class CompetitionConsole
                             'side' => $entries->get($performance['entry_id'])['side'] ?? null,
                             'judge_count' => $category['judge_count'],
                             'judges' => $bout['judges'],
-                            'submitted_seats' => $scoredSeats->all(),
-                            'missing_seats' => $allSeats->diff($scoredSeats)->values()->all(),
+                            'received_seats' => $receivedSeats->all(),
+                            'submitted_seats' => $submittedSeats->all(),
+                            'pending_review_seats' => $pendingReviewSeats->all(),
+                            'missing_seats' => $allSeats->diff($receivedSeats)->values()->all(),
                         ];
                     });
                 })

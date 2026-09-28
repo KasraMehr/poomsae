@@ -6,12 +6,12 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['performance_id', 'judge_assignment_id', 'submitted_by', 'submission_mode', 'revision', 'status', 'submitted_at'])]
+#[Fillable(['performance_id', 'judge_assignment_id', 'submitted_by', 'submission_mode', 'revision', 'status', 'submitted_at', 'confirmed_by', 'confirmed_at'])]
 class ScoreSheet extends Model
 {
     protected function casts(): array
     {
-        return ['submitted_at' => 'datetime', 'revision' => 'integer'];
+        return ['submitted_at' => 'datetime', 'confirmed_at' => 'datetime', 'revision' => 'integer'];
     }
 
     public function performance(): BelongsTo
