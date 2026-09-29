@@ -1,6 +1,10 @@
 <script setup>
+import { computed } from "vue";
 import { Head } from "@inertiajs/vue3";
 import ScoreboardLayout from "../../Shared/Layouts/ScoreboardLayout.vue";
+import ScoreboardHeader from "../../Components/scoreboard/ScoreboardHeader.vue";
+import AthleteInfo from "../../Components/scoreboard/AthleteInfo.vue";
+import IconContainer from "../../Components/scoreboard/IconContainer.vue";
 
 /**
  * صفحهٔ skeleton — pending backend contract.
@@ -13,20 +17,73 @@ import ScoreboardLayout from "../../Shared/Layouts/ScoreboardLayout.vue";
  * - photo_url
  * - medal
  */
-
-defineProps({
+const props = defineProps({
     tournament: {
         type: Object,
         default: null,
     },
 });
+
+/*
+ * فقط داده‌ای که امروز در snapshot هست:
+ * standings فقط برای format=round_robin وجود دارد؛ ۴ ردیف اول آن Top Four است.
+ * برای knockout هنوز placements[] نداریم (TODO در Contract).
+ */
+const topFour = computed(() => {
+    const rows =
+        props.tournament?.categories?.flatMap(
+            (category) => category.standings ?? [],
+        ) ?? [];
+    return rows.slice(0, 4);
+});
+
+/*
+ * TODO / Proposed Contract (مرحلهٔ بعد):
+ * - placements[] (مخصوص knockout — الان فقط round_robin پوشش داده می‌شود)
+ * - photo_url / country / flag هر ورزشکار
+ * - medal (رتبه ۱/۲/۳) به‌صورت آیکون مدال از Backend
+ * - logoUrl هدر
+ */
 </script>
 
 <template>
     <Head title="چهار نفر برتر" />
 
     <ScoreboardLayout stage="" :center="tournament?.name ?? ''" category="">
-        <section class="flex flex-1 items-center justify-center">
+        <template #header>
+            <ScoreboardHeader :event-title="tournament?.name ?? ''" />
+        </template>
+
+        <section
+            v-if="topFour.length"
+            class="flex flex-1 flex-col justify-center gap-6"
+        >
+            <div
+                v-for="(row, index) in topFour"
+                :key="row.id"
+                class="flex items-center gap-5 rounded-2xl border border-rtds-border bg-rtds-bg-card p-6"
+            >
+                <IconContainer
+                    variant="medal"
+                    :medal-rank="index + 1"
+                    size="lg"
+                />
+                <AthleteInfo
+                    orientation="horizontal"
+                    size="lg"
+                    :name="row.name"
+                    :number="row.rank"
+                    color="bg-rtds-bg-elevated"
+                />
+                <b
+                    class="mr-auto text-2xl tabular-nums text-rtds-text-secondary"
+                >
+                    {{ row.wins }} برد
+                </b>
+            </div>
+        </section>
+
+        <section v-else class="flex flex-1 items-center justify-center">
             <p class="text-rtds-text-secondary">
                 Top Four page is pending backend contract.
             </p>

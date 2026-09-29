@@ -62,8 +62,13 @@ defineProps({
         <!-- Content -->
         <div class="relative z-10 flex min-h-screen w-full flex-col">
             <!-- -- Header -- -->
-            <header class="shrink-0 px-10 pt-8 pb-4">
-                <div class="grid grid-cols-3 items-center">
+            <!--
+              Pages می‌توانند هدر خودشان (ScoreboardHeader) را از slot بدهند؛
+              Shared هیچ وابستگی به Components/scoreboard نمی‌گیرد.
+            -->
+            <slot name="header">
+                <header class="shrink-0 px-10 pt-8 pb-4">
+                    <div class="grid grid-cols-3 items-center">
                     <div
                         class="justify-self-start text-left text-lg uppercase tracking-wide text-rtds-text-secondary"
                     >
@@ -80,8 +85,9 @@ defineProps({
                         {{ category }}
                     </div>
                 </div>
-                <div class="mt-4 h-px w-full bg-rtds-border" />
-            </header>
+                    <div class="mt-4 h-px w-full bg-rtds-border" />
+                </header>
+            </slot>
             <!-- -- Main -- -->
             <main class="flex flex-1 flex-col px-10 pb-10">
                 <slot />

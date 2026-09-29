@@ -2,6 +2,11 @@
 import { computed } from "vue";
 import { Head } from "@inertiajs/vue3";
 import ScoreboardLayout from "../../Shared/Layouts/ScoreboardLayout.vue";
+import ScoreboardHeader from "../../Components/scoreboard/ScoreboardHeader.vue";
+import AthleteInfo from "../../Components/scoreboard/AthleteInfo.vue";
+import FormBadge from "../../Components/scoreboard/FormBadge.vue";
+import TotalScoreArc from "../../Components/scoreboard/TotalScoreArc.vue";
+import SingleScoringTable from "../../Components/scoreboard/tables/SingleScoringTable.vue";
 
 /**
  * صفحهٔ placeholder — هنوز از Backend رندر نمی‌شود
@@ -30,12 +35,14 @@ const active = computed(() =>
                 .map((bout) => ({
                     ...bout,
                     category: category.name,
+                    judgeCount: category.judge_count,
                     round: round.name,
                 })),
         ),
     ),
 );
 
+const sideClasses = { chung: "bg-rtds-blue", hong: "bg-rtds-red" };
 const sideLabels = { chung: "چونگ", hong: "هونگ" };
 
 const score = (value) =>
@@ -45,6 +52,29 @@ const score = (value) =>
               minimumFractionDigits: 3,
               maximumFractionDigits: 6,
           });
+
+// ردیف‌های جدول: هر اجرا یک ردیف (نام فرم + نمرهٔ منتشرشده).
+const tableRows = (bout) =>
+    bout.performances.map((performance) => ({
+        key: performance.id,
+        label: performance.form_name ?? `فرم ${performance.form_number}`,
+        scores: [],
+        total: performance.result != null ? score(performance.result) : null,
+    }));
+
+const totalOf = (bout, entryId) => Number(bout.totals?.[entryId]) || 0;
+
+/*
+ * TODO / Proposed Contract (مرحلهٔ بعد):
+ * - execution_mode (SINGLE | DOUBLE | SINGLE-FREESTYLE)
+ *   → انتخاب SingleScoringTable vs DoubleScoringTable vs FreestyleScoringTable
+ * - judge scores per sheet (در snapshot فعلی display=true است و scores[] خالی می‌آید)
+ *   → ستون‌های قاضی ۱..۵/۷ در جدول
+ * - accuracy score (برای arc داخل TotalScoreArc)
+ * - photo_url / country / flag / number هر entry
+ * - logoUrl هدر
+ * - scoreTypeLabel برای TotalScoreArc
+ */
 </script>
 
 <template>
@@ -54,9 +84,15 @@ const score = (value) =>
         :center="tournament?.name ?? ''"
         category=""
     >
+        <template #header>
+            <ScoreboardHeader
+                :stage="stage"
+                :event-title="tournament?.name ?? ''"
+            />
+        </template>
+
         <!--
           ساختار placeholder: فقط داده‌ای که همین الان در snapshot هست.
-          Proposed Contract: execution_mode / discipline / photo_url
           → variantهای SINGLE | DOUBLE | SINGLE-FREESTYLE فعلاً رندر نمی‌شوند.
         -->
         <p
@@ -76,6 +112,14 @@ const score = (value) =>
                     {{ bout.category }} · {{ bout.round }} · رقابت
                     {{ bout.sequence }}
                 </h2>
+                <FormBadge
+                    size="sm"
+                    :round-label="bout.round"
+                    :form-name="
+                        bout.performances[0]?.form_name ??
+                        `رقابت ${bout.sequence}`
+                    "
+                />
             </div>
 
             <div class="grid grid-cols-2 gap-6 max-[850px]:grid-cols-1">
@@ -89,20 +133,40 @@ const score = (value) =>
                             : 'border-t-4 border-t-rtds-red'
                     "
                 >
-                    <span class="mb-2 block text-xs uppercase text-rtds-text-tertiary">
-                        {{ sideLabels[entry.side] ?? entry.side }}
-                    </span>
-                    <h3 class="mb-4 text-2xl">{{ entry.name }}</h3>
+                    <AthleteInfo
+                        orientation="horizontal"
+                        size="md"
+                        :name="entry.name"
+                        :color="sideClasses[entry.side] ?? 'bg-rtds-bg-elevated'"
+                    />
+
+                    <div class="mt-4">
+                        <!-- TODO: accuracy-score از Contract نهایی می‌آید؛ فعلاً ۰. -->
+                        <TotalScoreArc
+                            :accuracy-score="0"
+                            :total-score="totalOf(bout, entry.id)"
+                            score-type-label=""
+                        />
+                    </div>
 
                     <div
-                        class="flex items-center justify-between border-t border-rtds-border-subtle pt-4"
+                        class="mt-4 flex items-center justify-between border-t border-rtds-border-subtle pt-4"
                     >
-                        <span class="text-rtds-text-secondary">میانگین دو فرم</span>
+                        <span class="text-rtds-text-secondary"
+                            >میانگین دو فرم</span
+                        >
                         <b class="text-3xl tabular-nums">
                             {{ score(bout.totals?.[entry.id]) }}
                         </b>
                     </div>
                 </article>
+            </div>
+
+            <div class="mt-6">
+                <SingleScoringTable
+                    :judge-count="bout.judgeCount ?? 5"
+                    :rows="tableRows(bout)"
+                />
             </div>
         </section>
     </ScoreboardLayout>

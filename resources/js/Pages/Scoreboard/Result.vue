@@ -2,6 +2,8 @@
 import { computed } from "vue";
 import { Head } from "@inertiajs/vue3";
 import ScoreboardLayout from "../../Shared/Layouts/ScoreboardLayout.vue";
+import ScoreboardHeader from "../../Components/scoreboard/ScoreboardHeader.vue";
+import AthleteInfo from "../../Components/scoreboard/AthleteInfo.vue";
 
 /**
  * صفحهٔ placeholder — هنوز از Backend رندر نمی‌شود
@@ -35,8 +37,12 @@ const categories = computed(() =>
                     label: `${round.name} · رقابت ${bout.sequence}`,
                     winner: bout.entries.find(
                         (entry) => entry.id === bout.winner_entry_id,
-                    )?.name,
+                    )?.name ?? null,
+                    winnerSide: bout.entries.find(
+                        (entry) => entry.id === bout.winner_entry_id,
+                    )?.side ?? null,
                     total: bout.totals?.[bout.winner_entry_id] ?? null,
+                    roundsCount: category.rounds.length,
                 })),
         );
         return {
@@ -58,6 +64,14 @@ const score = (value) =>
               minimumFractionDigits: 3,
               maximumFractionDigits: 6,
           });
+
+/*
+ * TODO / Proposed Contract (مرحلهٔ بعد):
+ * - photo_url / country / flag برندگان → AthleteInfo کامل‌تر
+ * - آیکون فرم (form icon) برای هر رقابت
+ * - scoreTypeLabel / نوع نمره (میانگین دو فرم)
+ * - logoUrl هدر
+ */
 </script>
 
 <template>
@@ -67,6 +81,13 @@ const score = (value) =>
         :center="tournament?.name ?? ''"
         category=""
     >
+        <template #header>
+            <ScoreboardHeader
+                :stage="stage"
+                :event-title="tournament?.name ?? ''"
+            />
+        </template>
+
         <!--
           ساختار placeholder: فقط داده‌ای که همین الان در snapshot هست.
           Proposed Contract: photo_url
@@ -92,21 +113,32 @@ const score = (value) =>
                 </span>
             </div>
 
-            <ul v-if="category.bouts.length">
+            <ul v-if="category.bouts.length" class="space-y-3">
                 <li
                     v-for="bout in category.bouts"
                     :key="bout.id"
-                    class="mb-3 flex items-center justify-between rounded-xl bg-rtds-bg-card px-5 py-4"
+                    class="flex items-center justify-between gap-4 rounded-xl bg-rtds-bg-card px-5 py-4"
                 >
-                    <div>
+                    <div class="min-w-0">
                         <span class="block text-xs text-rtds-text-tertiary">
                             {{ bout.label }}
                         </span>
-                        <b v-if="bout.winner" class="mt-1 block">
-                            {{ bout.winner }}
-                        </b>
+                        <AthleteInfo
+                            v-if="bout.winner"
+                            class="mt-2"
+                            orientation="horizontal"
+                            size="sm"
+                            :name="bout.winner"
+                            :color="
+                                bout.winnerSide === 'chung'
+                                    ? 'bg-rtds-blue'
+                                    : bout.winnerSide === 'hong'
+                                      ? 'bg-rtds-red'
+                                      : 'bg-rtds-bg-elevated'
+                            "
+                        />
                     </div>
-                    <b class="text-2xl tabular-nums text-rtds-success">
+                    <b class="shrink-0 text-2xl tabular-nums text-rtds-success">
                         {{ score(bout.total) }}
                     </b>
                 </li>

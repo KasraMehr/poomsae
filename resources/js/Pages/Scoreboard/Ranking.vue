@@ -2,6 +2,8 @@
 import { computed } from "vue";
 import { Head } from "@inertiajs/vue3";
 import ScoreboardLayout from "../../Shared/Layouts/ScoreboardLayout.vue";
+import ScoreboardHeader from "../../Components/scoreboard/ScoreboardHeader.vue";
+import RankingTable from "../../Components/scoreboard/tables/RankingTable.vue";
 
 /**
  * صفحهٔ placeholder — هنوز از Backend رندر نمی‌شود
@@ -31,7 +33,13 @@ const categories = computed(() =>
     (props.tournament?.categories ?? []).map((category) => ({
         id: category.id,
         name: category.name,
-        standings: category.standings ?? [],
+        // ردیف‌های RankingRow از standings واقعی ساخته می‌شوند.
+        rows: (category.standings ?? []).map((row) => ({
+            rank: row.rank,
+            name: row.name,
+            score: `${row.wins} برد از ${row.played}`,
+            highlight: row.rank === 1,
+        })),
         champion:
             category.champion_id != null
                 ? (category.entries.find(
@@ -40,6 +48,14 @@ const categories = computed(() =>
                 : null,
     })),
 );
+
+/*
+ * TODO / Proposed Contract (مرحلهٔ بعد):
+ * - placements[] برای قالب knockout (الان فقط round_robin standings داریم)
+ * - photo_url / country / flag هر ورزشکار → RankingRow
+ * - score عددی نهایی (الان wins/played را متنی نشان می‌دهیم)
+ * - logoUrl هدر
+ */
 </script>
 
 <template>
@@ -49,6 +65,13 @@ const categories = computed(() =>
         :center="tournament?.name ?? ''"
         category=""
     >
+        <template #header>
+            <ScoreboardHeader
+                :stage="stage"
+                :event-title="tournament?.name ?? ''"
+            />
+        </template>
+
         <section
             v-for="category in categories"
             :key="category.id"
@@ -64,52 +87,7 @@ const categories = computed(() =>
                 </b>
             </div>
 
-            <table v-if="category.standings.length" class="w-full text-right">
-                <thead>
-                    <tr>
-                        <th
-                            class="bg-rtds-bg-card text-rtds-text-secondary"
-                            scope="col"
-                        >
-                            رتبه
-                        </th>
-                        <th
-                            class="bg-rtds-bg-card text-rtds-text-secondary"
-                            scope="col"
-                        >
-                            ورزشکار
-                        </th>
-                        <th
-                            class="bg-rtds-bg-card text-rtds-text-secondary"
-                            scope="col"
-                        >
-                            برد
-                        </th>
-                        <th
-                            class="bg-rtds-bg-card text-rtds-text-secondary"
-                            scope="col"
-                        >
-                            بازی
-                        </th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="row in category.standings" :key="row.id">
-                        <td class="border-b border-rtds-border">
-                            {{ row.rank }}
-                        </td>
-                        <td class="border-b border-rtds-border">
-                            {{ row.name }}
-                        </td>
-                        <td class="border-b border-rtds-border">
-                            {{ row.wins }}
-                        </td>
-                        <td class="border-b border-rtds-border">
-                            {{ row.played }}
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+            <RankingTable v-if="category.rows.length" :rows="category.rows" />
 
             <p
                 v-else-if="!category.champion"
