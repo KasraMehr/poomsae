@@ -239,7 +239,8 @@ totals
 Scoreboard
 ├── ScoreboardLayout
 └── Pages
-    ├── Standby
+    ├── Standby      ← فقط اجرای فعلی + Timer + state پایان
+    ├── LiveBoard    ← جریان یک زمین: PREVIOUS ↓ CURRENT ↓ NEXT
     ├── Scoring
     ├── Result
     ├── Ranking
@@ -263,6 +264,7 @@ Pageها با نام‌های طراحی‌ها یکسان هستند:
 
 ```text
 Standby
+LiveBoard
 Scoring
 Result
 Ranking
@@ -271,6 +273,11 @@ Draw
 ```
 
 > **نام صفحهٔ نمایش زنده `Scoring` است، نه `Live`.**
+>
+> **`LiveBoard` صفحهٔ جداگانه‌ای است و با `Standby` اشتباه گرفته نمی‌شود:**
+>
+> * `Standby` = اجرای فعلی + Timer اجرا + state پایان (بدون صف/قبلی/بعدی).
+> * `LiveBoard` = broadcast board وضعیت **یک زمین**: اجرای قبلی ↓ فعلی ↓ بعدی (بدون Timer به‌عنوان مسئولیت اصلی).
 
 دلیل:
 
@@ -305,6 +312,7 @@ resources/js/
 ├── Pages/
 │   └── Scoreboard/
 │       ├── Standby.vue
+│       ├── LiveBoard.vue
 │       ├── Scoring.vue
 │       ├── Result.vue
 │       ├── Ranking.vue
@@ -313,7 +321,20 @@ resources/js/
 │
 ├── Components/
 │   └── scoreboard/
-│       └── composables/
+│       ├── ScoreboardHeader.vue
+│       ├── AthleteInfo.vue
+│       ├── NationalityBadge.vue
+│       ├── FormBadge.vue
+│       ├── IconContainer.vue
+│       ├── Timer.vue
+│       ├── TotalScoreArc.vue
+│       └── tables/
+│           ├── ScoringTableBase.vue
+│           ├── SingleScoringTable.vue
+│           ├── FreestyleScoringTable.vue
+│           ├── DoubleScoringTable.vue
+│           ├── RankingTable.vue
+│           └── RankingRow.vue
 │
 └── Shared/
     ├── Layouts/
@@ -325,6 +346,8 @@ resources/js/
     │
     └── Services/
 ```
+
+> ۱۳ کامپوننت بالا پیاده‌سازی شده‌اند؛ هرکدام در جدول `docs/scoreboard-contract.md` معرفی شده‌اند.
 
 ### مسئولیت Pageها
 
@@ -381,9 +404,10 @@ Shared
 
 # ۵. Pageهای Scoreboard و مسئولیت هرکدام
 
-| Page      | مسئولیت                                       | دادهٔ فعلی                                                   | دادهٔ موردنیاز در آینده                                             |
-| --------- | --------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------- |
-| `Standby` | حالت آماده/استراحت سالن                       | `status`, `courts`, `categories`                             | `[Proposed] entry_type`, `discipline`, `photo_url`                  |
+| Page        | مسئولیت                                                     | دادهٔ فعلی                                                              | دادهٔ موردنیاز در آینده                                                  |
+| ----------- | ----------------------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `Standby`   | فقط اجرای فعلی + Timer اجرا + state پایان (`running`/`scoring`) | `bout.status=running`, `performance.status/started_at/ended_at`, `entries`, `form_name` | `[Proposed] logoUrl`, `execution_duration_seconds`, `entry.photo_url/country/flag/number` |
+| `LiveBoard` | جریان یک زمین: PREVIOUS ↓ CURRENT ↓ NEXT (بدون Timer اصلی)     | `court_id`, `round/bout.sequence`, `performance.status`, `winner_entry_id`, `totals` | `[Proposed] courtId رسمی`, `timeline سراسری`, `entry.photo_url/country/flag`, `logoUrl` |
 | `Scoring` | نمایش زندهٔ bout، امتیاز، میانگین و زمان اجرا | `rounds[].bouts[]`, `performances`, `totals`                 | `[Proposed] execution_mode`, `discipline`, `photo_url`              |
 | `Result`  | نتیجهٔ نهایی یک یا دو مرحله                   | `winner_entry_id`, `totals`, `performances`, `rounds.length` | `[Proposed] photo_url`                                              |
 | `Ranking` | جدول رتبه‌بندی                                | `standings`, `champion_id`                                   | `[Proposed] placements[]`                                           |
@@ -399,6 +423,9 @@ Standby
 Scoring
 Draw
     → SINGLE | DOUBLE | SINGLE-FREESTYLE
+
+LiveBoard
+    → بدون variant (فقط یک زمین؛ انتخاب زمین بعداً از param)
 
 Result
     → ONE-ROUND | TWO-ROUNDS
@@ -443,6 +470,8 @@ resources/js/Shared/Layouts/ScoreboardLayout.vue
 * slot راست: اطلاعات ثابت
 
 برای Header حالت `compact` نیز در نظر گرفته می‌شود.
+
+پیاده‌سازی فعلی: کامپوننت `ScoreboardHeader` در `Components/scoreboard/` از طریق `slot#header` به Layout تزریق می‌شود؛ اگر Page این slot را ندهد، هدر پیش‌فرض خود Layout رندر می‌شود (جهت وابستگی Shared → scoreboard حفظ است).
 
 در طراحی `RESULT-TWO-ROUNDS`:
 
@@ -499,6 +528,9 @@ ArenaLayout ≠ ScoreboardLayout
 
 ```text
 پس‌زمینه‌ها   --color-rtds-bg / bg-secondary / bg-card / bg-elevated
+توکن‌های طراحی Scoreboard (اضافه‌شده از Figma):
+              --color-rtds-text-light / text-muted / surface-light
+              --color-rtds-gold / gold-bright / blue-soft / divider
 glow backdrop  --color-rtds-glow-blue / glow-red + opacityها
 برند چونگ     --color-rtds-blue / blue-dark / blue-light
 برند هونگ     --color-rtds-red / red-dark / red-light
@@ -925,12 +957,14 @@ Layout خودش وضعیت اتصال را تولید نمی‌کند.
 
 هر مرحله جداگانه review و تأیید می‌شود.
 
-| مرحله | محتوا                                     | وضعیت           |
-| ----- | ----------------------------------------- | --------------- |
-| PR-A  | `docs/scoreboard-architecture.md`         | انجام شد        |
-| PR-B  | `Shared/Layouts/ScoreboardLayout.vue`     | منتظر کد Layout |
-| PR-C  | `Standby`, `Scoring`, `Result`, `Ranking` | بعد از PR-B     |
-| PR-D  | `TopFour`, `Draw`                         | بعد از PR-C     |
+| مرحله | محتوا                                                        | وضعیت            |
+| ----- | ------------------------------------------------------------ | ---------------- |
+| PR-A  | `docs/scoreboard-architecture.md`                            | انجام شد         |
+| PR-B  | `Shared/Layouts/ScoreboardLayout.vue` (+ `slot#header`)      | انجام شد         |
+| ۱     | ساخت ۱۳ کامپوننت در `Components/scoreboard/` + توکن‌های پالت | انجام شد         |
+| ۲     | اتصال ۶ صفحه به کامپوننت‌ها + ساخت `LiveBoard`               | انجام شد         |
+| ۳     | گزارش و `docs/scoreboard-contract.md` برای Backend          | در جریان         |
+| ۴     | پیاده‌سازی Backend بر اساس Contract + وصل صفحات             | منتظر Backend    |
 
 ---
 
