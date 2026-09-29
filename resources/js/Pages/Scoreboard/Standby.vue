@@ -8,9 +8,17 @@ import FormBadge from "../../Components/scoreboard/FormBadge.vue";
 import Timer from "../../Components/scoreboard/Timer.vue";
 
 /**
+ * Standby — فقط نمایش «اجرای فعلی + Timer اجرا + state پایان».
+ *
+ * stateها (طبق قرارداد):
+ * - running  = اجرای فیزیکی فعلی، Timer در حال شمارش از لحظهٔ شروع
+ * - scoring  = اجرا تمام شده (Operator finish کرده)، Timer متوقف، نمایش پایان اجرا
+ *
+ * ممنوعیت: صف اجرا / اجرای قبلی / اجرای بعدی / timeline
+ * → همه‌ی آن‌ها متعلق به LiveBoard.vue است.
+ *
  * صفحهٔ placeholder — هنوز از Backend رندر نمی‌شود
  * (هیچ controller/route‌ای دست نخورده است؛ repoint به بعد از Contract نهایی موکول است).
- * تا آن زمان props اختیاری است و همهٔ دسترسی‌ها null-safe می‌مانند.
  */
 const props = defineProps({
     tournament: { type: Object, default: null },
@@ -27,14 +35,17 @@ const stage = computed(() => statusLabels[props.tournament?.status] ?? "");
 const courts = computed(() => props.tournament?.courts ?? []);
 const finished = computed(() => props.tournament?.status === "completed");
 
-// فقط داده‌ای که امروز در snapshot هست: اجرای در حال اجرا یا بعدی.
-const nextExecution = computed(() => {
+/**
+ * اجرای فعلی: فقط bout در حال اجرا و performance با وضعیت running/scoring.
+ * (pending = اجرای بعدی → عمداً اینجا پیدا نمی‌شود؛ جای آن LiveBoard است.)
+ */
+const currentExecution = computed(() => {
     for (const category of props.tournament?.categories ?? []) {
         for (const round of category.rounds) {
             for (const bout of round.bouts) {
-                if (!["running", "pending"].includes(bout.status)) continue;
-                const performance = bout.performances.find(
-                    (p) => ["running", "scoring", "pending"].includes(p.status),
+                if (bout.status !== "running") continue;
+                const performance = bout.performances.find((p) =>
+                    ["running", "scoring"].includes(p.status),
                 );
                 if (!performance) continue;
                 return {
@@ -42,6 +53,7 @@ const nextExecution = computed(() => {
                     bout,
                     performance,
                     entries: bout.entries,
+                    state: performance.status === "running" ? "running" : "scoring",
                 };
             }
         }
@@ -54,9 +66,16 @@ const sideClasses = {
     hong: "bg-rtds-red",
 };
 
-const isRunning = computed(
-    () => nextExecution.value?.performance?.status === "running",
-);
+const isRunning = computed(() => currentExecution.value?.state === "running");
+
+// زمان نهایی اجرای تمام‌شده (توقف Timer روی لحظهٔ پایان)
+const frozenSeconds = (performance) => {
+    if (!performance?.started_at || !performance?.ended_at) return 0;
+    const start = new Date(performance.started_at).getTime();
+    const end = new Date(performance.ended_at).getTime();
+    if (Number.isNaN(start) || Number.isNaN(end)) return 0;
+    return Math.max(0, Math.floor((end - start) / 1000));
+};
 
 /*
  * TODO / Proposed Contract (مرحلهٔ بعد):
@@ -82,20 +101,35 @@ const isRunning = computed(
             />
         </template>
 
-        <!-- اجرای بعدی / در حال اجرا -->
+        <!-- اجرای فعلی: running (Timer شمارش) یا scoring (اجرای تمام‌شده) -->
         <section
-            v-if="nextExecution"
-            class="flex flex-1 flex-col items-center justify-center gap-8"
+            v-if="currentExecution"
+            class="flex flex-1 flex-col items-center justify-center gap-8 text-center"
         >
+            <span
+                class="rounded-full border px-4 py-1 text-sm"
+                :class="
+                    isRunning
+                        ? 'border-rtds-blue text-rtds-blue-soft'
+                        : 'border-rtds-yellow text-rtds-yellow'
+                "
+            >
+                {{
+                    isRunning
+                        ? "اجرای در حال اجرا"
+                        : "اجرای پایان یافت — در انتظار نتیجه"
+                }}
+            </span>
+
             <FormBadge
                 size="lg"
-                :round-label="nextExecution.round.name"
-                :form-name="nextExecution.performance.form_name ?? ''"
+                :round-label="currentExecution.round.name"
+                :form-name="currentExecution.performance.form_name ?? ''"
             />
 
             <div class="flex flex-wrap items-center justify-center gap-10">
                 <AthleteInfo
-                    v-for="entry in nextExecution.entries"
+                    v-for="entry in currentExecution.entries"
                     :key="entry.id"
                     orientation="horizontal"
                     size="lg"
@@ -104,22 +138,30 @@ const isRunning = computed(
                 />
             </div>
 
-            <div class="flex items-center gap-3 text-6xl">
+            <div class="text-6xl">
                 <Timer
                     :running="isRunning"
-                    :started-at="nextExecution.performance.started_at"
-                    :duration-seconds="0"
+                    :started-at="currentExecution.performance.started_at"
+                    :duration-seconds="
+                        isRunning
+                            ? 0
+                            : frozenSeconds(currentExecution.performance)
+                    "
                 />
             </div>
         </section>
 
-        <!-- حالت پیش‌فرض: آمادهٔ اجرای بعدی -->
+        <!-- پایان اجرا / حالت آماده (بدون صف و بدون اجرای بعدی) -->
         <section
             v-else
             class="flex flex-1 flex-col items-center justify-center gap-6 text-center"
         >
             <p class="text-4xl font-semibold uppercase">
-                {{ finished ? "مسابقه پایان یافت" : "آمادهٔ اجرای بعدی" }}
+                {{
+                    finished
+                        ? "مسابقه پایان یافت"
+                        : "اجرایی در جریان نیست"
+                }}
             </p>
             <p class="text-rtds-text-secondary">
                 نتایج فقط پس از تأیید اپراتور منتشر می‌شوند.
