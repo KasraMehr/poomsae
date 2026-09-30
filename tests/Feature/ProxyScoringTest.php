@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Actions\CompetitionConsole;
 use App\Actions\SubmitScore;
 use App\Models\Performance;
 use App\Models\ScoreSheet;
@@ -44,6 +45,12 @@ class ProxyScoringTest extends TestCase
         ]);
         $this->assertDatabaseHas('score_revisions', ['changed_by' => $fixture['admin']->id, 'revision' => 1]);
         $this->assertDatabaseHas('audit_logs', ['action' => 'score.proxy_submitted', 'user_id' => $fixture['admin']->id]);
+
+        $active = app(CompetitionConsole::class)->snapshot($fixture['tournament'], $fixture['admin'])['courts'][0]['active'];
+        $this->assertSame([$assignment->seat], $active['pending_review_seats']);
+        $this->assertSame(0, $active['submitted_count']);
+        $this->assertSame($fixture['admin']->id, $active['scores'][0]['submitted_by']);
+        $this->assertSame('draft', $active['scores'][0]['status']);
     }
 
     public function test_proxy_score_requires_operator_a_missing_seat_and_a_reason(): void

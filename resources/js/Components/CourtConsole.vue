@@ -1,10 +1,12 @@
 <script setup>
-import { useForm } from '@inertiajs/vue3';
+import { useForm, usePage } from '@inertiajs/vue3';
 import FormErrors from './FormErrors.vue';
 import ProxyScoreForm from './ProxyScoreForm.vue';
 
 const props = defineProps({ court: Object, base: String, rules: Object, onlineJudgeIds: Array });
+const page = usePage();
 const action = useForm({ command: '', expected_version: 1 });
+const confirmation = useForm({ expected_revision: 1 });
 const labels = { pending: 'آمادهٔ فراخوان', running: 'در حال اجرا', scoring: 'منتظر نمره‌ها', approved: 'تأیید شده' };
 const commandLabel = { running: 'پایان اجرا و باز کردن ثبت نمره', scoring: 'تأیید نهایی و انتشار نتیجه' };
 
@@ -12,6 +14,10 @@ const command = (performance, value) => {
     action.command = value;
     action.expected_version = performance.version;
     action.post(`${props.base}/performances/${performance.id}/command`, { preserveScroll: true });
+};
+const confirmProxyScore = (performance, score) => {
+    confirmation.expected_revision = score.revision;
+    confirmation.post(`${props.base}/performances/${performance.id}/proxy-scores/${score.id}/confirm`, { preserveScroll: true });
 };
 </script>
 
@@ -33,6 +39,17 @@ const command = (performance, value) => {
                     <span v-for="judge in court.active.judges" :key="judge.id" :title="`${judge.name} · ${onlineJudgeIds.includes(judge.user_id) ? 'متصل' : 'بدون اتصال زنده'}`" :class="{ received: court.active.submitted_seats.includes(judge.seat), online: onlineJudgeIds.includes(judge.user_id) }">{{ judge.seat }}<i></i></span>
                 </div>
                 <small v-if="court.active.missing_seats.length">در انتظار صندلی‌های {{ court.active.missing_seats.join('، ') }}</small>
+                <small v-if="court.active.pending_review_seats.length">نمرهٔ جایگزین صندلی‌های {{ court.active.pending_review_seats.join('، ') }} در انتظار تأیید مسئول دوم است.</small>
+            </div>
+
+            <div v-if="court.active.pending_review_seats.length" class="proxy-score">
+                <h3>تأیید نمرهٔ جایگزین</h3>
+                <div v-for="score in court.active.scores.filter(score => score.submission_mode === 'operator_proxy' && score.status === 'draft')" :key="score.id" class="judge-score-row">
+                    <span>صندلی {{ score.seat }} · {{ (score.values.accuracy / 100).toFixed(2) }} + {{ (score.values.presentation / 100).toFixed(2) }}</span>
+                    <button type="button" class="button secondary small" :disabled="confirmation.processing || score.submitted_by === page.props.auth.user.id" @click="confirmProxyScore(court.active, score)">تأیید توسط مسئول دوم</button>
+                </div>
+                <small v-if="court.active.scores.some(score => score.status === 'draft' && score.submitted_by === page.props.auth.user.id)">ثبت‌کنندهٔ نمره نمی‌تواند همان نمره را تأیید کند.</small>
+                <FormErrors :errors="confirmation.errors" />
             </div>
 
             <button v-if="court.active.status === 'running'" class="button primary-action" :disabled="action.processing" @click="command(court.active, 'finish')">{{ commandLabel.running }}</button>
