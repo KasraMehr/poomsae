@@ -129,7 +129,7 @@ class CompetitionSecurityTest extends TestCase
         $this->schedule($fixture);
         $run = app(RunCompetition::class);
 
-        foreach (Performance::orderBy('id')->get() as $performance) {
+        foreach (Performance::orderBy('form_number')->orderBy('id')->get() as $performance) {
             $this->startScoring($fixture, $performance);
             $this->scoreAll($fixture, $performance);
             $run->command($fixture['admin'], $fixture['tournament'], $performance, [

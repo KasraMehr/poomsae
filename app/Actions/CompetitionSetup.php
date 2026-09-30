@@ -82,7 +82,7 @@ class CompetitionSetup
             $this->check(in_array($discardEachEnd, [1, 2], true) && ($discardEachEnd === 1 || (int) $data['judge_count'] === 7), 'حذف دو نمره از هر طرف فقط با هفت داور مجاز است.');
             $rule = ScoringRuleSet::create([
                 'name' => 'تنظیمات برگزارکننده '.Str::uuid(), 'version' => 1, 'discipline' => 'recognized',
-                'definition' => ['algorithm' => 'component_trimmed_mean_v1', 'accuracy_max' => (int) $data['accuracy_max'], 'presentation_max' => 1000 - (int) $data['accuracy_max'], 'discard_each_end' => $discardEachEnd, 'aggregation' => 'mean_two_forms', 'tie_break' => 'restore_all_judges_mean_then_operator', 'age_basis' => 'birthday_on_start_date'],
+                'definition' => ['algorithm' => 'component_trimmed_mean_v1', 'accuracy_max' => (int) $data['accuracy_max'], 'presentation_max' => 1000 - (int) $data['accuracy_max'], 'discard_each_end' => $discardEachEnd, 'aggregation' => 'sum_two_forms', 'tie_break' => 'restore_all_judges_mean_then_operator', 'age_basis' => 'birthday_on_start_date'],
                 'approved_by' => $actor->id, 'approved_at' => now(),
             ]);
             $formIds = collect($data['form_names'])->map(function (string $name): int {
@@ -92,7 +92,8 @@ class CompetitionSetup
             $fields = [
                 'name' => $data['name'], 'gender' => $data['gender'], 'minimum_age' => $data['minimum_age'] ?? null, 'maximum_age' => $data['maximum_age'] ?? null,
                 'format' => $data['format'], 'judge_count' => (string) $data['judge_count'],
-                'discipline' => 'recognized', 'entry_type' => 'individual', 'execution_mode' => 'alternating',
+                'discipline' => 'recognized', 'entry_type' => 'individual', 'execution_mode' => $data['format'] === 'knockout' ? ($data['execution_mode'] ?? 'alternating') : 'alternating',
+                'performance_order' => $data['format'] === 'round_robin' ? ($data['performance_order'] ?? 'consecutive') : 'consecutive',
                 'forms_per_round' => 2, 'draw_timing' => 'day_start', 'scoring_rule_set_id' => $rule->id, 'form_sequence' => $formIds,
             ];
             $before = $category?->toArray();

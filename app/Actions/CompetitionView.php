@@ -20,16 +20,23 @@ class CompetitionView
         $categories = $tournament->categories->map(function ($category) use ($actor, $display, $operate, $components) {
             $wins = [];
             $played = [];
-            $rounds = $category->rounds->sortBy('sequence')->map(function ($round) use ($actor, $display, $operate, $components, &$wins, &$played) {
-                $bouts = $round->bouts->sortBy('sequence')->map(function ($bout) use ($actor, $display, $operate, $components, &$wins, &$played) {
+            $scores = [];
+            $scoreBased = $category->format === 'round_robin' && $category->rounds->flatMap(fn ($round) => $round->bouts)->every(fn ($bout) => $bout->entries->count() === 1);
+            $rounds = $category->rounds->sortBy('sequence')->map(function ($round) use ($actor, $display, $operate, $components, &$wins, &$played, &$scores, $scoreBased, $category) {
+                $bouts = $round->bouts->sortBy('sequence')->map(function ($bout) use ($actor, $display, $operate, $components, &$wins, &$played, &$scores, $scoreBased, $category) {
                     $ownJudge = $bout->judges->firstWhere('user_id', $actor->id);
                     $totals = [];
                     foreach ($bout->performances->groupBy('entry_id') as $entryId => $forms) {
                         if ($forms->count() === 2 && $forms->every(fn ($p) => $p->status === 'approved' && $p->result?->published_at)) {
-                            $totals[$entryId] = $this->calculator->format(intdiv($forms->sum(fn ($p) => $this->calculator->micros($p->result->score)) + 1, 2));
+                            $sum = $forms->sum(fn ($p) => $this->calculator->micros($p->result->score));
+                            $totals[$entryId] = $this->calculator->format(($category->scoringRuleSet->definition['aggregation'] ?? 'mean_two_forms') === 'sum_two_forms' ? $sum : intdiv($sum + 1, 2));
                         }
                     }
                     if ($bout->status === 'completed') {
+                        if ($scoreBased && count($totals) === 1) {
+                            $entryId = array_key_first($totals);
+                            $scores[$entryId] = $this->calculator->micros($totals[$entryId]);
+                        }
                         if ($bout->winner_entry_id) {
                             $wins[$bout->winner_entry_id] = ($wins[$bout->winner_entry_id] ?? 0) + 1;
                         }
@@ -64,21 +71,28 @@ class CompetitionView
             })->values();
             $last = $rounds->last();
             $completed = $last && $last['status'] === 'completed' && ($category->format === 'round_robin' || count($last['bouts']) === 1);
-            $standings = $category->entries->where('status', 'checked_in')->map(fn ($e) => ['id' => $e->id, 'name' => $e->display_name, 'wins' => $wins[$e->id] ?? 0, 'played' => $played[$e->id] ?? 0])->sortByDesc('wins')->values();
-            $previousWins = null;
+            $standings = $category->entries->where('status', 'checked_in')->map(fn ($e) => [
+                'id' => $e->id, 'name' => $e->display_name, 'wins' => $wins[$e->id] ?? 0, 'played' => $played[$e->id] ?? 0,
+                'score' => isset($scores[$e->id]) ? $this->calculator->format($scores[$e->id]) : null,
+                'score_micros' => $scores[$e->id] ?? null,
+            ])->sortByDesc($scoreBased ? 'score_micros' : 'wins')->values();
+            $previousValue = null;
             $rank = 0;
-            $standings = $standings->map(function ($row, $index) use (&$previousWins, &$rank) {
-                if ($previousWins !== $row['wins']) {
+            $standings = $standings->map(function ($row, $index) use (&$previousValue, &$rank, $scoreBased) {
+                $value = $scoreBased ? $row['score_micros'] : $row['wins'];
+                if ($previousValue !== $value || $index === 0) {
                     $rank = $index + 1;
-                    $previousWins = $row['wins'];
+                    $previousValue = $value;
                 }
 
-                return [...$row, 'rank' => $rank];
+                unset($row['score_micros']);
+
+                return [...$row, 'rank' => $value === null ? null : $rank];
             });
 
             return [
                 'id' => $category->id, 'name' => $category->name, 'gender' => $category->gender, 'minimum_age' => $category->minimum_age, 'maximum_age' => $category->maximum_age,
-                'format' => $category->format, 'judge_count' => $category->judge_count, 'rules' => $category->scoringRuleSet?->definition, 'form_names' => $category->form_sequence ? collect($category->form_sequence)->map(fn ($id) => $category->forms->firstWhere('id', $id)?->name)->all() : [],
+                'format' => $category->format, 'execution_mode' => $category->execution_mode, 'performance_order' => $category->performance_order, 'score_based' => $scoreBased, 'judge_count' => $category->judge_count, 'rules' => $category->scoringRuleSet?->definition, 'form_names' => $category->form_sequence ? collect($category->form_sequence)->map(fn ($id) => $category->forms->firstWhere('id', $id)?->name)->all() : [],
                 'entries' => $category->entries->map(fn ($e) => ['id' => $e->id, 'name' => $e->display_name, 'status' => $e->status, 'club' => $e->athletes->first()?->club])->values(),
                 'rounds' => $rounds, 'completed' => $completed, 'champion_id' => $completed && $category->format === 'knockout' ? $last['bouts'][0]['winner_entry_id'] : null,
                 'standings' => $category->format === 'round_robin' ? $standings : [],

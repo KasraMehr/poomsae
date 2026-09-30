@@ -30,7 +30,7 @@ const confirmProxyScore = (performance, score) => {
 
         <section v-if="court.active" class="active-performance" :class="court.active.status">
             <span class="eyebrow">{{ court.active.category_name }} · {{ court.active.round_name }} · رقابت {{ court.active.bout_sequence }}</span>
-            <h2>{{ court.active.entry_name }}</h2>
+            <h2>{{ court.active.entry_name }}<template v-if="court.active.paired_entry_name && court.active.status === 'running'"> و {{ court.active.paired_entry_name }}</template></h2>
             <p>{{ court.active.form_name }} · فرم {{ court.active.form_number }} از ۲</p>
 
             <div v-if="court.active.status === 'scoring'" class="judge-readiness">
@@ -60,7 +60,7 @@ const confirmProxyScore = (performance, score) => {
 
         <section v-else-if="court.queue.length" class="next-call">
             <span class="eyebrow">اجرای بعدی</span>
-            <h2>{{ court.queue[0].entry_name }}</h2>
+            <h2>{{ court.queue[0].entry_name }}<template v-if="court.queue[0].paired_entry_name"> و {{ court.queue[0].paired_entry_name }}</template></h2>
             <p>{{ court.queue[0].category_name }} · {{ court.queue[0].form_name }}</p>
             <button class="button primary-action" :disabled="action.processing" @click="command(court.queue[0], 'start')">فراخوان و شروع اجرا</button>
             <FormErrors :errors="action.errors" />
@@ -72,7 +72,7 @@ const confirmProxyScore = (performance, score) => {
             <div class="queue-title"><h3>صف بعدی</h3><span>{{ court.queue.length }} اجرا</span></div>
             <div v-for="(performance, index) in court.queue.slice(court.active ? 0 : 1)" :key="performance.id" class="queue-row">
                 <b>{{ index + (court.active ? 1 : 2) }}</b>
-                <div><strong>{{ performance.entry_name }}</strong><small>{{ performance.category_name }} · {{ performance.form_name }}</small></div>
+                <div><strong>{{ performance.entry_name }}{{ performance.paired_entry_name ? ' و ' + performance.paired_entry_name : '' }}</strong><small>{{ performance.category_name }} · {{ performance.form_name }}</small></div>
             </div>
             <p v-if="!court.queue.length" class="subtle">اجرای آماده‌ای در صف نیست.</p>
         </section>

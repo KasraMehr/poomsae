@@ -27,7 +27,7 @@ class CompetitionConsoleTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Competition/Console')
                 ->has('console.courts', 1)
-                ->where('console.attention.ready', 2));
+                ->where('console.attention.ready', 1));
 
         $this->actingAs($fixture['judges'][0])->get(route('tournaments.show', $fixture['tournament']))
             ->assertRedirect(route('judging.index', $fixture['tournament']));
@@ -50,7 +50,7 @@ class CompetitionConsoleTest extends TestCase
 
         $initial = $console->snapshot($fixture['tournament'], $fixture['admin']);
         $this->assertNull($initial['courts'][0]['active']);
-        $this->assertSame(2, $initial['attention']['ready']);
+        $this->assertSame(1, $initial['attention']['ready']);
         $this->assertTrue(collect($initial['courts'][0]['queue'])->every(fn (array $queued) => $queued['form_number'] === 1));
 
         $runner = app(RunCompetition::class);

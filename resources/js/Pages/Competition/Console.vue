@@ -39,7 +39,7 @@ usePoll(2000, { only: ['console', 'can'] });
         <details v-for="category in tournament.categories" :key="category.id" class="panel competition-details">
             <summary>{{ category.name }} · جدول و تصمیم‌های ویژه</summary>
             <p v-if="!category.rounds.length" class="subtle">هنوز دوری برای این رده ساخته نشده است.</p>
-            <section v-for="round in category.rounds" :key="round.id"><div class="section-heading"><h2>{{ round.name }}</h2><span class="subtle">{{ round.bouts.length }} رقابت</span></div><BoutPanel v-for="bout in round.bouts" :key="bout.id" :bout="bout" :category="category" :tournament="tournament" :base="competitionUrls.base" :can-operate="can.operate" /></section>
+            <section v-for="round in category.rounds" :key="round.id"><div class="section-heading"><h2>{{ round.name }}</h2><span class="subtle">{{ round.bouts.length }} {{ category.score_based ? 'ورزشکار' : 'رقابت' }}</span></div><BoutPanel v-for="bout in round.bouts" :key="bout.id" :bout="bout" :round="round" :category="category" :tournament="tournament" :base="competitionUrls.base" :can-operate="can.operate" /></section>
         </details>
 
         <section v-if="can.manage && tournament.status === 'running'" class="panel"><h2>پایان رسمی مسابقه</h2><p class="subtle">پس از پایان همهٔ رده‌ها، مسابقه را ببندید.</p><FormErrors :errors="completion.errors"/><button class="button" :disabled="completion.processing || !tournament.categories.length || !tournament.categories.every(c => c.completed)" @click="completion.post(competitionUrls.base + '/complete', { preserveScroll: true })">ثبت پایان مسابقه</button></section>

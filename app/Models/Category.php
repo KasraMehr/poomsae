@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['tournament_id', 'scoring_rule_set_id', 'name', 'discipline', 'entry_type', 'gender', 'minimum_age', 'maximum_age', 'format', 'execution_mode', 'judge_count', 'forms_per_round', 'draw_timing', 'minimum_duration_seconds', 'maximum_duration_seconds', 'form_sequence'])]
+#[Fillable(['tournament_id', 'scoring_rule_set_id', 'name', 'discipline', 'entry_type', 'gender', 'minimum_age', 'maximum_age', 'format', 'execution_mode', 'performance_order', 'judge_count', 'forms_per_round', 'draw_timing', 'minimum_duration_seconds', 'maximum_duration_seconds', 'form_sequence'])]
 class Category extends Model
 {
     use HasFactory;

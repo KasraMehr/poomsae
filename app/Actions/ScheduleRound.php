@@ -18,7 +18,8 @@ class ScheduleRound
             $category = Category::with('scoringRuleSet')->findOrFail($category->id);
             abort_unless($category->tournament_id === $tournament->id, 404);
             $check = fn (bool $ok, string $message) => $this->setup->check($ok, $message);
-            $check($category->discipline === 'recognized' && $category->entry_type === 'individual' && $category->execution_mode === 'alternating', 'این گردش برای استاندارد انفرادی نوبتی است.');
+            $check($category->discipline === 'recognized' && $category->entry_type === 'individual' && in_array($category->execution_mode, ['alternating', 'simultaneous'], true), 'این گردش برای استاندارد انفرادی است.');
+            $check($category->format !== 'round_robin' || $category->execution_mode === 'alternating', 'اجرای همزمان فقط برای تک‌حذفی دوبل است.');
             $check($category->scoringRuleSet?->approved_at !== null && ($category->scoringRuleSet->definition['algorithm'] ?? null) === 'component_trimmed_mean_v1', 'تنظیمات محاسبهٔ این رده تأیید نشده است.');
             $forms = $category->form_sequence ?? [];
             $check(count($forms) === 2 && $category->forms()->whereIn('poomsae_forms.id', $forms)->count() === 2, 'دو فرم معتبر برای رده تعیین کنید.');
@@ -45,10 +46,8 @@ class ScheduleRound
             $round = $category->rounds()->create(['name' => 'دور '.(($previous?->sequence ?? 0) + 1), 'sequence' => ($previous?->sequence ?? 0) + 1, 'status' => 'pending']);
             $pairs = [];
             if ($category->format === 'round_robin') {
-                foreach ($ids as $i => $id) {
-                    foreach (array_slice($ids, $i + 1) as $other) {
-                        $pairs[] = [$id, $other];
-                    }
+                foreach ($ids as $id) {
+                    $pairs[] = [$id];
                 }
             } else {
                 $size = 2;
@@ -65,7 +64,7 @@ class ScheduleRound
             }
             $draw = Draw::create(['category_id' => $category->id, 'competition_round_id' => $round->id, 'created_by' => $actor->id, 'kind' => 'bracket', 'algorithm_version' => $previous ? 'advance_in_order_v1' : 'sha256_seed_sort_v1', 'random_seed' => $seed, 'input_snapshot' => ['entries' => $ids, 'form_ids' => $forms, 'judge_ids' => $judgeIds], 'output_snapshot' => ['pairs' => $pairs]]);
             foreach ($pairs as $index => $pair) {
-                $bye = count($pair) === 1;
+                $bye = $category->format === 'knockout' && count($pair) === 1;
                 $bout = $round->bouts()->create(['category_id' => $category->id, 'court_id' => $data['court_id'], 'sequence' => $index + 1, 'status' => $bye ? 'completed' : 'pending', 'winner_entry_id' => $bye ? $pair[0] : null, 'resolved_by' => $bye ? $actor->id : null, 'resolution_reason' => $bye ? 'استراحت در قرعه (bye)' : null]);
                 foreach ($pair as $side => $entryId) {
                     $bout->entries()->attach($entryId, ['category_id' => $category->id, 'side' => $side === 0 ? 'chung' : 'hong']);

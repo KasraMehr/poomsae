@@ -5,7 +5,7 @@ import FormErrors from './FormErrors.vue';
 defineProps({ tournament: Object, base: String });
 const court = useForm({ name: '' });
 const member = useForm({ name: '', email: '', password: '', role: 'judge' });
-const category = useForm({ name: '', gender: 'open', minimum_age: 10, maximum_age: 40, format: 'knockout', judge_count: 5, accuracy_max: 300, discard_each_end: 1, rules_acknowledged: false, form_names: ['', ''] });
+const category = useForm({ name: '', gender: 'open', minimum_age: 10, maximum_age: 40, format: 'knockout', execution_mode: 'alternating', performance_order: 'consecutive', judge_count: 5, accuracy_max: 300, discard_each_end: 1, rules_acknowledged: false, form_names: ['', ''] });
 watch(() => category.judge_count, (judgeCount) => {
     if (judgeCount === 5) category.discard_each_end = 1;
 });
@@ -38,6 +38,8 @@ watch(() => category.judge_count, (judgeCount) => {
                 <div><label for="category-name">نام رده</label><input id="category-name" v-model="category.name" required maxlength="100" placeholder="انفرادی بزرگسالان"></div>
                 <div><label for="gender">جنسیت</label><select id="gender" v-model="category.gender"><option value="open">آزاد</option><option value="male">مردان</option><option value="female">زنان</option></select></div>
                 <div><label for="format">مدل برگزاری</label><select id="format" v-model="category.format"><option value="knockout">تک‌حذفی · حداکثر ۶۴ نفر</option><option value="round_robin">دورهای · حداکثر ۱۶ نفر</option></select></div>
+                <div v-if="category.format === 'knockout'"><label for="execution-mode">شیوهٔ اجرای تک‌حذفی</label><select id="execution-mode" v-model="category.execution_mode"><option value="alternating">سینگل · A۱، B۱، A۲، B۲</option><option value="simultaneous">دوبل · دو ورزشکار همزمان در هر فرم</option></select></div>
+                <div v-else><label for="performance-order">ترتیب اجرای دورهای</label><select id="performance-order" v-model="category.performance_order"><option value="consecutive">دو فرم هر ورزشکار پشت‌سرهم</option><option value="phased">فرم اول همه، سپس فرم دوم همه</option></select></div>
                 <div><label for="min-age">حداقل سن در روز شروع</label><input id="min-age" v-model.number="category.minimum_age" type="number" min="1" max="100" required></div>
                 <div><label for="max-age">حداکثر سن در روز شروع</label><input id="max-age" v-model.number="category.maximum_age" type="number" :min="category.minimum_age" max="100" required></div>
                 <div><label for="judges">تعداد داور</label><select id="judges" v-model.number="category.judge_count"><option :value="5">۵ داور</option><option :value="7">۷ داور</option></select></div>
@@ -51,8 +53,8 @@ watch(() => category.judge_count, (judgeCount) => {
                         <option :value="2" :disabled="category.judge_count !== 7">دو نمرهٔ بالا و دو نمرهٔ پایین · فقط ۷ داور، روش سفارشی</option>
                     </select>
                     <p>برای دقت و اجرا جداگانه اعمال می‌شود. روش دو نمره‌ای فقط با پنل ۷ داوره در دسترس است و میانگین سه نمرهٔ باقی‌مانده را می‌گیرد.</p>
-                    <p>نتیجهٔ هر فرم = مجموع میانگین دو مؤلفه؛ نتیجهٔ رقابت = میانگین دو فرم. گردکردن هر مؤلفه تا شش رقم اعشار. تساوی با تصمیم ثبت‌شدهٔ سرداور تعیین می‌شود. سن با تاریخ تولد در روز شروع سنجیده می‌شود.</p>
-                    <p>مدیر مسابقه روش محاسبه را پیش از قرعه برای رده تعیین می‌کند. این تنظیمات را با آیین‌نامهٔ رویداد تطبیق دهید. فرم‌ها برای تمام دورهای این رده ثابت‌اند؛ اجرای همزمان و پومسهٔ ابداعی در این نسخه فعال نیست.</p>
+                    <p>نتیجهٔ هر فرم = مجموع میانگین دو مؤلفه؛ نتیجهٔ رقابت = مجموع امتیاز دو فرم. گردکردن هر مؤلفه تا شش رقم اعشار. تساوی تک‌حذفی با تصمیم ثبت‌شدهٔ سرداور تعیین می‌شود و امتیاز برابر در دورهای، رتبهٔ مشترک دارد. سن با تاریخ تولد در روز شروع سنجیده می‌شود.</p>
+                    <p>مدیر مسابقه روش محاسبه را پیش از قرعه برای رده تعیین می‌کند. این تنظیمات را با آیین‌نامهٔ رویداد تطبیق دهید. فرم‌ها برای تمام دورهای این رده ثابت‌اند؛ پومسهٔ ابداعی در این نسخه فعال نیست.</p>
                     <label class="check"><input v-model="category.rules_acknowledged" type="checkbox" required>این روش محاسبه و شرایط رده را برای این رویداد تأیید می‌کنم.</label>
                 </div>
                 <FormErrors class="wide" :errors="category.errors"/><button class="button" :disabled="category.processing">ساخت رده</button>

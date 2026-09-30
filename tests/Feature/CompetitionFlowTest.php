@@ -68,8 +68,8 @@ class CompetitionFlowTest extends TestCase
         $fixture = $this->competition(5, 4);
         $this->schedule($fixture);
         $bouts = Bout::orderBy('sequence')->get();
-        $performance = $bouts[0]->performances()->firstOrFail();
-        $otherPerformance = $bouts[1]->performances()->firstOrFail();
+        $performance = $bouts[0]->performances()->orderBy('id')->firstOrFail();
+        $otherPerformance = $bouts[1]->performances()->orderBy('id')->firstOrFail();
         $secondForm = $bouts[0]->performances()->where('entry_id', $performance->entry_id)->where('form_number', 2)->firstOrFail();
         $commandUrl = '/tournaments/'.$fixture['tournament']->id.'/performances/'.$performance->id.'/command';
         $this->actingAs($fixture['admin']);
@@ -132,10 +132,14 @@ class CompetitionFlowTest extends TestCase
         ])->assertSessionHasErrors('operation');
         $this->assertDatabaseCount('results', 1);
 
-        $run->command($fixture['admin'], $fixture['tournament'], $secondForm, [
+        $this->post('/tournaments/'.$fixture['tournament']->id.'/performances/'.$secondForm->id.'/command', [
             'command' => 'start', 'expected_version' => $secondForm->fresh()->version,
+        ])->assertSessionHasErrors('operation');
+        $opponentFirstForm = $bouts[0]->performances()->where('entry_id', '!=', $performance->entry_id)->where('form_number', 1)->firstOrFail();
+        $run->command($fixture['admin'], $fixture['tournament'], $opponentFirstForm, [
+            'command' => 'start', 'expected_version' => $opponentFirstForm->fresh()->version,
         ]);
-        $this->assertSame('running', $secondForm->fresh()->status);
+        $this->assertSame('running', $opponentFirstForm->fresh()->status);
     }
 
     public function test_a_judge_cannot_be_used_on_two_courts_at_once(): void
@@ -145,8 +149,8 @@ class CompetitionFlowTest extends TestCase
         $this->schedule($fixture);
         $bouts = Bout::orderBy('sequence')->get();
         $bouts[1]->update(['court_id' => $fixture['tournament']->courts()->where('name', 'زمین دو')->firstOrFail()->id]);
-        $firstPerformance = $bouts[0]->performances()->firstOrFail();
-        $secondPerformance = $bouts[1]->performances()->firstOrFail();
+        $firstPerformance = $bouts[0]->performances()->orderBy('id')->firstOrFail();
+        $secondPerformance = $bouts[1]->performances()->orderBy('id')->firstOrFail();
         $run = app(RunCompetition::class);
 
         $run->command($fixture['admin'], $fixture['tournament'], $firstPerformance, [
@@ -173,8 +177,8 @@ class CompetitionFlowTest extends TestCase
             'judge_ids' => [$sharedJudge->id, ...$second['judges']->skip(1)->pluck('id')->all()],
         ]);
 
-        $firstPerformance = $first['category']->rounds()->firstOrFail()->bouts()->firstOrFail()->performances()->firstOrFail();
-        $secondPerformance = $second['category']->rounds()->firstOrFail()->bouts()->firstOrFail()->performances()->firstOrFail();
+        $firstPerformance = $first['category']->rounds()->firstOrFail()->bouts()->firstOrFail()->performances()->orderBy('id')->firstOrFail();
+        $secondPerformance = $second['category']->rounds()->firstOrFail()->bouts()->firstOrFail()->performances()->orderBy('id')->firstOrFail();
         app(RunCompetition::class)->command($first['admin'], $first['tournament'], $firstPerformance, [
             'command' => 'start', 'expected_version' => $firstPerformance->version,
         ]);
@@ -191,7 +195,7 @@ class CompetitionFlowTest extends TestCase
     {
         $run = app(RunCompetition::class);
 
-        foreach ($bout->performances()->orderBy('id')->get() as $performance) {
+        foreach ($bout->performances()->orderBy('form_number')->orderBy('id')->get() as $performance) {
             $this->startScoring($fixture, $performance);
             $presentation = $performance->entry_id === $winnerEntryId ? '6.00' : '5.00';
             $this->scoreAll($fixture, $performance, '2.50', $presentation);

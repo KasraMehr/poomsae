@@ -30,7 +30,7 @@ const scheduleRound = () => schedule.post(props.base + '/categories/' + props.ca
         </section>
         <section class="panel" v-if="!category.completed && (!category.rounds.length || category.format === 'knockout')">
             <h2>{{ category.rounds.length ? 'ساخت دور بعد' : 'ساخت قرعه و برنامهٔ اجرا' }}</h2>
-            <p class="subtle">{{ category.rounds.length ? 'پس از قطعی‌شدن برندهٔ تمام رقابت‌های دور قبل، دور بعد ساخته می‌شود.' : 'تنها ورزشکاران حاضر وارد جدول می‌شوند. قرعه فقط یک بار ساخته می‌شود.' }}</p>
+            <p class="subtle">{{ category.rounds.length ? 'پس از قطعی‌شدن برندهٔ تمام رقابت‌های دور قبل، دور بعد ساخته می‌شود.' : (category.format === 'round_robin' ? 'برای هر ورزشکار حاضر دو اجرا برنامه‌ریزی می‌شود و این برنامه فقط یک بار ساخته می‌شود.' : 'تنها ورزشکاران حاضر وارد جدول می‌شوند. قرعه فقط یک بار ساخته می‌شود.') }}</p>
             <form @submit.prevent="scheduleRound">
                 <label :for="'schedule-court-'+category.id">زمین</label><select :id="'schedule-court-'+category.id" v-model.number="schedule.court_id" required><option value="" disabled>انتخاب زمین</option><option v-for="court in tournament.courts" :key="court.id" :value="court.id">{{ court.name }}</option></select>
                 <p class="field-label">پنل {{ category.judge_count }} نفره · {{ schedule.judge_ids.length }} انتخاب شده</p>
@@ -41,4 +41,3 @@ const scheduleRound = () => schedule.post(props.base + '/categories/' + props.ca
         </section>
     </div>
 </template>
-

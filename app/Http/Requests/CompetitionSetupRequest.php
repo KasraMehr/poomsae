@@ -29,6 +29,8 @@ class CompetitionSetupRequest extends FormRequest
                 'minimum_age' => ['nullable', 'integer', 'min:1', 'max:100'],
                 'maximum_age' => ['nullable', 'integer', 'min:1', 'max:100', 'gte:minimum_age'],
                 'format' => ['required', Rule::in(['knockout', 'round_robin'])],
+                'execution_mode' => ['sometimes', Rule::in(['alternating', 'simultaneous'])],
+                'performance_order' => ['sometimes', Rule::in(['consecutive', 'phased'])],
                 'judge_count' => ['required', 'integer', Rule::in([5, 7])],
                 'accuracy_max' => ['required', 'integer', 'min:1', 'max:999'],
                 'discard_each_end' => ['required', 'integer', Rule::in($this->integer('judge_count') === 7 ? [1, 2] : [1])],
