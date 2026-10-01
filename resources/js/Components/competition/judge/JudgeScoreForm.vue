@@ -1,8 +1,8 @@
 <script setup>
 import { ref, watch } from "vue";
 import { useForm, usePage } from "@inertiajs/vue3";
-import FormErrors from "./common/FormErrors.vue";
-import { requestId } from "../requestId";
+import FormErrors from "../../../Shared/Components/FormErrors.vue";
+import { requestId } from "../../../Shared/Services/requestId";
 const props = defineProps({
     performance: Object,
     rules: Object,

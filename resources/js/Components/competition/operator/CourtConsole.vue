@@ -1,6 +1,6 @@
 <script setup>
 import { useForm } from "@inertiajs/vue3";
-import FormErrors from "./common/FormErrors.vue";
+import FormErrors from "../../../Shared/Components/FormErrors.vue";
 import ProxyScoreForm from "./ProxyScoreForm.vue";
 
 const props = defineProps({

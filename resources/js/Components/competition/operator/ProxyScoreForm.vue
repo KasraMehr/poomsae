@@ -1,8 +1,8 @@
 <script setup>
 import { computed, watch } from "vue";
 import { useForm } from "@inertiajs/vue3";
-import { requestId } from "../requestId";
-import FormErrors from "./common/FormErrors.vue";
+import { requestId } from "../../../Shared/Services/requestId";
+import FormErrors from "../../../Shared/Components/FormErrors.vue";
 
 const props = defineProps({
     performance: Object,

@@ -1,7 +1,7 @@
 <script setup>
 import { useForm } from "@inertiajs/vue3";
-import FormErrors from "../common/FormErrors.vue";
-import Button from "../common/Button.vue";
+import FormErrors from "../../Shared/Components/FormErrors.vue";
+import Button from "../../Shared/Components/Button.vue";
 
 defineProps({ tournament: Object, base: String });
 

@@ -1,5 +1,5 @@
 <script setup>
-import { useCompetitionUpdates } from "../../useCompetitionUpdates";
+import { useCompetitionUpdates } from "../../Shared/Composables/useCompetitionUpdates";
 import { computed, ref, watch, onMounted, onUnmounted } from "vue";
 import { Head, Link, usePoll, usePage } from "@inertiajs/vue3";
 const props = defineProps({ tournament: Object });

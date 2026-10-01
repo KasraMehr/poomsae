@@ -1,12 +1,12 @@
 <script setup>
-import { useCompetitionUpdates } from "../../useCompetitionUpdates";
+import { useCompetitionUpdates } from "../../Shared/Composables/useCompetitionUpdates";
 import { computed, ref } from "vue";
 import { Head, Link, useForm, usePoll } from "@inertiajs/vue3";
-import AppLayout from "../../Layouts/AppLayout.vue";
+import AppLayout from "../../Shared/Layouts/AppLayout.vue";
 import CompetitionSetupPanel from "../../Components/tournaments/CompetitionSetupPanel.vue";
 import CategoryRegistration from "../../Components/tournaments/CategoryRegistration.vue";
-import BoutPanel from "../../Components/BoutPanel.vue";
-import FormErrors from "../../Components/common/FormErrors.vue";
+import BoutPanel from "../../Components/competition/BoutPanel.vue";
+import FormErrors from "../../Shared/Components/FormErrors.vue";
 const props = defineProps({
     tournament: Object,
     can: Object,

@@ -1,6 +1,6 @@
 import { onMounted, onUnmounted, ref } from "vue";
 import { router } from "@inertiajs/vue3";
-import { getRealtime } from "./realtime";
+import { getRealtime } from "../Services/realtime";
 
 export function useCompetitionUpdates(tournamentId, only = ["tournament"]) {
     let echo;
