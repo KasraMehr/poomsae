@@ -42,7 +42,6 @@ const active = computed(() =>
     ),
 );
 
-const sideClasses = { chung: "bg-rtds-blue", hong: "bg-rtds-red" };
 const sideLabels = { chung: "چونگ", hong: "هونگ" };
 
 const score = (value) =>
@@ -71,7 +70,7 @@ const totalOf = (bout, entryId) => Number(bout.totals?.[entryId]) || 0;
  * - judge scores per sheet (در snapshot فعلی display=true است و scores[] خالی می‌آید)
  *   → ستون‌های قاضی ۱..۵/۷ در جدول
  * - accuracy score (برای arc داخل TotalScoreArc)
- * - photo_url / country / country_code / flag / number هر entry
+ * - country / country_code / flag / number هر entry
  * - logoUrl هدر
  * - scoreTypeLabel برای TotalScoreArc
  */
@@ -134,10 +133,10 @@ const totalOf = (bout, entryId) => Number(bout.totals?.[entryId]) || 0;
                     "
                 >
                     <AthleteInfo
-                        orientation="horizontal"
+                        layout="horizontal"
                         size="md"
                         :name="entry.name"
-                        :color="sideClasses[entry.side] ?? 'bg-rtds-bg-elevated'"
+                        :side="entry.side"
                     />
 
                     <div class="mt-4">

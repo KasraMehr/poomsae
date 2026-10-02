@@ -69,8 +69,6 @@ const courtBouts = computed(() => {
     return out;
 });
 
-const sideClasses = { chung: "bg-rtds-blue", hong: "bg-rtds-red" };
-
 /**
  * CURRENT: اجرای در حال اجرا (running) یا اجرایی که تمام شده و منتظر نتیجه است (scoring).
  */
@@ -170,7 +168,7 @@ const formNamesOf = (bout) =>
  * TODO [Proposed Backend Contract] (مرحلهٔ بعد):
  * - courtId پارامتر رسمی صفحه (query param از Backend)
  * - timeline سراسری previous/current/next (الان از روی ترتیب snapshot و یک زمین استخراج می‌شود)
- * - entry photo_url / country / country_code / flag_url
+ * - entry country / country_code / flag_url
  * - logoUrl
  * - execution_duration_seconds (برای نمایش نسبی Timer؛ الان فقط مطلق داریم)
  */
@@ -231,15 +229,11 @@ const formNamesOf = (bout) =>
                                 `رقابت ${previous.bout.sequence}`
                             "
                         />
-                        <AthleteInfo
-                            v-if="previous.winner"
-                            orientation="horizontal"
-                            size="sm"
-                            :name="previous.winner.name"
-                            :color="
-                                sideClasses[previous.winner.side] ??
-                                'bg-rtds-bg-elevated'
-                            "
+                        <AthleteInfo                                v-if="previous.winner"
+                                layout="horizontal"
+                                size="sm"
+                                :name="previous.winner.name"
+                                :side="previous.winner.side"
                         />
                         <b
                             v-if="previous.total != null"
@@ -302,13 +296,10 @@ const formNamesOf = (bout) =>
                             <AthleteInfo
                                 v-for="entry in current.bout.entries"
                                 :key="entry.id"
-                                orientation="horizontal"
+                                layout="horizontal"
                                 size="md"
                                 :name="entry.name"
-                                :color="
-                                    sideClasses[entry.side] ??
-                                    'bg-rtds-bg-elevated'
-                                "
+                                :side="entry.side"
                             />
                         </div>
 
@@ -370,10 +361,10 @@ const formNamesOf = (bout) =>
                         <AthleteInfo
                             v-for="entry in next.entries"
                             :key="entry.id"
-                            orientation="horizontal"
+                            layout="horizontal"
                             size="sm"
                             :name="entry.name"
-                            :color="sideClasses[entry.side] ?? 'bg-rtds-bg-elevated'"
+                            :side="entry.side"
                         />
                     </div>
                 </template>

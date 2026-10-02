@@ -61,11 +61,6 @@ const currentExecution = computed(() => {
     return null;
 });
 
-const sideClasses = {
-    chung: "bg-rtds-blue",
-    hong: "bg-rtds-red",
-};
-
 const isRunning = computed(() => currentExecution.value?.state === "running");
 
 // زمان نهایی اجرای تمام‌شده (توقف Timer روی لحظهٔ پایان)
@@ -81,7 +76,6 @@ const frozenSeconds = (performance) => {
  * TODO / Proposed Contract (مرحلهٔ بعد):
  * - logoUrl            → لوگوی رویداد در ScoreboardHeader
  * - durationSeconds    → مدت زمان استاندارد اجرا (تنظیمات مسابقه) برای Timer
- * - entry photo_url    → عکس ورزشکار در AthleteInfo
  * - entry country/country_code/flag → NationalityBadge در AthleteInfo
  * - entry number       → شمارهٔ قرعه در AthleteInfo
  */
@@ -130,11 +124,10 @@ const frozenSeconds = (performance) => {
             <div class="flex flex-wrap items-center justify-center gap-10">
                 <AthleteInfo
                     v-for="entry in currentExecution.entries"
-                    :key="entry.id"
-                    orientation="horizontal"
-                    size="lg"
-                    :name="entry.name"
-                    :color="sideClasses[entry.side] ?? 'bg-rtds-bg-elevated'"
+                    :key="entry.id"                        layout="horizontal"
+                        size="lg"
+                        :name="entry.name"
+                        :side="entry.side"
                 />
             </div>
 

@@ -87,10 +87,9 @@ const categories = computed(() =>
                     <AthleteInfo
                         v-for="entry in category.entries"
                         :key="entry.id"
-                        orientation="horizontal"
+                        layout="horizontal"
                         size="sm"
                         :name="entry.name"
-                        color="bg-rtds-bg-elevated"
                     />
                 </div>
             </div>

@@ -21,15 +21,6 @@ export const logoUrl = svg(`
     </svg>
 `);
 
-const avatar = (bg, accent) =>
-    svg(`
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-        <rect width="24" height="24" rx="5" fill="${bg}"/>
-        <circle cx="12" cy="9" r="4" fill="${accent}"/>
-        <path d="M3.5 24c0-4.7 3.8-8 8.5-8s8.5 3.3 8.5 8z" fill="${accent}"/>
-    </svg>
-`);
-
 const flag = (a, b, c) =>
     svg(`
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 16">
@@ -54,15 +45,6 @@ const flags = {
     jp: flag("#ffffff", "#bc002d", "#ffffff"),
     fr: flag("#0055a4", "#ffffff", "#ef4135"),
     kz: flag("#00afca", "#fec50c", "#00afca"),
-};
-
-const photos = {
-    ali: avatar("#0055ff", "#94b7ff"),
-    kim: avatar("#ff5540", "#ffd3c9"),
-    emre: avatar("#c9a800", "#ffe89a"),
-    kenji: avatar("#22c55e", "#c4f4d4"),
-    pierre: avatar("#3b82f6", "#cfe2ff"),
-    alnur: avatar("#8b5cf6", "#ded3ff"),
 };
 
 const icons = {
@@ -105,8 +87,7 @@ const chung = {
     country: "ایران",
     countryCode: "IRI",
     flagUrl: flags.ir,
-    photoUrl: photos.ali,
-    color: "bg-rtds-blue",
+    side: "chung",
 };
 
 const hong = {
@@ -115,29 +96,47 @@ const hong = {
     country: "کرهٔ جنوبی",
     countryCode: "KOR",
     flagUrl: flags.kr,
-    photoUrl: photos.kim,
-    color: "bg-rtds-red",
+    side: "hong",
+};
+
+// نام لاتین مثل طرح اصلی (text-transform: uppercase)
+const salmani = {
+    number: 1,
+    name: "a.salmani",
+    country: "ایران",
+    countryCode: "IRI",
+    flagUrl: flags.ir,
+    side: "chung",
 };
 
 export const athleteCases = [
-    { title: "افقی sm · چونگ · با عکس و ملیت", props: { orientation: "horizontal", size: "sm", ...chung } },
-    { title: "افقی md · هونگ · با عکس و ملیت", props: { orientation: "horizontal", size: "md", ...hong } },
-    { title: "افقی lg · چونگ · با عکس و ملیت", props: { orientation: "horizontal", size: "lg", ...chung } },
+    { title: "horizontal · chung (آبی) · lg — ابعاد طرح", props: { layout: "horizontal", size: "lg", ...chung } },
+    { title: "horizontal · hong (قرمز) · lg — آینه‌ای: عدد و بج سمت راست", props: { layout: "horizontal", size: "lg", ...hong } },
+    { title: "horizontal · chung · md", props: { layout: "horizontal", size: "md", ...chung } },
+    { title: "horizontal · hong · sm", props: { layout: "horizontal", size: "sm", ...hong } },
+    { title: "horizontal · نام لاتین — uppercase مثل طرح (A.SALMANI)", props: { layout: "horizontal", size: "lg", ...salmani } },
     {
-        title: "بدون عکس/پرچم — country_code اجباری، پرچم placeholder می‌شود",
+        title: "horizontal · سمت خنثی — مثل Draw/TopFour",
         props: {
-            orientation: "horizontal",
+            layout: "horizontal",
             size: "md",
             number: 3,
-            color: "bg-rtds-red",
             name: "مریم احمدی",
             country: "ایران",
             countryCode: "IRI",
+            flagUrl: flags.ir,
         },
     },
-    { title: "عمودی sm · هونگ", props: { orientation: "vertical", size: "sm", ...hong } },
-    { title: "عمودی md · چونگ", props: { orientation: "vertical", size: "md", ...chung } },
-    { title: "عمودی lg · هونگ", props: { orientation: "vertical", size: "lg", ...hong } },
+    {
+        title: "بدون country_code/flag_url — بج مخفی می‌شود (null-safe)",
+        props: { layout: "horizontal", size: "md", number: 5, name: "قرعه‌کشی" },
+    },
+    { title: "name-only · chung · lg — فقط نوار نام", props: { layout: "name-only", size: "lg", ...chung } },
+    { title: "name-only · hong · md", props: { layout: "name-only", size: "md", ...hong } },
+    { title: "vertical · chung · lg — بج بالای نوار، لنگر چپ", props: { layout: "vertical", size: "lg", ...chung } },
+    { title: "vertical · hong · lg — بج بالای نوار، لنگر راست", props: { layout: "vertical", size: "lg", ...hong } },
+    { title: "vertical-under · chung · lg — نوار بالا، بج پایین", props: { layout: "vertical-under", size: "lg", ...chung } },
+    { title: "vertical-under · hong · lg — نوار بالا، بج پایین (راست)", props: { layout: "vertical-under", size: "lg", ...hong } },
 ];
 
 export const nationalityCases = [
@@ -392,29 +391,29 @@ export const baseTable = {
 
 /** شکل پیشنهادی placements[] (بخش ۴ سند) — برای هر دو قالب round_robin و knockout */
 export const placementsRoundRobin = [
-    { rank: 1, entry_id: 101, name: "علی رضایی", score: 27, photo_url: photos.ali, country: "ایران", country_code: "IRI", flag_url: flags.ir, medal: "gold" },
-    { rank: 2, entry_id: 102, name: "کیم چان‌هی", score: 25, photo_url: photos.kim, country: "کرهٔ جنوبی", country_code: "KOR", flag_url: flags.kr, medal: "silver" },
-    { rank: 3, entry_id: 103, name: "امره ییلدیز", score: 22, photo_url: photos.emre, country: "ترکیه", country_code: "TUR", flag_url: flags.tr, medal: "bronze" },
-    { rank: 4, entry_id: 104, name: "کنیچیرو تاناکا", score: 19, photo_url: photos.kenji, country: "ژاپن", country_code: "JPN", flag_url: flags.jp, medal: null },
-    { rank: 5, entry_id: 105, name: "پییر دوبوا", score: 15, photo_url: photos.pierre, country: "فرانسه", country_code: "FRA", flag_url: flags.fr, medal: null },
-    { rank: 6, entry_id: 106, name: "النور حسین‌اف", score: 11, photo_url: photos.alnur, country: "قزاقستان", country_code: "KAZ", flag_url: flags.kz, medal: null },
+    { rank: 1, entry_id: 101, name: "علی رضایی", score: 27, country: "ایران", country_code: "IRI", flag_url: flags.ir, medal: "gold" },
+    { rank: 2, entry_id: 102, name: "کیم چان‌هی", score: 25, country: "کرهٔ جنوبی", country_code: "KOR", flag_url: flags.kr, medal: "silver" },
+    { rank: 3, entry_id: 103, name: "امره ییلدیز", score: 22, country: "ترکیه", country_code: "TUR", flag_url: flags.tr, medal: "bronze" },
+    { rank: 4, entry_id: 104, name: "کنیچیرو تاناکا", score: 19, country: "ژاپن", country_code: "JPN", flag_url: flags.jp, medal: null },
+    { rank: 5, entry_id: 105, name: "پییر دوبوا", score: 15, country: "فرانسه", country_code: "FRA", flag_url: flags.fr, medal: null },
+    { rank: 6, entry_id: 106, name: "النور حسین‌اف", score: 11, country: "قزاقستان", country_code: "KAZ", flag_url: flags.kz, medal: null },
 ];
 
 export const placementsKnockout = [
-    { rank: 1, entry_id: 201, name: "کنیچیرو تاناکا", score: 5, photo_url: photos.kenji, country: "ژاپن", country_code: "JPN", flag_url: flags.jp, medal: "gold" },
-    { rank: 2, entry_id: 202, name: "علی رضایی", score: 4, photo_url: photos.ali, country: "ایران", country_code: "IRI", flag_url: flags.ir, medal: "silver" },
-    { rank: 3, entry_id: 203, name: "کیم چان‌هی", score: 3, photo_url: photos.kim, country: "کرهٔ جنوبی", country_code: "KOR", flag_url: flags.kr, medal: "bronze" },
-    { rank: 4, entry_id: 204, name: "امره ییلدیز", score: 2, photo_url: photos.emre, country: "ترکیه", country_code: "TUR", flag_url: flags.tr, medal: null },
+    { rank: 1, entry_id: 201, name: "کنیچیرو تاناکا", score: 5, country: "ژاپن", country_code: "JPN", flag_url: flags.jp, medal: "gold" },
+    { rank: 2, entry_id: 202, name: "علی رضایی", score: 4, country: "ایران", country_code: "IRI", flag_url: flags.ir, medal: "silver" },
+    { rank: 3, entry_id: 203, name: "کیم چان‌هی", score: 3, country: "کرهٔ جنوبی", country_code: "KOR", flag_url: flags.kr, medal: "bronze" },
+    { rank: 4, entry_id: 204, name: "امره ییلدیز", score: 2, country: "ترکیه", country_code: "TUR", flag_url: flags.tr, medal: null },
 ];
 
 export const extraRankingRows = [
     {
         title: "highlight=true — حالت منتخب",
-        props: { rank: 1, name: "علی رضایی", country: "ایران", countryCode: "IRI", flagUrl: flags.ir, photoUrl: photos.ali, score: "۲۷", highlight: true },
+        props: { rank: 1, name: "علی رضایی", country: "ایران", countryCode: "IRI", flagUrl: flags.ir, score: "۲۷", highlight: true },
     },
     {
-        title: "بدون عکس/پرچم — رتبهٔ ۴ (placeholder داخل قاب پرچم)",
-        props: { rank: 4, name: "وانگ لی", country: "چین", countryCode: "CHN", flagUrl: "", photoUrl: "", score: "۱۳", highlight: false },
+        title: "بدون پرچم — رتبهٔ ۴ (placeholder داخل قاب پرچم)",
+        props: { rank: 4, name: "وانگ لی", country: "چین", countryCode: "CHN", flagUrl: "", score: "۱۳", highlight: false },
     },
 ];
 
@@ -422,7 +421,7 @@ export const extraRankingRows = [
 
 export const contractFields = [
     { n: 1, field: "logoUrl", shape: "string | null روی snapshot", consumers: "همهٔ صفحات (header)" },
-    { n: 2, field: "entry.photo_url", shape: "string | null روی entry", consumers: "Standby, LiveBoard, Scoring, Result, Ranking, TopFour, Draw" },
+    { n: 2, field: "entry.photo_url", shape: "حذف موقت — تا اطلاع بعدی تأمین نشود", consumers: "— (عکس ورزشکار فعلاً در هیچ صفحه‌ای نمایش داده نمی‌شود)" },
     { n: 3, field: "entry.country / entry.country_code / entry.flag_url", shape: "string روی entry — country_code از نوع ISO alpha-3 انگلیسی", consumers: "هر جا NationalityBadge (AthleteInfo, RankingRow)" },
     { n: 4, field: "entry.number", shape: "int روی entry", consumers: "Standby, Scoring" },
     { n: 5, field: "execution_duration_seconds", shape: "int روی تنظیمات مسابقه", consumers: "Standby, LiveBoard (Timer)" },
@@ -430,7 +429,7 @@ export const contractFields = [
     { n: 7, field: "judge_scores[]", shape: "[{seat, values[]}] روی performance", consumers: "Scoring (ستون‌های قاضی)" },
     { n: 8, field: "accuracy_score", shape: "number روی نتیجهٔ اجرا", consumers: "Scoring (TotalScoreArc)" },
     { n: 9, field: "score_type_label", shape: "string", consumers: "Scoring (TotalScoreArc)" },
-    { n: 10, field: "placements[]", shape: "[{rank, entry_id, name, score, photo_url, country, country_code, flag_url, medal}]", consumers: "Ranking, TopFour" },
+    { n: 10, field: "placements[]", shape: "[{rank, entry_id, name, score, country, country_code, flag_url, medal}]", consumers: "Ranking, TopFour" },
     { n: 11, field: "Draw.output_snapshot", shape: "خروجی قرعه (ترتیب اجرا/جفت‌ها)", consumers: "Draw" },
     { n: 12, field: "entry_members[]", shape: "[{name, club, position}] روی entry", consumers: "Draw, Standby, Scoring" },
     { n: 13, field: "draw_timing", shape: "timestamp", consumers: "Draw" },

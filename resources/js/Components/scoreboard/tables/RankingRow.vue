@@ -10,7 +10,6 @@ const props = defineProps({
     country: { type: String, default: "" }, // فقط برای alt پرچم
     countryCode: { type: String, default: "" }, // کد انگلیسی مثل IRI — متن بج
     flagUrl: { type: String, default: "" },
-    photoUrl: { type: String, default: "" },
     score: { type: [Number, String], default: "" },
     highlight: { type: Boolean, default: false },
 });
@@ -46,14 +45,6 @@ const rankClasses = (rank) => {
             :class="rankClasses(props.rank)"
             >{{ rank }}</span
         >
-
-        <img
-            v-if="photoUrl"
-            :src="photoUrl"
-            :alt="name"
-            class="shrink-0 rounded-lg object-cover"
-            :class="props.rank === 1 ? 'h-20 w-20' : 'h-14 w-14'"
-        />
 
         <div class="min-w-0 flex-1">
             <p

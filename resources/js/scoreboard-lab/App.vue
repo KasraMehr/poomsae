@@ -57,7 +57,6 @@ const toRankingRow = (placement) => ({
     country: placement.country,
     countryCode: placement.country_code,
     flagUrl: placement.flag_url,
-    photoUrl: placement.photo_url,
     score: Number(placement.score).toLocaleString("fa-IR"),
     highlight: false,
 });
@@ -151,7 +150,7 @@ const knockoutRows = placementsKnockout.map(toRankingRow);
                         <h2 class="text-lg font-bold text-rtds-text-light">AthleteInfo</h2>
                         <code class="text-xs text-rtds-text-muted">Components/scoreboard/AthleteInfo.vue</code>
                     </div>
-                    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <div class="flex flex-col gap-4">
                         <div
                             v-for="c in athleteCases"
                             :key="c.title"

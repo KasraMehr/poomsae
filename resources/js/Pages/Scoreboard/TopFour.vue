@@ -14,7 +14,6 @@ import IconContainer from "../../Components/scoreboard/IconContainer.vue";
  *
  * منتظر Contract نهایی:
  * - placements[]
- * - photo_url
  * - medal
  */
 const props = defineProps({
@@ -40,7 +39,7 @@ const topFour = computed(() => {
 /*
  * TODO / Proposed Contract (مرحلهٔ بعد):
  * - placements[] (مخصوص knockout — الان فقط round_robin پوشش داده می‌شود)
- * - photo_url / country / country_code / flag هر ورزشکار
+ * - country / country_code / flag هر ورزشکار
  * - medal (رتبه ۱/۲/۳) به‌صورت آیکون مدال از Backend
  * - logoUrl هدر
  */
@@ -69,11 +68,10 @@ const topFour = computed(() => {
                     size="lg"
                 />
                 <AthleteInfo
-                    orientation="horizontal"
+                    layout="horizontal"
                     size="lg"
                     :name="row.name"
                     :number="row.rank"
-                    color="bg-rtds-bg-elevated"
                 />
                 <b
                     class="mr-auto text-2xl tabular-nums text-rtds-text-secondary"

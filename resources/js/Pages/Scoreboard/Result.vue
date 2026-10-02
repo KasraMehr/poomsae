@@ -67,7 +67,7 @@ const score = (value) =>
 
 /*
  * TODO / Proposed Contract (مرحلهٔ بعد):
- * - photo_url / country / country_code / flag برندگان → AthleteInfo کامل‌تر
+ * - country / country_code / flag برندگان → AthleteInfo کامل‌تر
  * - آیکون فرم (form icon) برای هر رقابت
  * - scoreTypeLabel / نوع نمره (میانگین دو فرم)
  * - logoUrl هدر
@@ -90,7 +90,7 @@ const score = (value) =>
 
         <!--
           ساختار placeholder: فقط داده‌ای که همین الان در snapshot هست.
-          Proposed Contract: photo_url
+          Proposed Contract: country / country_code / flag
         -->
         <p
             v-if="!categories.some((category) => category.bouts.length)"
@@ -126,16 +126,10 @@ const score = (value) =>
                         <AthleteInfo
                             v-if="bout.winner"
                             class="mt-2"
-                            orientation="horizontal"
+                            layout="horizontal"
                             size="sm"
                             :name="bout.winner"
-                            :color="
-                                bout.winnerSide === 'chung'
-                                    ? 'bg-rtds-blue'
-                                    : bout.winnerSide === 'hong'
-                                      ? 'bg-rtds-red'
-                                      : 'bg-rtds-bg-elevated'
-                            "
+                            :side="bout.winnerSide"
                         />
                     </div>
                     <b class="shrink-0 text-2xl tabular-nums text-rtds-success">
