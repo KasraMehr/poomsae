@@ -4,4 +4,10 @@
     --color-operator-surface: #0d1928;
     --color-operator-content: #edf6ff;
     --color-operator-accent: #09b5b0;
+
+    /* ===== Font =====
+     * متغیر است: بسته به فارسی/انگلیسی بودن محتوا عوض می‌شود.
+     * نسخهٔ فعلی (فارسی) موقتی است و پس از مشخص شدن توسط کارفرما ویرایش می‌شود.
+     */
+    --font-operator: "Inter", ui-sans-serif, system-ui, sans-serif;
 }

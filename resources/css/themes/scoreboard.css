@@ -1,7 +1,67 @@
+/* RTDS Theme Tokens – extracted from Poomse scoring UI */
+
 @theme {
-    --color-scoreboard-canvas: #101d27;
-    --color-scoreboard-surface: #182936;
-    --color-scoreboard-content: #eaf2f8;
-    --color-scoreboard-chung: #438cd8;
-    --color-scoreboard-hong: #d6686c;
+    /* ===== Background ===== */
+    --color-rtds-bg: #0c0e17;
+    --color-rtds-bg-secondary: #11131c;
+    --color-rtds-bg-card: #1a1d28;
+    --color-rtds-bg-elevated: #22252f;
+
+    /* Backdrop gradients */
+    --color-rtds-glow-blue: #b6c4ff;
+    --color-rtds-glow-red: #ff5540;
+    --opacity-rtds-glow: 0.18;
+    --opacity-rtds-glow-soft: 0.08;
+
+    /* ===== Brand – Blue (Chung) ===== */
+    --color-rtds-blue: #0055ff;
+    --color-rtds-blue-dark: #0044cc;
+    --color-rtds-blue-light: #3377ff;
+
+    /* ===== Brand – Red (Hong) ===== */
+    --color-rtds-red: #ff5540;
+    --color-rtds-red-dark: #e03e2b;
+    --color-rtds-red-light: #ff7766;
+
+    /* ===== Accent – Yellow / Gold ===== */
+    --color-rtds-yellow: #e9c400;
+    --color-rtds-yellow-bright: #ffd600;
+    --color-rtds-yellow-dark: #c9a800;
+
+    /* ===== Text ===== */
+    --color-rtds-text: #ffffff;
+    --color-rtds-text-secondary: #a0aec0;
+    --color-rtds-text-tertiary: #718096;
+    --color-rtds-text-on-blue: #ffffff;
+    --color-rtds-text-on-red: #ffffff;
+    --color-rtds-text-on-yellow: #0c0e17;
+
+    /* ===== Border ===== */
+    --color-rtds-border: #2d3748;
+    --color-rtds-border-subtle: #1f2430;
+    --color-rtds-border-strong: #4a5568;
+
+    /* ===== Status ===== */
+    --color-rtds-success: #22c55e;
+    --color-rtds-warning: #f59e0b;
+    --color-rtds-error: #ef4444;
+    --color-rtds-info: #3b82f6;
+
+    /* ===== Judge ===== */
+    --color-rtds-judge: #e9c400;
+
+    /* ===== Tokens اضافه‌شده از طراحی‌های Figma Scoreboard ===== */
+    --color-rtds-text-light: #e1e1ef;
+    --color-rtds-text-muted: #64748b;
+    --color-rtds-surface-light: #f1f5f9;
+    --color-rtds-gold: #ffcc00;
+    --color-rtds-gold-bright: #fcd116;
+    --color-rtds-blue-soft: #94b7ff;
+    --color-rtds-divider: #434656;
+
+    /* ===== Font =====
+     * متغیر است: بسته به فارسی/انگلیسی بودن محتوا عوض می‌شود.
+     * نسخهٔ فعلی (فارسی) موقتی است و پس از مشخص شدن توسط کارفرما ویرایش می‌شود.
+     */
+    --font-rtds: "Oswald", ui-sans-serif, system-ui, sans-serif;
 }
