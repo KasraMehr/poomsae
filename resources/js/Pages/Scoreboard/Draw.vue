@@ -43,7 +43,7 @@ const categories = computed(() =>
  * - Draw.output_snapshot → ترتیب واقعی قرعه (شمارهٔ اجرا / جفت‌ها)
  * - entry_members[] → عکس و ملیت هر ورزشکار
  * - draw_timing → زمان قرعه‌کشی
- * - آیکون هر فرم (form icon)
+ * - کلید سمبل هر فرم (`form_number` ۱..۱۸)
  * - logoUrl هدر
  */
 </script>

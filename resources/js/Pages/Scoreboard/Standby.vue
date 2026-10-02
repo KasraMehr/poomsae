@@ -119,6 +119,7 @@ const frozenSeconds = (performance) => {
                 size="lg"
                 :round-label="currentExecution.round.name"
                 :form-name="currentExecution.performance.form_name ?? ''"
+                :form-number="currentExecution.performance.form_number ?? null"
             />
 
             <div class="flex flex-wrap items-center justify-center gap-10">

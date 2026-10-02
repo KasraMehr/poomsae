@@ -3,7 +3,7 @@ import ScoreboardHeader from "../Components/scoreboard/ScoreboardHeader.vue";
 import AthleteInfo from "../Components/scoreboard/AthleteInfo.vue";
 import NationalityBadge from "../Components/scoreboard/NationalityBadge.vue";
 import FormBadge from "../Components/scoreboard/FormBadge.vue";
-import IconContainer from "../Components/scoreboard/IconContainer.vue";
+import SymbolContainer from "../Components/scoreboard/SymbolContainer.vue";
 import Timer from "../Components/scoreboard/Timer.vue";
 import TotalScoreArc from "../Components/scoreboard/TotalScoreArc.vue";
 import ScoringTableBase from "../Components/scoreboard/tables/ScoringTableBase.vue";
@@ -17,7 +17,9 @@ import {
     athleteCases,
     nationalityCases,
     formBadgeCases,
-    iconCases,
+    symbolCases,
+    medalCases,
+    formSymbolStrip,
     timerCases,
     arcCases,
     singleFive,
@@ -39,7 +41,7 @@ const sections = [
     { id: "athlete-info", label: "AthleteInfo" },
     { id: "nationality-badge", label: "NationalityBadge" },
     { id: "form-badge", label: "FormBadge" },
-    { id: "icon-container", label: "IconContainer" },
+    { id: "symbol-container", label: "SymbolContainer / Medals" },
     { id: "timer", label: "Timer" },
     { id: "total-score-arc", label: "TotalScoreArc" },
     { id: "scoring-table-base", label: "ScoringTableBase" },
@@ -204,21 +206,62 @@ const knockoutRows = placementsKnockout.map(toRankingRow);
                     </div>
                 </section>
 
-                <!-- 5. IconContainer -->
-                <section id="icon-container" class="scroll-mt-28 space-y-4">
+                <!-- 5. SymbolContainer -->
+                <section id="symbol-container" class="scroll-mt-28 space-y-4">
                     <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-rtds-border-subtle pb-2">
-                        <h2 class="text-lg font-bold text-rtds-text-light">IconContainer</h2>
-                        <code class="text-xs text-rtds-text-muted">Components/scoreboard/IconContainer.vue</code>
+                        <h2 class="text-lg font-bold text-rtds-text-light">SymbolContainer / Medals</h2>
+                        <code class="text-xs text-rtds-text-muted">Components/scoreboard/SymbolContainer.vue · Shared/Services/symbols.js</code>
                     </div>
-                    <div class="grid gap-4 md:grid-cols-3 xl:grid-cols-4">
+                    <p class="px-1 text-xs leading-6 text-rtds-text-muted">
+                        مسیر تصویر از داده نمی‌آید: فقط کلید (<code>form_number</code> یا
+                        <code>rank</code>) از snapshot می‌آید و map در فرانت آن را به فایل
+                        <code>public/images/…</code> وصل می‌کند. تا وقتی فایل‌های webp اضافه شوند،
+                        این کارت‌ها خالی می‌مانند.
+                    </p>
+
+                    <div class="flex flex-col gap-4">
                         <div
-                            v-for="c in iconCases"
+                            v-for="c in symbolCases"
                             :key="c.title"
                             class="min-w-0 rounded-2xl border border-rtds-border bg-rtds-bg"
                         >
                             <p class="px-6 pt-4 text-[11px] text-rtds-text-muted">{{ c.title }}</p>
                             <div class="flex min-h-28 items-center justify-center p-6">
-                                <IconContainer v-bind="c.props" />
+                                <SymbolContainer v-bind="c.props" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="rounded-2xl border border-rtds-border bg-rtds-bg p-6">
+                        <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">
+                            نوار همهٔ کلیدهای فرم (۱..۱۸) — برای کنترل assetهای موجود
+                        </p>
+                        <div class="flex flex-wrap items-center gap-4">
+                            <span
+                                v-for="s in formSymbolStrip"
+                                :key="s.key"
+                                class="flex flex-col items-center gap-1"
+                            >
+                                <SymbolContainer :src="s.src" :label="`فرم ${s.key}`" size="md" />
+                                <code class="text-[10px] text-rtds-text-muted">{{ s.key }}</code>
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="rounded-2xl border border-rtds-border bg-rtds-bg p-6">
+                        <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">
+                            مدال‌ها — از روی <code>rank</code> انتخاب می‌شوند (جایگزین جعبه‌های رنگی قبلی)
+                        </p>
+                        <div class="flex flex-wrap gap-4">
+                            <div
+                                v-for="c in medalCases"
+                                :key="c.title"
+                                class="min-w-40 flex-1 rounded-xl border border-rtds-border bg-rtds-bg-card p-4"
+                            >
+                                <p class="mb-3 text-[11px] text-rtds-text-muted">{{ c.title }}</p>
+                                <div class="flex min-h-16 items-center justify-center">
+                                    <SymbolContainer v-bind="c.props" />
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -359,7 +402,7 @@ const knockoutRows = placementsKnockout.map(toRankingRow);
                     <div class="grid gap-4 xl:grid-cols-2">
                         <div class="min-w-0 rounded-2xl border border-rtds-border bg-rtds-bg p-4">
                             <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">
-                                format=round_robin — از placements[] پیشنهادی (شامل rank/medal/country/score)
+                                format=round_robin — از placements[] پیشنهادی (مدال از rank مشتق می‌شود)
                             </p>
                             <RankingTable :rows="roundRobinRows" />
                         </div>

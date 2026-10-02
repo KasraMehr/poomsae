@@ -325,7 +325,7 @@ resources/js/
 │       ├── AthleteInfo.vue
 │       ├── NationalityBadge.vue
 │       ├── FormBadge.vue
-│       ├── IconContainer.vue
+│       ├── SymbolContainer.vue
 │       ├── Timer.vue
 │       ├── TotalScoreArc.vue
 │       └── tables/
@@ -345,9 +345,13 @@ resources/js/
     ├── Composables/
     │
     └── Services/
+        ├── realtime.js
+        ├── requestId.js
+        └── symbols.js   # نگاشت کلید دامنه (form_number / rank) به مسیر asset در public/
 ```
 
 > ۱۳ کامپوننت بالا پیاده‌سازی شده‌اند؛ هرکدام در جدول `docs/scoreboard-contract.md` معرفی شده‌اند.
+> سمبل فرم‌ها و مدال‌ها asset های ثابت داخل مخزن‌اند و در `Shared/Services/symbols.js` به کلید (`form_number` / `rank`) نگاشت شده‌اند؛ قرارداد داده URL تصویر نمی‌دهد.
 
 ### مسئولیت Pageها
 
@@ -794,9 +798,9 @@ Pageهای جدید `Pages/Scoreboard/*` در این فاز از Backend render 
 | 2 | `entry_type`           | `individual \| pair \| team` روی category    | Standby, Scoring, Draw | variant `DOUBLE`                    |
 | 3 | `execution_mode`       | `alternating \| simultaneous` روی category   | Scoring                | چیدمان دوطرفهٔ DOUBLE               |
 | 4 | `forms_per_round`      | `int`، پیش‌فرض `2`                           | Scoring, Result        | تعداد فرم هر اجرا                   |
-| 5 | `photo_url`            | `string \| null` روی entry/athlete           | همهٔ Pageها            | نمایش عکس ورزشکار                   |
+| 5 | ~~`photo_url`~~        | **حذف موقت** (عکس ورزشکار نمایش داده نمی‌شود) | —                 | تا اطلاع بعدی                         |
 | 6 | `entry_members[]`      | `[{name, club, position}]` روی entry         | Standby, Scoring, Draw | نمایش اعضای DOUBLE                  |
-| 7 | `placements[]`         | `[{rank, entry_id, name, photo_url, medal}]` | TopFour, Ranking       | رتبه‌های نهایی                      |
+| 7 | `placements[]`         | `[{rank, entry_id, name, country, country_code, flag_url}]` | TopFour, Ranking | رتبه‌های نهایی؛ مدال از `rank`     |
 | 8 | `Draw.output_snapshot` | خروجی قرعه، ترتیب اجرا و slot زمانی          | Draw                   | اطلاعات Draw فعلاً در snapshot نیست |
 
 ### موارد ثانویه

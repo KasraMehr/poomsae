@@ -118,6 +118,7 @@ const totalOf = (bout, entryId) => Number(bout.totals?.[entryId]) || 0;
                         bout.performances[0]?.form_name ??
                         `رقابت ${bout.sequence}`
                     "
+                    :form-number="bout.performances[0]?.form_number ?? null"
                 />
             </div>
 

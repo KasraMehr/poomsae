@@ -1,54 +1,51 @@
 <script setup>
-import IconContainer from "./IconContainer.vue";
+import { computed } from "vue";
+import SymbolContainer from "./SymbolContainer.vue";
+import { formSymbol } from "../../Shared/Services/symbols";
 
 /**
- * چیپ دور + آیکون فرم + نام فرم.
- * سه سایز برای صفحات Draw (lg)، Standby (md) و Scoring (sm).
+ * بج فرم: `[roundLabel] [symbol] [formName]` مطابق طرح.
+ *
+ * - ردیف ساده و بدون کادر (برخلاف نسخهٔ قبلی که کارت داشت).
+ * - سمبل از `formNumber` (کلید عددی) در map دارایی‌ها resolve می‌شود؛
+ *   اگر کلید ناشناخته باشد، فقط متن‌ها می‌مانند و سمبل رندر نمی‌شود.
+ * - متن‌ها Oswald 700 سفید و uppercase؛ چیدمان LTR مثل طرح.
  */
-defineProps({
-    size: { type: String, default: "md" }, // 'sm' | 'md' | 'lg'
-    roundLabel: { type: String, default: "" },
-    formName: { type: String, default: "" },
-    icon: { type: String, default: "" }, // URL/مسیر آیکون فرم
+const props = defineProps({
+    roundLabel: { type: String, default: "" }, // مثل «R - 1» (رشتهٔ آمادهٔ صفحه)
+    formNumber: { type: [String, Number], default: null }, // کلید فرم ۱..۱۸
+    formName: { type: String, default: "" }, // مثل «TAEGUK 5»
+    size: { type: String, default: "md" }, // 'sm' | 'md' | 'lg' — سه سایز مستقل
 });
 
-const containerClasses = {
-    sm: "gap-2 rounded-lg px-3 py-2",
-    md: "gap-3 rounded-xl px-4 py-3",
-    lg: "gap-4 rounded-2xl px-6 py-4",
-};
+const symbol = computed(() => formSymbol(props.formNumber));
 
-const iconSizes = { sm: "sm", md: "md", lg: "lg" };
-
-const textClasses = {
-    sm: "text-xs",
-    md: "text-sm",
-    lg: "text-base",
+const sizeClasses = {
+    sm: { root: "gap-2", text: "text-sm", symbol: "sm" },
+    md: { root: "gap-3", text: "text-xl", symbol: "md" },
+    lg: { root: "gap-4", text: "text-4xl", symbol: "lg" },
 };
 </script>
 
 <template>
-    <div
-        class="inline-flex items-center border border-rtds-border bg-rtds-bg-card"
-        :class="containerClasses[size] ?? containerClasses.md"
+    <span
+        dir="ltr"
+        class="inline-flex items-center font-rtds font-bold uppercase text-white"
+        :class="sizeClasses[size]?.root ?? sizeClasses.md.root"
     >
-        <IconContainer
-            :src="icon"
-            variant="form"
-            :size="iconSizes[size] ?? 'md'"
+        <span
+            v-if="roundLabel"
+            class="text-white/85"
+            :class="sizeClasses[size]?.text ?? sizeClasses.md.text"
+            >{{ roundLabel }}</span
+        >
+        <SymbolContainer
+            :src="symbol"
+            :label="formName"
+            :size="sizeClasses[size]?.symbol ?? sizeClasses.md.symbol"
         />
-        <div class="flex flex-col leading-tight">
-            <span
-                class="font-medium uppercase tracking-wide text-rtds-text-muted"
-                :class="textClasses[size] ?? textClasses.md"
-                >{{ roundLabel }}</span
-            >
-            <span
-                class="font-semibold text-rtds-text-light"
-                :class="textClasses[size] ?? textClasses.md"
-                >{{ formName }}</span
-            >
-        </div>
-        <slot />
-    </div>
+        <span :class="sizeClasses[size]?.text ?? sizeClasses.md.text">{{
+            formName
+        }}</span>
+    </span>
 </template>

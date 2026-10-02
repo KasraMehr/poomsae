@@ -1,5 +1,7 @@
 <script setup>
 import NationalityBadge from "../NationalityBadge.vue";
+import SymbolContainer from "../SymbolContainer.vue";
+import { medalSymbol } from "../../../Shared/Services/symbols";
 
 /**
  * ردیف جدول رنکینگ — ارتفاع و رنگ هر ردیف بسته به رتبه متفاوت است (طبق طراحی).
@@ -19,14 +21,6 @@ const rowHeight = (rank) => {
     const heights = { 1: "min-h-[130px]", 2: "min-h-[110px]", 3: "min-h-[90px]" };
     return heights[rank] ?? "min-h-[75px]";
 };
-
-const rankClasses = (rank) => {
-    if (props.highlight || rank === 1)
-        return "bg-rtds-gold text-rtds-text-on-yellow";
-    if (rank === 2) return "bg-rtds-surface-light text-rtds-bg";
-    if (rank === 3) return "bg-rtds-yellow-dark text-rtds-text-on-yellow";
-    return "bg-rtds-bg-elevated text-rtds-text-secondary";
-};
 </script>
 
 <template>
@@ -39,12 +33,8 @@ const rankClasses = (rank) => {
                 : 'border-rtds-border bg-rtds-bg-card',
         ]"
     >
-        <!-- مدال/شماره رتبه -->
-        <span
-            class="grid h-12 w-12 shrink-0 place-items-center rounded-full text-lg font-bold tabular-nums"
-            :class="rankClasses(props.rank)"
-            >{{ rank }}</span
-        >
+        <!-- مدال رتبه: تصویر ثابت پروژه، از روی rank انتخاب می‌شود -->
+        <SymbolContainer :src="medalSymbol(rank)" :label="`رتبهٔ ${rank}`" size="md" />
 
         <div class="min-w-0 flex-1">
             <p

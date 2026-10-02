@@ -292,6 +292,7 @@ const formNamesOf = (bout) =>
                                     current.performance.form_name ??
                                     `رقابت ${current.bout.sequence}`
                                 "
+                                :form-number="current.performance.form_number ?? null"
                             />
                             <AthleteInfo
                                 v-for="entry in current.bout.entries"

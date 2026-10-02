@@ -68,7 +68,7 @@ const score = (value) =>
 /*
  * TODO / Proposed Contract (مرحلهٔ بعد):
  * - country / country_code / flag برندگان → AthleteInfo کامل‌تر
- * - آیکون فرم (form icon) برای هر رقابت
+ * - کلید سمبل فرم هر رقابت (`form_number`)
  * - scoreTypeLabel / نوع نمره (میانگین دو فرم)
  * - logoUrl هدر
  */

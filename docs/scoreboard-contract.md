@@ -30,10 +30,10 @@
 | کامپوننت | هدف | مصرف‌کننده |
 | ---------- | --- | ---------- |
 | `ScoreboardHeader` | هدر مشترک: لوگو + نام رویداد + دور/زمین. از `slot#header` به Layout تزریق می‌شود. | همهٔ صفحات |
-| `AthleteInfo` | نمایش ورزشکار: شماره + رنگ سمت + نام + ملیت، در دو جهت `horizontal`/`vertical`. | Standby, LiveBoard, Scoring, Result, TopFour, Draw |
-| `NationalityBadge` | پرچم + نام کشور (در `AthleteInfo` استفاده می‌شود). | داخل AthleteInfo |
-| `FormBadge` | چیپ دور + آیکون فرم + نام فرم، در سه سایز (`sm/md/lg`). | Standby, LiveBoard, Scoring, Draw |
-| `IconContainer` | آیکون فرم یا مدال رتبه (`variant: form/medal`). | داخل FormBadge, TopFour, Ranking |
+| `AthleteInfo` | نوار نام رنگی (شماره + نام) + بج کشور؛ چهار چیدمان `name-only`/`horizontal`/`vertical`/`vertical-under` و دو سمت آینه‌ای (`chung` چپ، `hong` راست). بدون عکس. | Standby, LiveBoard, Scoring, Result, TopFour, Draw |
+| `NationalityBadge` | پرچم + کد سه‌حرفی انگلیسی کشور؛ دو جهت پرچم و placeholder وقتی پرچم نباشد. | داخل AthleteInfo, RankingRow |
+| `FormBadge` | ردیف `[roundLabel] [symبل فرم] [formName]` (بدون کادر)، در سه سایز (`sm/md/lg`). | Standby, LiveBoard, Scoring, Draw |
+| `SymbolContainer` | نگه‌دارندهٔ یک تصویر سمبل (فرم یا مدال) در سه سایز؛ مسیر از `Shared/Services/symbols.js`. | داخل FormBadge, TopFour, Ranking |
 | `Timer` | شمارش زمان بر اساس `running` + `startedAt` + `durationSeconds`؛ stop/start. | Standby, LiveBoard |
 | `TotalScoreArc` | Arc دقت (accuracy) + امتیاز کل + برچسب نوع امتیاز + پس‌زمینه. | Scoring |
 | `ScoringTableBase` | اسکلت جدول scoring: هدر قاضی‌ها، ریسپانسیو در ۵/۷ قاضی. | داخل سه جدول زیر |
@@ -98,21 +98,21 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 | دسته | موارد |
 | ---- | ----- |
 | **دادهٔ موجود** | `bout.status=completed`، `winner_entry_id`، `entries[].name/side`، `bout.totals`، `rounds.length` (تشخیص `ONE-ROUND`/`TWO-ROUNDS`) |
-| **`[Proposed]`** | `entry.country/country_code/flag_url`، `form_icon` (آیکون فرم هر رقابت)، `logoUrl` |
+| **`[Proposed]`** | `entry.country/country_code/flag_url`، `form_number` (کلید سمبل فرم)، `logoUrl` |
 
 ### ۳.۵ Ranking
 
 | دسته | موارد |
 | ---- | ----- |
 | **دادهٔ موجود** | `category.standings[]` = `{rank, name, wins, played}` (فقط `format=round_robin`)، `champion_id` (فقط `format=knockout`) |
-| **`[Proposed]`** | **`placements[]`** یکدست برای **هر دو قالب** (`round_robin` و `knockout`) با شکل پیشنهادی `{rank, entry_id, name, score, country, country_code, flag_url, medal}` — الان برای knockout رتبه‌بندی نداریم، و `score` عددی نهایی هم نداریم (فعلاً «X برد از Y» متنی نمایش داده می‌شود)، `logoUrl` |
+| **`[Proposed]`** | **`placements[]`** یکدست برای **هر دو قالب** (`round_robin` و `knockout`) با شکل پیشنهادی `{rank, entry_id, name, score, country, country_code, flag_url}` (مدال از روی `rank` نمایش داده می‌شود، پس فیلد جدا لازم نیست) — الان برای knockout رتبه‌بندی نداریم، و `score` عددی نهایی هم نداریم (فعلاً «X برد از Y» متنی نمایش داده می‌شود)، `logoUrl` |
 
 ### ۳.۶ TopFour
 
 | دسته | موارد |
 | ---- | ----- |
 | **دادهٔ موجود** | ۴ ردیف اول `standings` (فقط `round_robin`) |
-| **`[Proposed]`** | **`placements[]`** (همان فیلد پیشنهادی Ranking — شامل knockout)، `entry.country/country_code/flag_url`، `medal`، `logoUrl` |
+| **`[Proposed]`** | **`placements[]`** (همان فیلد پیشنهادی Ranking — شامل knockout)، `entry.country/country_code/flag_url`، `logoUrl` |
 | **نکته** | برای knockout در حال حاضر داده‌ای ندارد و صفحه پیام placeholder نشان می‌دهد. |
 
 ### ۳.۷ Draw
@@ -120,7 +120,7 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 | دسته | موارد |
 | ---- | ----- |
 | **دادهٔ موجود** | `category.form_names[]` (ترتیب فرم‌ها)، `category.entries[]` (`name/club`) |
-| **`[Proposed]`** | **`Draw.output_snapshot`** (ترتیب واقعی قرعه: شمارهٔ اجرا/جفت‌ها/slot)، `entry_members[]` (`{name, club, position}`)، `draw_timing` (زمان قرعه)، `form_icon`، `logoUrl` |
+| **`[Proposed]`** | **`Draw.output_snapshot`** (ترتیب واقعی قرعه: شمارهٔ اجرا/جفت‌ها/slot)، `entry_members[]` (`{name, club, position}`)، `draw_timing` (زمان قرعه)، `form_number`، `logoUrl` |
 
 ---
 
@@ -137,11 +137,11 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 | 7 | `judge_scores[]` | `[{seat, values[]}]` روی performance (در display هم) | Scoring (ستون‌های قاضی) |
 | 8 | `accuracy_score` | `number` روی نتیجهٔ اجرا | Scoring (`TotalScoreArc`) |
 | 9 | `score_type_label` | `string` | Scoring (`TotalScoreArc`) |
-| 10 | `placements[]` | `[{rank, entry_id, name, score, country, country_code, flag_url, medal}]` روی category | Ranking, TopFour |
+| 10 | `placements[]` | `[{rank, entry_id, name, score, country, country_code, flag_url}]` روی category (مدال از `rank` مشتق می‌شود) | Ranking, TopFour |
 | 11 | `Draw.output_snapshot` | خروجی قرعه (ترتیب اجرا/جفت‌ها) | Draw |
 | 12 | `entry_members[]` | `[{name, club, position}]` روی entry | Draw, Standby, Scoring |
 | 13 | `draw_timing` | `timestamp` | Draw |
-| 14 | `form_icon` | `string \| null` روی فرم | Scoring, Result, Draw, Standby, LiveBoard |
+| 14 | `form_number` | `int` ۱..۱۸ روی فرم — کلید سمبل فرم | `FormBadge` در Scoring, Result, Draw, Standby, LiveBoard |
 | 15 | `courtId` (LiveBoard) | query param رسمی | LiveBoard |
 | 16 | `timeline` (LiveBoard) | `previous/current/next` صریح با ترتیب سراسری بین زمین‌ها | LiveBoard |
 
@@ -151,6 +151,14 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 - اگر `flag_url` نبود، Frontend حدس نمی‌زند: همان کد داخل قاب پرچم به‌عنوان placeholder نمایش داده می‌شود (frontend-only، نیاز به دادهٔ جدید ندارد).
 - دو جهتِ پرچم (`flagPosition=left|right`) هم صرفاً prop کامپوننت است و قرارداد داده را تغییر نمی‌دهد.
 - عکس ورزشکار (`photo_url`) **حذف موقت** است: تا اطلاع بعدی نه در `AthleteInfo` رندر می‌شود نه در `RankingRow`، و backend لازم نیست آن را تأمین کند.
+
+**نکتهٔ سمبل فرم و مدال (asset های داخل مخزن):**
+
+- Backend **URL تصویر نمی‌دهد**؛ فقط کلید دامنه: `form_number` (۱..۱۸) برای فرم و `rank` (۱..۵) برای مدال.
+- مسیر فایل‌ها در فرانت و در یک جا نگه‌داری می‌شود: `resources/js/Shared/Services/symbols.js` (`FORM_SYMBOLS`، `MEDAL_SYMBOLS`، `formSymbol()`، `medalSymbol()`)، و asset ها در `public/images/symbols/` و `public/images/medals/` قرار دارند.
+- افزودن فرم یا مدال جدید = افزودن فایل + یک خط در map؛ هیچ تغییری در کامپوننت‌ها و قرارداد لازم نیست.
+- مدال‌ها از روی `rank` انتخاب می‌شوند (۱ طلا، ۲ نقره، ۳ برنز، ۴ و ۵ خاکستری) و فیلد جداگانهٔ `medal` در قرارداد وجود ندارد.
+- تا وقتی فایل‌های webp تحویل/اضافه نشده باشند، مسیرها در map تعریف شده ولی `SymbolContainer` چیزی رندر نمی‌کند (کامپوننت در نبود تصویر fallback ندارد).
 
 **پیشنهاد مدیریت کدها و پرچم‌ها:**
 

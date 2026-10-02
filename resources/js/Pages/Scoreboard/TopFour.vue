@@ -4,7 +4,8 @@ import { Head } from "@inertiajs/vue3";
 import ScoreboardLayout from "../../Shared/Layouts/ScoreboardLayout.vue";
 import ScoreboardHeader from "../../Components/scoreboard/ScoreboardHeader.vue";
 import AthleteInfo from "../../Components/scoreboard/AthleteInfo.vue";
-import IconContainer from "../../Components/scoreboard/IconContainer.vue";
+import SymbolContainer from "../../Components/scoreboard/SymbolContainer.vue";
+import { medalSymbol } from "../../Shared/Services/symbols";
 
 /**
  * صفحهٔ skeleton — pending backend contract.
@@ -13,8 +14,7 @@ import IconContainer from "../../Components/scoreboard/IconContainer.vue";
  * هیچ controller/route‌ای تغییر نکرده است.
  *
  * منتظر Contract نهایی:
- * - placements[]
- * - medal
+ * - placements[] (مدال از روی rank نمایش داده می‌شود؛ فیلد جدا لازم نیست)
  */
 const props = defineProps({
     tournament: {
@@ -40,7 +40,6 @@ const topFour = computed(() => {
  * TODO / Proposed Contract (مرحلهٔ بعد):
  * - placements[] (مخصوص knockout — الان فقط round_robin پوشش داده می‌شود)
  * - country / country_code / flag هر ورزشکار
- * - medal (رتبه ۱/۲/۳) به‌صورت آیکون مدال از Backend
  * - logoUrl هدر
  */
 </script>
@@ -62,9 +61,9 @@ const topFour = computed(() => {
                 :key="row.id"
                 class="flex items-center gap-5 rounded-2xl border border-rtds-border bg-rtds-bg-card p-6"
             >
-                <IconContainer
-                    variant="medal"
-                    :medal-rank="index + 1"
+                <SymbolContainer
+                    :src="medalSymbol(index + 1)"
+                    :label="`رتبهٔ ${index + 1}`"
                     size="lg"
                 />
                 <AthleteInfo

@@ -3,9 +3,13 @@
  *
  * شکل داده‌ها طبق [Proposed Backend Contract] در docs/scoreboard-contract.md (بخش ۴) است؛
  * هدف، دیدن «شکل نهایی» کامپوننت‌ها پس از تکمیل Backend است.
- * این فایل هیچ وابستگی به Inertia/Backend ندارد و تصاویر (لوگو/عکس/پرچم/آیکون)
- * به‌صورت data-URI داخلی‌اند تا lab کاملاً offline کار کند.
+ * این فایل هیچ وابستگی به Inertia/Backend ندارد؛ لوگو و پرچم‌ها data-URI داخلی‌اند
+ * و سمبل فرم‌ها/مدال‌ها از map دارایی‌های پروژه (`Shared/Services/symbols.js`) می‌آیند.
  */
+
+// مسیر تصاویر از لایهٔ resolve لَب می‌آید (dev server پوشهٔ public/ را سرو نمی‌کند)
+import { formSymbol, medalSymbol, formSymbolStrip } from "./assets";
+export { formSymbolStrip };
 
 const svg = (markup) =>
     `data:image/svg+xml;utf8,${encodeURIComponent(markup.trim())}`;
@@ -30,14 +34,6 @@ const flag = (a, b, c) =>
     </svg>
 `);
 
-const formIcon = (color) =>
-    svg(`
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-        <circle cx="12" cy="12" r="11" fill="${color}"/>
-        <path d="M12 5.5l2.1 4.3 4.7.7-3.4 3.3.8 4.7L12 16.2l-4.2 2.3.8-4.7-3.4-3.3 4.7-.7z" fill="#0c0e17"/>
-    </svg>
-`);
-
 const flags = {
     ir: flag("#239f40", "#ffffff", "#da0000"),
     kr: flag("#ffffff", "#cd2e3a", "#0047a0"),
@@ -46,14 +42,6 @@ const flags = {
     fr: flag("#0055a4", "#ffffff", "#ef4135"),
     kz: flag("#00afca", "#fec50c", "#00afca"),
 };
-
-const icons = {
-    gold: formIcon("#ffcc00"),
-    blue: formIcon("#3377ff"),
-    red: formIcon("#ff5540"),
-};
-
-export { icons as formIcons };
 
 /* -------------------------------------------------------------- رویداد/هدر */
 
@@ -154,33 +142,46 @@ export const nationalityCases = [
 
 export const formBadgeCases = [
     {
-        title: "sm — در Scoring (با form_icon پیشنهادی)",
-        props: { size: "sm", roundLabel: "دور ۳", formName: "تای گوک ۵ جو", icon: icons.gold },
+        title: "sm — در Scoring (با form_number → سمبل)",
+        props: { size: "sm", roundLabel: "R - 3", formNumber: 5, formName: "TAEGUK 5" },
     },
     {
         title: "md — در Standby/LiveBoard",
-        props: { size: "md", roundLabel: "دور ۳", formName: "کیبورد پومسه", icon: icons.blue },
+        props: { size: "md", roundLabel: "R - 3", formNumber: 2, formName: "TAEGUK 2" },
     },
     {
         title: "lg — در Draw",
-        props: { size: "lg", roundLabel: "مرحلهٔ نهایی", formName: "تایگوک ۶ جو", icon: icons.red },
+        props: { size: "lg", roundLabel: "FINAL", formNumber: 8, formName: "TAEGUK 8" },
     },
     {
-        title: "بدون آیکون — form_icon=null (snapshot فعلی)",
-        props: { size: "md", roundLabel: "دور ۳", formName: "فرم ۲", icon: "" },
+        title: "بدون form_number — فقط متن (کلید ندارد)",
+        props: { size: "md", roundLabel: "R - 3", formNumber: null, formName: "فرم ۲" },
+    },
+    {
+        title: "فرم مجموعهٔ دوم (کلید ۹..۱۸)",
+        props: { size: "md", roundLabel: "R - 1", formNumber: 12, formName: "MOVE 12" },
     },
 ];
 
-/* ----------------------------------------------------------- IconContainer */
+/* ----------------------------------------------------- SymbolContainer/Medals */
 
-export const iconCases = [
-    { title: "form · sm", props: { variant: "form", size: "sm", src: icons.gold, label: "فرم" } },
-    { title: "form · md", props: { variant: "form", size: "md", src: icons.blue, label: "فرم" } },
-    { title: "form · lg", props: { variant: "form", size: "lg", src: icons.red, label: "فرم" } },
-    { title: "form · بدون src (جای خالی)", props: { variant: "form", size: "md", src: "", label: "بدون آیکون" } },
-    { title: "medal · رتبهٔ ۱", props: { variant: "medal", size: "md", medalRank: 1, label: "طلا" } },
-    { title: "medal · رتبهٔ ۲", props: { variant: "medal", size: "md", medalRank: 2, label: "نقره" } },
-    { title: "medal · رتبهٔ ۳", props: { variant: "medal", size: "md", medalRank: 3, label: "برنز" } },
+export const symbolCases = [
+    { title: "form-1 · sm (۲۴px)", props: { src: formSymbol(1), label: "فرم ۱", size: "sm" } },
+    { title: "form-1 · md (۴۰px)", props: { src: formSymbol(1), label: "فرم ۱", size: "md" } },
+    { title: "form-1 · lg (۵۶px)", props: { src: formSymbol(1), label: "فرم ۱", size: "lg" } },
+    { title: "form-5 · md — نمونهٔ تصویر FORM_BADGE", props: { src: formSymbol(5), label: "TAEGUK 5", size: "md" } },
+    { title: "بدون src (کلید ناشناخته) — چیزی رندر نمی‌شود", props: { src: formSymbol(99), label: "نامعتبر", size: "md" } },
+];
+
+
+
+export const medalCases = [
+    { title: "رتبهٔ ۱ — طلا · lg", props: { src: medalSymbol(1), label: "رتبهٔ ۱", size: "lg" } },
+    { title: "رتبهٔ ۲ — نقره · md", props: { src: medalSymbol(2), label: "رتبهٔ ۲", size: "md" } },
+    { title: "رتبهٔ ۳ — برنز · md", props: { src: medalSymbol(3), label: "رتبهٔ ۳", size: "md" } },
+    { title: "رتبهٔ ۴ — خاکستری · md", props: { src: medalSymbol(4), label: "رتبهٔ ۴", size: "md" } },
+    { title: "رتبهٔ ۵ — خاکستری · md", props: { src: medalSymbol(5), label: "رتبهٔ ۵", size: "md" } },
+    { title: "رتبهٔ ۶ — خارج از محدوده، بدون مدال", props: { src: medalSymbol(6), label: "رتبهٔ ۶", size: "md" } },
 ];
 
 /* ------------------------------------------------------------------ Timer */
@@ -391,19 +392,19 @@ export const baseTable = {
 
 /** شکل پیشنهادی placements[] (بخش ۴ سند) — برای هر دو قالب round_robin و knockout */
 export const placementsRoundRobin = [
-    { rank: 1, entry_id: 101, name: "علی رضایی", score: 27, country: "ایران", country_code: "IRI", flag_url: flags.ir, medal: "gold" },
-    { rank: 2, entry_id: 102, name: "کیم چان‌هی", score: 25, country: "کرهٔ جنوبی", country_code: "KOR", flag_url: flags.kr, medal: "silver" },
-    { rank: 3, entry_id: 103, name: "امره ییلدیز", score: 22, country: "ترکیه", country_code: "TUR", flag_url: flags.tr, medal: "bronze" },
-    { rank: 4, entry_id: 104, name: "کنیچیرو تاناکا", score: 19, country: "ژاپن", country_code: "JPN", flag_url: flags.jp, medal: null },
-    { rank: 5, entry_id: 105, name: "پییر دوبوا", score: 15, country: "فرانسه", country_code: "FRA", flag_url: flags.fr, medal: null },
-    { rank: 6, entry_id: 106, name: "النور حسین‌اف", score: 11, country: "قزاقستان", country_code: "KAZ", flag_url: flags.kz, medal: null },
+    { rank: 1, entry_id: 101, name: "علی رضایی", score: 27, country: "ایران", country_code: "IRI", flag_url: flags.ir },
+    { rank: 2, entry_id: 102, name: "کیم چان‌هی", score: 25, country: "کرهٔ جنوبی", country_code: "KOR", flag_url: flags.kr },
+    { rank: 3, entry_id: 103, name: "امره ییلدیز", score: 22, country: "ترکیه", country_code: "TUR", flag_url: flags.tr },
+    { rank: 4, entry_id: 104, name: "کنیچیرو تاناکا", score: 19, country: "ژاپن", country_code: "JPN", flag_url: flags.jp },
+    { rank: 5, entry_id: 105, name: "پییر دوبوا", score: 15, country: "فرانسه", country_code: "FRA", flag_url: flags.fr },
+    { rank: 6, entry_id: 106, name: "النور حسین‌اف", score: 11, country: "قزاقستان", country_code: "KAZ", flag_url: flags.kz },
 ];
 
 export const placementsKnockout = [
-    { rank: 1, entry_id: 201, name: "کنیچیرو تاناکا", score: 5, country: "ژاپن", country_code: "JPN", flag_url: flags.jp, medal: "gold" },
-    { rank: 2, entry_id: 202, name: "علی رضایی", score: 4, country: "ایران", country_code: "IRI", flag_url: flags.ir, medal: "silver" },
-    { rank: 3, entry_id: 203, name: "کیم چان‌هی", score: 3, country: "کرهٔ جنوبی", country_code: "KOR", flag_url: flags.kr, medal: "bronze" },
-    { rank: 4, entry_id: 204, name: "امره ییلدیز", score: 2, country: "ترکیه", country_code: "TUR", flag_url: flags.tr, medal: null },
+    { rank: 1, entry_id: 201, name: "کنیچیرو تاناکا", score: 5, country: "ژاپن", country_code: "JPN", flag_url: flags.jp },
+    { rank: 2, entry_id: 202, name: "علی رضایی", score: 4, country: "ایران", country_code: "IRI", flag_url: flags.ir },
+    { rank: 3, entry_id: 203, name: "کیم چان‌هی", score: 3, country: "کرهٔ جنوبی", country_code: "KOR", flag_url: flags.kr },
+    { rank: 4, entry_id: 204, name: "امره ییلدیز", score: 2, country: "ترکیه", country_code: "TUR", flag_url: flags.tr },
 ];
 
 export const extraRankingRows = [
@@ -429,11 +430,11 @@ export const contractFields = [
     { n: 7, field: "judge_scores[]", shape: "[{seat, values[]}] روی performance", consumers: "Scoring (ستون‌های قاضی)" },
     { n: 8, field: "accuracy_score", shape: "number روی نتیجهٔ اجرا", consumers: "Scoring (TotalScoreArc)" },
     { n: 9, field: "score_type_label", shape: "string", consumers: "Scoring (TotalScoreArc)" },
-    { n: 10, field: "placements[]", shape: "[{rank, entry_id, name, score, country, country_code, flag_url, medal}]", consumers: "Ranking, TopFour" },
+    { n: 10, field: "placements[]", shape: "[{rank, entry_id, name, score, country, country_code, flag_url}] — مدال از روی rank نمایش داده می‌شود", consumers: "Ranking, TopFour" },
     { n: 11, field: "Draw.output_snapshot", shape: "خروجی قرعه (ترتیب اجرا/جفت‌ها)", consumers: "Draw" },
     { n: 12, field: "entry_members[]", shape: "[{name, club, position}] روی entry", consumers: "Draw, Standby, Scoring" },
     { n: 13, field: "draw_timing", shape: "timestamp", consumers: "Draw" },
-    { n: 14, field: "form_icon", shape: "string | null روی فرم", consumers: "Scoring, Result, Draw, Standby, LiveBoard" },
+    { n: 14, field: "form_number", shape: "int ۱..۱۸ — کلید سمبل فرم (مسیر تصویر در فرانت)", consumers: "FormBadge در Standby, LiveBoard, Scoring, Result, Draw" },
     { n: 15, field: "courtId (LiveBoard)", shape: "query param رسمی", consumers: "LiveBoard" },
     { n: 16, field: "timeline (LiveBoard)", shape: "previous / current / next", consumers: "LiveBoard" },
 ];
