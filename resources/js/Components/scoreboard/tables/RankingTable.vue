@@ -8,7 +8,7 @@ defineProps({
     rows: {
         type: Array,
         default: () => [],
-        // [{ rank, name, country, flagUrl, photoUrl, score, highlight }]
+        // [{ rank, name, country, countryCode, flagUrl, photoUrl, score, highlight }]
     },
 });
 </script>

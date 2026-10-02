@@ -10,7 +10,8 @@ const props = defineProps({
     number: { type: [String, Number], default: "" },
     color: { type: String, default: "" }, // رنگ سمت (chung/hong) به‌صورت کلاس Tailwind
     name: { type: String, default: "" },
-    country: { type: String, default: "" },
+    country: { type: String, default: "" }, // فقط برای alt پرچم
+    countryCode: { type: String, default: "" }, // کد انگلیسی مثل IRI — متن نمایش‌داده‌شده در بج
     flagUrl: { type: String, default: "" },
     photoUrl: { type: String, default: "" },
     size: { type: String, default: "md" }, // 'sm' | 'md' | 'lg'
@@ -74,6 +75,7 @@ const numberClasses = {
                 {{ name }}
             </p>
             <NationalityBadge
+                :code="countryCode"
                 :country="country"
                 :flag-url="flagUrl"
                 :size="size === 'lg' ? 'md' : 'sm'"

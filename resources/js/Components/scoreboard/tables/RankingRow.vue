@@ -7,7 +7,8 @@ import NationalityBadge from "../NationalityBadge.vue";
 const props = defineProps({
     rank: { type: [Number, String], required: true },
     name: { type: String, default: "" },
-    country: { type: String, default: "" },
+    country: { type: String, default: "" }, // فقط برای alt پرچم
+    countryCode: { type: String, default: "" }, // کد انگلیسی مثل IRI — متن بج
     flagUrl: { type: String, default: "" },
     photoUrl: { type: String, default: "" },
     score: { type: [Number, String], default: "" },
@@ -62,6 +63,7 @@ const rankClasses = (rank) => {
                 {{ name }}
             </p>
             <NationalityBadge
+                :code="countryCode"
                 :country="country"
                 :flag-url="flagUrl"
                 size="sm"

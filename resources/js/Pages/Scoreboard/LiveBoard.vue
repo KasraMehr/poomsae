@@ -170,7 +170,7 @@ const formNamesOf = (bout) =>
  * TODO [Proposed Backend Contract] (مرحلهٔ بعد):
  * - courtId پارامتر رسمی صفحه (query param از Backend)
  * - timeline سراسری previous/current/next (الان از روی ترتیب snapshot و یک زمین استخراج می‌شود)
- * - entry photo_url / country / flag_url
+ * - entry photo_url / country / country_code / flag_url
  * - logoUrl
  * - execution_duration_seconds (برای نمایش نسبی Timer؛ الان فقط مطلق داریم)
  */

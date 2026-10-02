@@ -52,7 +52,7 @@ const categories = computed(() =>
 /*
  * TODO / Proposed Contract (مرحلهٔ بعد):
  * - placements[] برای قالب knockout (الان فقط round_robin standings داریم)
- * - photo_url / country / flag هر ورزشکار → RankingRow
+ * - photo_url / country / country_code / flag هر ورزشکار → RankingRow
  * - score عددی نهایی (الان wins/played را متنی نشان می‌دهیم)
  * - logoUrl هدر
  */

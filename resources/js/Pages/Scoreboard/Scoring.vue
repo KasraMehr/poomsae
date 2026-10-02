@@ -71,7 +71,7 @@ const totalOf = (bout, entryId) => Number(bout.totals?.[entryId]) || 0;
  * - judge scores per sheet (در snapshot فعلی display=true است و scores[] خالی می‌آید)
  *   → ستون‌های قاضی ۱..۵/۷ در جدول
  * - accuracy score (برای arc داخل TotalScoreArc)
- * - photo_url / country / flag / number هر entry
+ * - photo_url / country / country_code / flag / number هر entry
  * - logoUrl هدر
  * - scoreTypeLabel برای TotalScoreArc
  */

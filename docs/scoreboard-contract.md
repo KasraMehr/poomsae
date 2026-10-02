@@ -74,7 +74,7 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 | دسته | موارد |
 | ---- | ----- |
 | **دادهٔ موجود** | `tournament.status/name`, `courts[]`, `bout.status=running`, `performance.status/started_at/ended_at`, `performance.form_name`, `round.name`, `entries[].name/side` |
-| **`[Proposed]`** | `logoUrl` (لوگوی رویداد)، `execution_duration_seconds` (مدت استاندارد اجرا برای شمارش معکوس)، `entry.photo_url`، `entry.country`، `entry.flag_url`، `entry.number` |
+| **`[Proposed]`** | `logoUrl` (لوگوی رویداد)، `execution_duration_seconds` (مدت استاندارد اجرا برای شمارش معکوس)، `entry.photo_url`، `entry.country`، `entry.country_code`، `entry.flag_url`، `entry.number` |
 | **نکته** | صرفاً اجرای جاری؛ هیچ داده‌ای برای صف/بعدی لازم ندارد. |
 
 ### ۳.۲ LiveBoard
@@ -82,7 +82,7 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 | دسته | موارد |
 | ---- | ----- |
 | **دادهٔ موجود** | `bout.court_id` (فیلتر زمین)، `round.sequence/bout.sequence` (ترتیب)، `performance.status` (تشخیص current)، `bout.status=completed` + `winner_entry_id` + `totals` (previous)، `bout.status=pending` (next)، `entries[].name/side`، `form_name` |
-| **`[Proposed]`** | `courtId` به‌صورت **پارامتر رسمی صفحه** (query param) — الان fallback به اولین زمین، `timeline` سراسری `previous/current/next` (الان از ترتیب snapshot و **یک زمین** استخراج می‌شود؛ بین زمین‌ها ترتیب سراسری نداریم)، `entry.photo_url/country/flag_url`، `logoUrl`، `execution_duration_seconds` |
+| **`[Proposed]`** | `courtId` به‌صورت **پارامتر رسمی صفحه** (query param) — الان fallback به اولین زمین، `timeline` سراسری `previous/current/next` (الان از ترتیب snapshot و **یک زمین** استخراج می‌شود؛ بین زمین‌ها ترتیب سراسری نداریم)، `entry.photo_url/country/country_code/flag_url`، `logoUrl`، `execution_duration_seconds` |
 | **نکته** | در آینده می‌تواند به «همهٔ زمین‌ها» یا «یک Category» توسعه یابد؛ فعلاً فقط یک زمین. |
 
 ### ۳.۳ Scoring
@@ -90,7 +90,7 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 | دسته | موارد |
 | ---- | ----- |
 | **دادهٔ موجود** | `category.judge_count` (۵/۷)، `bout.entries[].name/side`، `performance.form_name/form_number`، `bout.totals` (میانگین دو فرم)، `performance.result` |
-| **`[Proposed]`** | **`execution_mode`** (`SINGLE \| DOUBLE \| SINGLE-FREESTYLE`) — برای انتخاب جدول درست (الان همیشه `SingleScoringTable`)، **`judge_scores[]` per seat** — نمرهٔ هر قاضی (در display snapshot آرایهٔ `scores[]` خالی می‌آید)، **`accuracy_score`** (عدد داخل `TotalScoreArc`)، `score_type_label`، `entry.photo_url/country/flag`، `logoUrl` |
+| **`[Proposed]`** | **`execution_mode`** (`SINGLE \| DOUBLE \| SINGLE-FREESTYLE`) — برای انتخاب جدول درست (الان همیشه `SingleScoringTable`)، **`judge_scores[]` per seat** — نمرهٔ هر قاضی (در display snapshot آرایهٔ `scores[]` خالی می‌آید)، **`accuracy_score`** (عدد داخل `TotalScoreArc`)، `score_type_label`، `entry.photo_url/country/country_code/flag`، `logoUrl` |
 | **نکته** | `mode` متعلق به Domain است؛ Frontend حدس نمی‌زند. |
 
 ### ۳.۴ Result
@@ -98,21 +98,21 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 | دسته | موارد |
 | ---- | ----- |
 | **دادهٔ موجود** | `bout.status=completed`، `winner_entry_id`، `entries[].name/side`، `bout.totals`، `rounds.length` (تشخیص `ONE-ROUND`/`TWO-ROUNDS`) |
-| **`[Proposed]`** | `entry.photo_url/country/flag_url`، `form_icon` (آیکون فرم هر رقابت)، `logoUrl` |
+| **`[Proposed]`** | `entry.photo_url/country/country_code/flag_url`، `form_icon` (آیکون فرم هر رقابت)، `logoUrl` |
 
 ### ۳.۵ Ranking
 
 | دسته | موارد |
 | ---- | ----- |
 | **دادهٔ موجود** | `category.standings[]` = `{rank, name, wins, played}` (فقط `format=round_robin`)، `champion_id` (فقط `format=knockout`) |
-| **`[Proposed]`** | **`placements[]`** یکدست برای **هر دو قالب** (`round_robin` و `knockout`) با شکل پیشنهادی `{rank, entry_id, name, score, photo_url, country, flag_url, medal}` — الان برای knockout رتبه‌بندی نداریم، و `score` عددی نهایی هم نداریم (فعلاً «X برد از Y» متنی نمایش داده می‌شود)، `logoUrl` |
+| **`[Proposed]`** | **`placements[]`** یکدست برای **هر دو قالب** (`round_robin` و `knockout`) با شکل پیشنهادی `{rank, entry_id, name, score, photo_url, country, country_code, flag_url, medal}` — الان برای knockout رتبه‌بندی نداریم، و `score` عددی نهایی هم نداریم (فعلاً «X برد از Y» متنی نمایش داده می‌شود)، `logoUrl` |
 
 ### ۳.۶ TopFour
 
 | دسته | موارد |
 | ---- | ----- |
 | **دادهٔ موجود** | ۴ ردیف اول `standings` (فقط `round_robin`) |
-| **`[Proposed]`** | **`placements[]`** (همان فیلد پیشنهادی Ranking — شامل knockout)، `entry.photo_url/country/flag_url`، `medal`، `logoUrl` |
+| **`[Proposed]`** | **`placements[]`** (همان فیلد پیشنهادی Ranking — شامل knockout)، `entry.photo_url/country/country_code/flag_url`، `medal`، `logoUrl` |
 | **نکته** | برای knockout در حال حاضر داده‌ای ندارد و صفحه پیام placeholder نشان می‌دهد. |
 
 ### ۳.۷ Draw
@@ -130,20 +130,33 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 | - | ---- | ------------ | ---------- |
 | 1 | `logoUrl` | `string \| null` روی snapshot | همهٔ صفحات (header) |
 | 2 | `entry.photo_url` | `string \| null` روی entry/athlete | Standby, LiveBoard, Scoring, Result, Ranking, TopFour, Draw |
-| 3 | `entry.country` / `entry.flag_url` | `string` روی entry | هر جا `AthleteInfo` |
+| 3 | `entry.country` / `entry.country_code` / `entry.flag_url` | `string` روی entry — `country_code` از نوع ISO 3166-1 alpha-3 انگلیسی (مثل `IRI`) | هر جا `NationalityBadge` (`AthleteInfo`, `RankingRow`) |
 | 4 | `entry.number` | `int` روی entry | Standby, Scoring |
 | 5 | `execution_duration_seconds` | `int` روی تنظیمات مسابقه | Standby, LiveBoard (Timer) |
 | 6 | `execution_mode` | `SINGLE \| DOUBLE \| SINGLE-FREESTYLE` روی category | Scoring (انتخاب جدول) |
 | 7 | `judge_scores[]` | `[{seat, values[]}]` روی performance (در display هم) | Scoring (ستون‌های قاضی) |
 | 8 | `accuracy_score` | `number` روی نتیجهٔ اجرا | Scoring (`TotalScoreArc`) |
 | 9 | `score_type_label` | `string` | Scoring (`TotalScoreArc`) |
-| 10 | `placements[]` | `[{rank, entry_id, name, score, photo_url, country, flag_url, medal}]` روی category | Ranking, TopFour |
+| 10 | `placements[]` | `[{rank, entry_id, name, score, photo_url, country, country_code, flag_url, medal}]` روی category | Ranking, TopFour |
 | 11 | `Draw.output_snapshot` | خروجی قرعه (ترتیب اجرا/جفت‌ها) | Draw |
 | 12 | `entry_members[]` | `[{name, club, position}]` روی entry | Draw, Standby, Scoring |
 | 13 | `draw_timing` | `timestamp` | Draw |
 | 14 | `form_icon` | `string \| null` روی فرم | Scoring, Result, Draw, Standby, LiveBoard |
 | 15 | `courtId` (LiveBoard) | query param رسمی | LiveBoard |
 | 16 | `timeline` (LiveBoard) | `previous/current/next` صریح با ترتیب سراسری بین زمین‌ها | LiveBoard |
+
+**نکتهٔ `NationalityBadge` (کد کشور و پرچم):**
+
+- نمایش بج **فقط کد سه‌حرفی انگلیسی** (`entry.country_code`) است؛ نام فارسی (`entry.country`) صرفاً برای a11y/جست‌جو می‌ماند و جایگزین کد نمی‌شود.
+- اگر `flag_url` نبود، Frontend حدس نمی‌زند: همان کد داخل قاب پرچم به‌عنوان placeholder نمایش داده می‌شود (frontend-only، نیاز به دادهٔ جدید ندارد).
+- دو جهتِ پرچم (`flagPosition=left|right`) هم صرفاً prop کامپوننت است و قرارداد داده را تغییر نمی‌دهد.
+
+**پیشنهاد مدیریت کدها و پرچم‌ها:**
+
+- `country_code` یکتا و اجباری روی هر entry باشد: کد ISO 3166-1 alpha-3 (هم‌ارز کدهای المپیک: `IRI`, `KOR`, `TUR`, …)، همیشه uppercase، در Backend اعتبارسنجی شود.
+- `flag_url` از یک مخزن واحد با نام‌گذاری قابل پیش‌بینی تأمین شود: `/flags/{country_code}.svg`؛ تغییر/افزودن پرچم فقط با افزودن فایل در همان مخزن.
+- کد ناشناخته/نامعتبر: entry با همان کد نمایش و پرچمش placeholder می‌گیرد؛ Backend خطا ندهد اما در لاگ ثبت کند.
+- سمت Frontend هیچ حدس/تبدیل زبانی وجود ندارد؛ هر دو فیلد (`country_code`, `flag_url`) از snapshot می‌آیند.
 
 مواردی که **Contract جدید لازم ندارند** (از snapshot فعلی قابل استخراج):
 

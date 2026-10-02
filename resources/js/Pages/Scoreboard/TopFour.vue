@@ -40,7 +40,7 @@ const topFour = computed(() => {
 /*
  * TODO / Proposed Contract (مرحلهٔ بعد):
  * - placements[] (مخصوص knockout — الان فقط round_robin پوشش داده می‌شود)
- * - photo_url / country / flag هر ورزشکار
+ * - photo_url / country / country_code / flag هر ورزشکار
  * - medal (رتبه ۱/۲/۳) به‌صورت آیکون مدال از Backend
  * - logoUrl هدر
  */

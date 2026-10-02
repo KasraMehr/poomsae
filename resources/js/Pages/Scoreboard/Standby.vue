@@ -82,7 +82,7 @@ const frozenSeconds = (performance) => {
  * - logoUrl            → لوگوی رویداد در ScoreboardHeader
  * - durationSeconds    → مدت زمان استاندارد اجرا (تنظیمات مسابقه) برای Timer
  * - entry photo_url    → عکس ورزشکار در AthleteInfo
- * - entry country/flag → NationalityBadge در AthleteInfo
+ * - entry country/country_code/flag → NationalityBadge در AthleteInfo
  * - entry number       → شمارهٔ قرعه در AthleteInfo
  */
 </script>
