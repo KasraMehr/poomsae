@@ -63,14 +63,18 @@ const currentExecution = computed(() => {
 
 const isRunning = computed(() => currentExecution.value?.state === "running");
 
-// زمان نهایی اجرای تمام‌شده (توقف Timer روی لحظهٔ پایان)
-const frozenSeconds = (performance) => {
-    if (!performance?.started_at || !performance?.ended_at) return 0;
-    const start = new Date(performance.started_at).getTime();
-    const end = new Date(performance.ended_at).getTime();
-    if (Number.isNaN(start) || Number.isNaN(end)) return 0;
-    return Math.max(0, Math.floor((end - start) / 1000));
-};
+/**
+ * مدت استاندارد اجرا به ثانیه — منبعی از تنظیمات مسابقه (execution_duration_seconds).
+ *
+ * فعلاً این مقدار در snapshot موجود نیست؛ تا وقتی بک‌اند اضافه‌اش نکرده مقدار پیش‌فرض ۹۰ ثانیه
+ * استفاده می‌شود (۱:۳۰، مطابق طرح). به‌محض رسیدن فیلد، همین یک خط کافی است.
+ */
+const DEFAULT_EXECUTION_SECONDS = 90;
+
+const durationSeconds = computed(
+    () =>
+        props.tournament?.execution_duration_seconds ?? DEFAULT_EXECUTION_SECONDS
+);
 
 /*
  * TODO / Proposed Contract (مرحلهٔ بعد):
@@ -132,17 +136,14 @@ const frozenSeconds = (performance) => {
                 />
             </div>
 
-            <div class="text-6xl">
-                <Timer
-                    :running="isRunning"
-                    :started-at="currentExecution.performance.started_at"
-                    :duration-seconds="
-                        isRunning
-                            ? 0
-                            : frozenSeconds(currentExecution.performance)
-                    "
-                />
-            </div>
+            <!-- سه حالت تایمر: پیش از شروع (عدد کل) / حین اجرا (شمارش معکوس) / پایان‌یافته (متوسط)
+                 همه از started_at و ended_at مشتق می‌شوند؛ کنترل با پنل اپراتور است. -->
+            <Timer
+                size="lg"
+                :duration-seconds="durationSeconds"
+                :started-at="currentExecution.performance.started_at"
+                :ended-at="currentExecution.performance.ended_at"
+            />
         </section>
 
         <!-- پایان اجرا / حالت آماده (بدون صف و بدون اجرای بعدی) -->

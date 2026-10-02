@@ -186,45 +186,138 @@ export const medalCases = [
 
 /* ------------------------------------------------------------------ Timer */
 
+/**
+ * سه حالت تایتر، همه مشتق از started_at / ended_at (کنترل از پنل اپراتور):
+ * idle = پیش از شروع، running = حین اجرا، stopped = اپراتور متوقف کرده.
+ * زمان‌ها نسبت به لحظهٔ باز شدن لَب محاسبه می‌شوند تا شمارش زنده دیده شود.
+ */
 const now = Date.now();
+const startedAt = now - 31_000; // ~۳۱ ثانیه گذشته از ۹۰ ثانیه
 
 export const timerCases = [
     {
-        title: "running — شمارش رو به جلو (بدون durationSeconds)",
-        props: { running: true, startedAt: now - 74_000, durationSeconds: 0 },
+        title: "idle — پیش از شروع: فقط مدت کل (۱:۳۰) — Standby",
+        props: { size: "lg", durationSeconds: 90, startedAt: null, endedAt: null },
     },
     {
-        title: "running — شمارش معکوس با execution_duration_seconds=120",
-        props: { running: true, startedAt: now - 45_000, durationSeconds: 120 },
+        title: "running — حین اجرا، شمارش معکوس — Standby",
+        props: { size: "lg", durationSeconds: 90, startedAt, endedAt: null },
     },
     {
-        title: "scoring — ایستا روی مدت اجرا (بدون شمارش)",
-        props: { running: false, startedAt: null, durationSeconds: 74 },
+        title: "stopped — اپراتور متوقف کرده (اجرای ۴۵ ثانیه‌ای) — Standby",
+        props: {
+            size: "lg",
+            durationSeconds: 90,
+            startedAt: now - 70_000,
+            endedAt: now - 25_000,
+        },
     },
     {
-        title: "شروع‌نشده — 00:00",
-        props: { running: false, startedAt: null, durationSeconds: 0 },
+        title: "sm — همان حالت‌ها با اندازهٔ کوچک (LiveBoard)",
+        props: { size: "sm", durationSeconds: 90, startedAt, endedAt: null },
+    },
+    {
+        title: "stopped — اجرای تمام‌شده با زمان کامل (۰۰:۰۰)",
+        props: {
+            size: "lg",
+            durationSeconds: 90,
+            startedAt: now - 95_000,
+            endedAt: now - 5_000,
+        },
+    },
+    {
+        title: "مدت غیر استاندارد — execution_duration_seconds=120",
+        props: { size: "lg", durationSeconds: 120, startedAt: now - 51_000, endedAt: null },
+    },
+    {
+        title: "ورودی ISO — started_at به شکل رشته",
+        props: {
+            size: "lg",
+            durationSeconds: 90,
+            startedAt: new Date(now - 61_000).toISOString(),
+            endedAt: null,
+        },
+    },
+    {
+        title: "بدون execution_duration_seconds — پیش‌فرض ۰ (۰۰:۰۰)",
+        props: { size: "lg", durationSeconds: 0, startedAt: null, endedAt: null },
     },
 ];
 
-/* --------------------------------------------------------- TotalScoreArc */
+/* ------------------------------------------------- ScoreCard / ScoreItem */
 
-export const arcCases = [
+/**
+ * سقف‌های پومسه ثابت‌اند (تصمیم کاربر): Accuracy=4، Presentation=6، Total=10.
+ * این‌ها در همین‌جا تعریف می‌شوند و به ScoreItem پاس داده می‌شوند؛
+ * یعنی ScoreCard خودش سقف‌ها را نمی‌داند و فقط چیدمان و آینه‌سازی را می‌دهد.
+ */
+export const SCORE_MAX = {
+    accuracy: 4,
+    presentation: 6,
+    total: 10,
+};
+
+/** برچسب‌ها دقیقاً همان‌طور که در طرح آمده‌اند (لاتین، برای نمایش انگلیسی). */
+export const SCORE_LABELS = {
+    accuracy: "Accuracy",
+    presentation: "Presentation",
+    total: "Total Score",
+};
+
+/**
+ * امتیازهای نمونهٔ صفحهٔ Result (از تصویر RESULT-ONE-ROUND):
+ * ورزشکار آبی ۳.۴۶ / ۵.۰۰ / ۸.۴۶ و ورزشکار قرمز ۳.۵۲ / ۵.۲۰ / ۸.۷۲ (برنده).
+ */
+export const scoreCardCases = [
     {
-        title: "بدون دقت — accuracy_score=0 (snapshot فعلی)",
-        props: { accuracyScore: 0, totalScore: 0, scoreTypeLabel: "" },
+        title: "chung (آبی) · lg · برنده نیست",
+        card: { side: "chung", winner: false, size: "lg" },
+        items: [
+            { variant: "sub", label: SCORE_LABELS.accuracy, value: 3.46, max: SCORE_MAX.accuracy },
+            { variant: "sub", label: SCORE_LABELS.presentation, value: 5.0, max: SCORE_MAX.presentation },
+            { variant: "total", label: SCORE_LABELS.total, value: 8.46, max: SCORE_MAX.total },
+        ],
     },
     {
-        title: "با دقت و برچسب — accuracy_score + score_type_label (پیشنهادی)",
-        props: { accuracyScore: 7.35, totalScore: 45.612, scoreTypeLabel: "امتیاز دقت" },
+        title: "hong (قرمز) · lg · **برنده** — کادر زرد فقط روی total",
+        card: { side: "hong", winner: true, size: "lg" },
+        items: [
+            { variant: "sub", label: SCORE_LABELS.accuracy, value: 3.52, max: SCORE_MAX.accuracy },
+            { variant: "sub", label: SCORE_LABELS.presentation, value: 5.2, max: SCORE_MAX.presentation },
+            { variant: "total", label: SCORE_LABELS.total, value: 8.72, max: SCORE_MAX.total },
+        ],
     },
     {
-        title: "سقف — accuracy=10 از 10",
-        props: { accuracyScore: 10, totalScore: 62.48, scoreTypeLabel: "امتیاز دقت" },
+        title: "روبه‌رو — دقیقاً مثل صفحهٔ Result (آبی چپ، قرمز راست)",
+        card: null, // رندر ویژه: جفت رو‌به‌رو
+        items: null,
     },
     {
-        title: "بدون برچسب نوع امتیاز",
-        props: { accuracyScore: 6.2, totalScore: 41.05, scoreTypeLabel: "" },
+        title: "sm — نسخهٔ فشرده (جای فشرده‌تر)",
+        card: { side: "chung", winner: true, size: "sm" },
+        items: [
+            { variant: "sub", label: SCORE_LABELS.accuracy, value: 3.46, max: SCORE_MAX.accuracy },
+            { variant: "sub", label: SCORE_LABELS.presentation, value: 5.0, max: SCORE_MAX.presentation },
+            { variant: "total", label: SCORE_LABELS.total, value: 8.46, max: SCORE_MAX.total },
+        ],
+    },
+    {
+        title: "بدون امتیاز — هر سه «--» (هنوز قاضی نمره نداده)",
+        card: { side: "chung", winner: false, size: "lg" },
+        items: [
+            { variant: "sub", label: SCORE_LABELS.accuracy, value: null, max: SCORE_MAX.accuracy },
+            { variant: "sub", label: SCORE_LABELS.presentation, value: null, max: SCORE_MAX.presentation },
+            { variant: "total", label: SCORE_LABELS.total, value: null, max: SCORE_MAX.total },
+        ],
+    },
+    {
+        title: "سفیدی کامل — بدون کادر، بدون رنگ تیم (default)",
+        card: { side: "chung", winner: false, size: "lg" },
+        items: [
+            { variant: "sub", label: SCORE_LABELS.accuracy, value: 0, max: SCORE_MAX.accuracy },
+            { variant: "sub", label: SCORE_LABELS.presentation, value: 0, max: SCORE_MAX.presentation },
+            { variant: "total", label: SCORE_LABELS.total, value: 0, max: SCORE_MAX.total },
+        ],
     },
 ];
 
@@ -428,8 +521,10 @@ export const contractFields = [
     { n: 5, field: "execution_duration_seconds", shape: "int روی تنظیمات مسابقه", consumers: "Standby, LiveBoard (Timer)" },
     { n: 6, field: "execution_mode", shape: "SINGLE | DOUBLE | SINGLE-FREESTYLE", consumers: "Scoring (انتخاب جدول)" },
     { n: 7, field: "judge_scores[]", shape: "[{seat, values[]}] روی performance", consumers: "Scoring (ستون‌های قاضی)" },
-    { n: 8, field: "accuracy_score", shape: "number روی نتیجهٔ اجرا", consumers: "Scoring (TotalScoreArc)" },
-    { n: 9, field: "score_type_label", shape: "string", consumers: "Scoring (TotalScoreArc)" },
+    { n: 8, field: "accuracy_score", shape: "number ۰..۴ — سقف ثابت، ScoreItem", consumers: "Result, Scoring (ScoreCard/ScoreItem)" },
+    { n: 9, field: "presentation_score", shape: "number ۰..۶ — سقف ثابت، ScoreItem", consumers: "Result, Scoring (ScoreCard/ScoreItem)" },
+    { n: 9, field: "total_score", shape: "number ۰..۱۰ = مجموع دو مورد قبل؛ از Backend می‌آید نه جمع فرانت", consumers: "Result, Scoring (ScoreCard/ScoreItem)" },
+    { n: 9, field: "is_winner", shape: "bool — کادر زرد فقط روی total برنده", consumers: "Result" },
     { n: 10, field: "placements[]", shape: "[{rank, entry_id, name, score, country, country_code, flag_url}] — مدال از روی rank نمایش داده می‌شود", consumers: "Ranking, TopFour" },
     { n: 11, field: "Draw.output_snapshot", shape: "خروجی قرعه (ترتیب اجرا/جفت‌ها)", consumers: "Draw" },
     { n: 12, field: "entry_members[]", shape: "[{name, club, position}] روی entry", consumers: "Draw, Standby, Scoring" },

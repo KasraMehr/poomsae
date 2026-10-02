@@ -327,7 +327,8 @@ resources/js/
 │       ├── FormBadge.vue
 │       ├── SymbolContainer.vue
 │       ├── Timer.vue
-│       ├── TotalScoreArc.vue
+│       ├── ScoreCard.vue
+│       ├── ScoreItem.vue
 │       └── tables/
 │           ├── ScoringTableBase.vue
 │           ├── SingleScoringTable.vue

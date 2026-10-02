@@ -5,7 +5,8 @@ import ScoreboardLayout from "../../Shared/Layouts/ScoreboardLayout.vue";
 import ScoreboardHeader from "../../Components/scoreboard/ScoreboardHeader.vue";
 import AthleteInfo from "../../Components/scoreboard/AthleteInfo.vue";
 import FormBadge from "../../Components/scoreboard/FormBadge.vue";
-import TotalScoreArc from "../../Components/scoreboard/TotalScoreArc.vue";
+import ScoreCard from "../../Components/scoreboard/ScoreCard.vue";
+import ScoreItem from "../../Components/scoreboard/ScoreItem.vue";
 import SingleScoringTable from "../../Components/scoreboard/tables/SingleScoringTable.vue";
 
 /**
@@ -69,10 +70,12 @@ const totalOf = (bout, entryId) => Number(bout.totals?.[entryId]) || 0;
  *   → انتخاب SingleScoringTable vs DoubleScoringTable vs FreestyleScoringTable
  * - judge scores per sheet (در snapshot فعلی display=true است و scores[] خالی می‌آید)
  *   → ستون‌های قاضی ۱..۵/۷ در جدول
- * - accuracy score (برای arc داخل TotalScoreArc)
+ * - accuracy_score و presentation_score هر entry (برای ScoreItem در ScoreCard)
  * - country / country_code / flag / number هر entry
  * - logoUrl هدر
- * - scoreTypeLabel برای TotalScoreArc
+ *
+ * مجموع (accuracy + presentation) از Backend می‌آید و در `total` پاس داده می‌شود؛
+ * سقف‌های ۴/۶/۱۰ ثابت‌اند و فرانت آن‌ها را جمع نمی‌کند.
  */
 </script>
 
@@ -141,12 +144,35 @@ const totalOf = (bout, entryId) => Number(bout.totals?.[entryId]) || 0;
                     />
 
                     <div class="mt-4">
-                        <!-- TODO: accuracy-score از Contract نهایی می‌آید؛ فعلاً ۰. -->
-                        <TotalScoreArc
-                            :accuracy-score="0"
-                            :total-score="totalOf(bout, entry.id)"
-                            score-type-label=""
-                        />
+                        <!--
+                          TODO [Proposed Contract]: دادهٔ سه امتیاز (Accuracy/Presentation/Total)
+                          هنوز از Backend نمی‌آید؛ تا آن زمان null یعنی «--».
+                          سقف‌ها ثابت‌اند: ۴ و ۶ و ۱۰.
+                        -->
+                        <ScoreCard :side="entry.side" size="sm" class="max-w-[220px]">
+                            <ScoreItem
+                                label="Accuracy"
+                                :max="4"
+                                :value="null"
+                                :side="entry.side"
+                                size="sm"
+                            />
+                            <ScoreItem
+                                label="Presentation"
+                                :max="6"
+                                :value="null"
+                                :side="entry.side"
+                                size="sm"
+                            />
+                            <ScoreItem
+                                label="Total Score"
+                                :max="10"
+                                :value="totalOf(bout, entry.id)"
+                                variant="total"
+                                :side="entry.side"
+                                size="sm"
+                            />
+                        </ScoreCard>
                     </div>
 
                     <div

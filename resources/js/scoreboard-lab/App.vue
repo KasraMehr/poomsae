@@ -5,7 +5,8 @@ import NationalityBadge from "../Components/scoreboard/NationalityBadge.vue";
 import FormBadge from "../Components/scoreboard/FormBadge.vue";
 import SymbolContainer from "../Components/scoreboard/SymbolContainer.vue";
 import Timer from "../Components/scoreboard/Timer.vue";
-import TotalScoreArc from "../Components/scoreboard/TotalScoreArc.vue";
+import ScoreCard from "../Components/scoreboard/ScoreCard.vue";
+import ScoreItem from "../Components/scoreboard/ScoreItem.vue";
 import ScoringTableBase from "../Components/scoreboard/tables/ScoringTableBase.vue";
 import SingleScoringTable from "../Components/scoreboard/tables/SingleScoringTable.vue";
 import FreestyleScoringTable from "../Components/scoreboard/tables/FreestyleScoringTable.vue";
@@ -21,7 +22,7 @@ import {
     medalCases,
     formSymbolStrip,
     timerCases,
-    arcCases,
+    scoreCardCases,
     singleFive,
     singleSeven,
     singleEmpty,
@@ -36,6 +37,29 @@ import {
     contractFields,
 } from "./data.js";
 
+/**
+ * جفت رو‌به‌رو برای نمایش صفحهٔ Result: آبی سمت چپ، قرمز سمت راست (قرمز برنده است).
+ * مقادیر از همان دادهٔ صفحهٔ Result گرفته شده‌اند تا با تصویر طرح مطابق باشد.
+ */
+const facingPair = [
+    {
+        card: { side: "chung", winner: false, size: "lg" },
+        items: [
+            { variant: "sub", label: "Accuracy", value: 3.46, max: 4 },
+            { variant: "sub", label: "Presentation", value: 5.0, max: 6 },
+            { variant: "total", label: "Total Score", value: 8.46, max: 10 },
+        ],
+    },
+    {
+        card: { side: "hong", winner: true, size: "lg" },
+        items: [
+            { variant: "sub", label: "Accuracy", value: 3.52, max: 4 },
+            { variant: "sub", label: "Presentation", value: 5.2, max: 6 },
+            { variant: "total", label: "Total Score", value: 8.72, max: 10 },
+        ],
+    },
+];
+
 const sections = [
     { id: "scoreboard-header", label: "ScoreboardHeader" },
     { id: "athlete-info", label: "AthleteInfo" },
@@ -43,7 +67,7 @@ const sections = [
     { id: "form-badge", label: "FormBadge" },
     { id: "symbol-container", label: "SymbolContainer / Medals" },
     { id: "timer", label: "Timer" },
-    { id: "total-score-arc", label: "TotalScoreArc" },
+    { id: "score-card", label: "ScoreCard / ScoreItem" },
     { id: "scoring-table-base", label: "ScoringTableBase" },
     { id: "single-scoring-table", label: "SingleScoringTable" },
     { id: "freestyle-scoring-table", label: "FreestyleScoringTable" },
@@ -280,28 +304,61 @@ const knockoutRows = placementsKnockout.map(toRankingRow);
                             class="min-w-0 rounded-2xl border border-rtds-border bg-rtds-bg"
                         >
                             <p class="px-6 pt-4 text-[11px] text-rtds-text-muted">{{ c.title }}</p>
-                            <div class="flex min-h-28 items-center justify-center p-6 text-5xl">
+                            <div class="flex min-h-64 items-center justify-center overflow-hidden p-6">
                                 <Timer v-bind="c.props" />
                             </div>
                         </div>
                     </div>
                 </section>
 
-                <!-- 7. TotalScoreArc -->
-                <section id="total-score-arc" class="scroll-mt-28 space-y-4">
+                <!-- 7. ScoreCard / ScoreItem (جایگزین TotalScoreArc) -->
+                <section id="score-card" class="scroll-mt-28 space-y-4">
                     <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-rtds-border-subtle pb-2">
-                        <h2 class="text-lg font-bold text-rtds-text-light">TotalScoreArc</h2>
-                        <code class="text-xs text-rtds-text-muted">Components/scoreboard/TotalScoreArc.vue</code>
+                        <h2 class="text-lg font-bold text-rtds-text-light">ScoreCard / ScoreItem</h2>
+                        <code class="text-xs text-rtds-text-muted">Components/scoreboard/ScoreCard.vue · ScoreItem.vue</code>
                     </div>
+
+                    <!-- جفت رو‌به‌رو — دقیقاً مثل صفحهٔ Result -->
+                    <div class="rounded-2xl border border-rtds-border bg-rtds-bg">
+                        <p class="px-6 pt-4 text-[11px] text-rtds-text-muted">
+                            رو‌به‌رو — دقیقاً مثل صفحهٔ Result (آبی چپ، قرمز راست، کادر زرد روی برنده)
+                        </p>
+                        <div class="flex flex-wrap items-start justify-center gap-16 p-6">
+                            <ScoreCard
+                                v-for="side in facingPair"
+                                :key="side.card.side"
+                                v-bind="side.card"
+                                class="w-[258px]"
+                            >
+                                <ScoreItem
+                                    v-for="(item, index) in side.items"
+                                    :key="index"
+                                    v-bind="item"
+                                    :side="side.card.side"
+                                    :size="side.card.size"
+                                />
+                            </ScoreCard>
+                        </div>
+                    </div>
+
+                    <!-- حالت‌های منفرد -->
                     <div class="grid gap-4 md:grid-cols-2">
                         <div
-                            v-for="c in arcCases"
+                            v-for="c in scoreCardCases.filter((x) => x.card)"
                             :key="c.title"
                             class="min-w-0 rounded-2xl border border-rtds-border bg-rtds-bg"
                         >
                             <p class="px-6 pt-4 text-[11px] text-rtds-text-muted">{{ c.title }}</p>
-                            <div class="flex items-center justify-center p-6">
-                                <TotalScoreArc v-bind="c.props" />
+                            <div class="flex items-start justify-center overflow-hidden p-6">
+                                <ScoreCard v-bind="c.card" class="w-[258px]">
+                                    <ScoreItem
+                                        v-for="(item, index) in c.items"
+                                        :key="index"
+                                        v-bind="item"
+                                        :side="c.card.side"
+                                        :size="c.card.size"
+                                    />
+                                </ScoreCard>
                             </div>
                         </div>
                     </div>

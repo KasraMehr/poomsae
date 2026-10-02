@@ -144,14 +144,15 @@ const stateClasses = {
     approved: "border-rtds-success text-rtds-success",
 };
 
-// زمان نهایی اجرای تمام‌شده (برای توقف Timer روی لحظهٔ پایان)
-const frozenSeconds = (performance) => {
-    if (!performance?.started_at || !performance?.ended_at) return 0;
-    const start = new Date(performance.started_at).getTime();
-    const end = new Date(performance.ended_at).getTime();
-    if (Number.isNaN(start) || Number.isNaN(end)) return 0;
-    return Math.max(0, Math.floor((end - start) / 1000));
-};
+/**
+ * مدت استاندارد اجرا به ثانیه — از تنظیمات مسابقه (execution_duration_seconds).
+ * تا وقتی بک‌اند فیلد را ندهد، مقدار پیش‌فرض ۹۰ ثانیه استفاده می‌شود.
+ */
+const DEFAULT_EXECUTION_SECONDS = 90;
+
+const durationSeconds = computed(
+    () => props.tournament?.execution_duration_seconds ?? DEFAULT_EXECUTION_SECONDS
+);
 
 const score = (value) =>
     value == null
@@ -304,25 +305,13 @@ const formNamesOf = (bout) =>
                             />
                         </div>
 
-                        <!-- Timer: فقط در running می‌شمارد؛ در scoring روی زمان پایان متوقف است -->
-                        <span
-                            class="text-4xl"
-                            :class="
-                                current.state === 'running'
-                                    ? 'text-rtds-gold'
-                                    : 'text-rtds-text-secondary'
-                            "
-                        >
-                            <Timer
-                                :running="current.state === 'running'"
-                                :started-at="current.performance.started_at"
-                                :duration-seconds="
-                                    current.state === 'running'
-                                        ? 0
-                                        : frozenSeconds(current.performance)
-                                "
-                            />
-                        </span>
+                        <!-- Timer کوچک؛ همان سه حالت Standby، کنترل از پنل اپراتور -->
+                        <Timer
+                            size="sm"
+                            :duration-seconds="durationSeconds"
+                            :started-at="current.performance.started_at"
+                            :ended-at="current.performance.ended_at"
+                        />
                     </div>
                 </template>
                 <p v-else class="text-sm text-rtds-text-tertiary">

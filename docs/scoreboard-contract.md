@@ -19,8 +19,8 @@
 | ------ | ---- | --- | ----- |
 | Standby | `Standby.vue` | نمایش **اجرای فعلی + Timer اجرا + state پایان** (`running` / `scoring`). بدون صف، بدون اجرای قبلی/بعدی. | متصل به snapshot |
 | LiveBoard | `LiveBoard.vue` | Broadcast board وضعیت **یک زمین**: `PREVIOUS ↓ CURRENT ↓ NEXT`. Timer اینجا مسئولیت اصلی نیست. | متصل به snapshot |
-| Scoring | `Scoring.vue` | نمایش زندهٔ bout در حال اجرا: ورزشکاران، فرم، جدول امتیاز قاضی‌ها، `TotalScoreArc`. | متصل به snapshot (با TODO) |
-| Result | `Result.vue` | نتیجهٔ رقابت‌های تکمیل‌شده؛ تک‌مرحله‌ای/دومرحله‌ای از `rounds.length`. | متصل به snapshot |
+| Scoring | `Scoring.vue` | نمایش زندهٔ bout در حال اجرا: ورزشکاران، فرم، جدول امتیاز قاضی‌ها، `ScoreCard` (سه امتیاز). | متصل به snapshot (با TODO) |
+| Result | `Result.vue` | نتیجهٔ رقابت‌های تکمیل‌شده؛ هر ورزشکار یک `ScoreCard` روبه‌روی دیگری (آبی چپ، قرمز راست، کادر زرد روی برنده)؛ تک‌مرحله‌ای/دومرحله‌ای از `rounds.length`. | متصل به snapshot |
 | Ranking | `Ranking.vue` | جدول رتبه‌بندی (`standings` برای round_robin + قهرمان برای knockout). | متصل به snapshot |
 | TopFour | `TopFour.vue` | چهار نفر برتر با مدال. | متصل به snapshot (فقط round_robin) |
 | Draw | `Draw.vue` | قرعه‌کشی: فرم‌ها و ورزشکاران هر دسته. | متصل به snapshot (با TODO) |
@@ -34,8 +34,9 @@
 | `NationalityBadge` | پرچم + کد سه‌حرفی انگلیسی کشور؛ دو جهت پرچم و placeholder وقتی پرچم نباشد. | داخل AthleteInfo, RankingRow |
 | `FormBadge` | ردیف `[roundLabel] [symبل فرم] [formName]` (بدون کادر)، در سه سایز (`sm/md/lg`). | Standby, LiveBoard, Scoring, Draw |
 | `SymbolContainer` | نگه‌دارندهٔ یک تصویر سمبل (فرم یا مدال) در سه سایز؛ مسیر از `Shared/Services/symbols.js`. | داخل FormBadge, TopFour, Ranking |
-| `Timer` | شمارش زمان بر اساس `running` + `startedAt` + `durationSeconds`؛ stop/start. | Standby, LiveBoard |
-| `TotalScoreArc` | Arc دقت (accuracy) + امتیاز کل + برچسب نوع امتیاز + پس‌زمینه. | Scoring |
+| `Timer` | **فقط نمایش** — شمارش معکوس از `execution_duration_seconds`. سه حالت کاملاً مشتق از props: `idle` (پیش از شروع، `startedAt` خالی) / `running` (`startedAt` هست، `endedAt` خالی) / `stopped` (هر دو هست). هیچ state تایمری در فرانت وجود ندارد؛ کنترل کامل از پنل اپراتور است. در صفر روی `00:00` می‌ایستد (نه قرمز، نه اعلام خودکار). دو سایز: `lg` در Standby، `sm` در LiveBoard. | Standby, LiveBoard |
+| `ScoreCard` | بلوک امتیاز **یک ورزشکار**: سه آیتم عمودی + آینه‌سازی برای `hong` (قرمز) + کادر زرد `winner` فقط روی جعبهٔ total. آیتم‌ها از slot می‌آیند. | Result, Scoring |
+| `ScoreItem` | یک آیتم امتیاز: ردیف `label … /max` و عدد در جعبهٔ تیره زیرش. `variant="sub"` (عدد سفید، ۱۰۰px) یا `variant="total"` (عدد رنگ تیم، ۱۳۵px). قالب ۲ رقم اعشار با **ممیز لاتین** (`8.46`، نه `۸٫۴۶`) و مقدار غایب `--`. | داخل ScoreCard |
 | `ScoringTableBase` | اسکلت جدول scoring: هدر قاضی‌ها، ریسپانسیو در ۵/۷ قاضی. | داخل سه جدول زیر |
 | `SingleScoringTable` | جدول تک‌نفره + ردیف مجموع قاضی‌ها. | Scoring |
 | `FreestyleScoringTable` | جدول فری‌استایل با ستون «اجرا». | Scoring (بعد از داشتن `execution_mode`) |
@@ -90,7 +91,7 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 | دسته | موارد |
 | ---- | ----- |
 | **دادهٔ موجود** | `category.judge_count` (۵/۷)، `bout.entries[].name/side`، `performance.form_name/form_number`، `bout.totals` (میانگین دو فرم)، `performance.result` |
-| **`[Proposed]`** | **`execution_mode`** (`SINGLE \| DOUBLE \| SINGLE-FREESTYLE`) — برای انتخاب جدول درست (الان همیشه `SingleScoringTable`)، **`judge_scores[]` per seat** — نمرهٔ هر قاضی (در display snapshot آرایهٔ `scores[]` خالی می‌آید)، **`accuracy_score`** (عدد داخل `TotalScoreArc`)، `score_type_label`، `entry.country/country_code/flag`، `logoUrl` |
+| **`[Proposed]`** | **`execution_mode`** (`SINGLE \| DOUBLE \| SINGLE-FREESTYLE`) — برای انتخاب جدول درست (الان همیشه `SingleScoringTable`)، **`judge_scores[]` per seat** — نمرهٔ هر قاضی (در display snapshot آرایهٔ `scores[]` خالی می‌آید)، **`entry.accuracy_score`** و **`entry.presentation_score`** (دو امتیاز زیرمجموعه در `ScoreItem`)، `entry.country/country_code/flag`، `logoUrl` |
 | **نکته** | `mode` متعلق به Domain است؛ Frontend حدس نمی‌زند. |
 
 ### ۳.۴ Result
@@ -135,8 +136,10 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 | 5 | `execution_duration_seconds` | `int` روی تنظیمات مسابقه | Standby, LiveBoard (Timer) |
 | 6 | `execution_mode` | `SINGLE \| DOUBLE \| SINGLE-FREESTYLE` روی category | Scoring (انتخاب جدول) |
 | 7 | `judge_scores[]` | `[{seat, values[]}]` روی performance (در display هم) | Scoring (ستون‌های قاضی) |
-| 8 | `accuracy_score` | `number` روی نتیجهٔ اجرا | Scoring (`TotalScoreArc`) |
-| 9 | `score_type_label` | `string` | Scoring (`TotalScoreArc`) |
+| 8 | `entry.accuracy_score` | `number` ۰..۴ روی entry — سقف **ثابت**، فرانت جمع نمی‌کند | Result, Scoring (`ScoreItem`) |
+| 9 | `entry.presentation_score` | `number` ۰..۶ روی entry — سقف **ثابت** | Result, Scoring (`ScoreItem`) |
+| 9 | `bout.totals[entry_id]` | `number` ۰..۱۰ = مجموع دو مورد قبل؛ از Backend می‌آید، نه جمع در فرانت | Result, Scoring (`ScoreItem variant="total"`) |
+| 9 | `bout.winner_entry_id` | `int` — تعیین `winner` و در نتیجه کادر زرد روی total | Result (`ScoreCard`) |
 | 10 | `placements[]` | `[{rank, entry_id, name, score, country, country_code, flag_url}]` روی category (مدال از `rank` مشتق می‌شود) | Ranking, TopFour |
 | 11 | `Draw.output_snapshot` | خروجی قرعه (ترتیب اجرا/جفت‌ها) | Draw |
 | 12 | `entry_members[]` | `[{name, club, position}]` روی entry | Draw, Standby, Scoring |
