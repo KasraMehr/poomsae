@@ -13,7 +13,7 @@ const page = usePage();
                 <Link :href="page.props.urls.tournaments" :class="{ active: page.component.startsWith('Tournaments/') }"><span>▤</span> مسابقات</Link>
                 <Link :href="page.props.urls.logout" method="post" as="button" class="mobile-logout">خروج</Link>
             </nav>
-            <div class="sidebar-note"><span class="dot"></span> استاندارد انفرادی<small>ثبت‌نام، اجرا و داوری<br>نسخهٔ پایلوت برگزاری</small></div>
+            <div class="sidebar-note"><span class="dot"></span> مسابقات پومسه<small>استاندارد و ابداعی<br>انفرادی، زوجی و تیمی</small></div>
             <div class="profile"><span class="avatar">{{ page.props.auth.user.name.charAt(0) }}</span><div>{{ page.props.auth.user.name }}<small>{{ page.props.auth.user.is_admin ? 'مدیر سامانه' : 'عضو مسابقه' }}</small></div><Link :href="page.props.urls.logout" method="post" as="button" class="logout">خروج</Link></div>
         </aside>
         <div class="workspace">
@@ -23,4 +23,3 @@ const page = usePage();
         </div>
     </div>
 </template>
-

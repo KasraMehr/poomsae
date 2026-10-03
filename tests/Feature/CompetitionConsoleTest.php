@@ -71,8 +71,7 @@ class CompetitionConsoleTest extends TestCase
             'request_id' => (string) Str::uuid(),
             'expected_version' => $performance->fresh()->version,
             'expected_revision' => 0,
-            'accuracy' => '2.50',
-            'presentation' => '6.00',
+            ...$this->detailedScoreInput('2.50', '6.00'),
         ]);
         $oneScore = $console->snapshot($fixture['tournament'], $fixture['admin']);
         $this->assertSame([1], $oneScore['courts'][0]['active']['submitted_seats']);

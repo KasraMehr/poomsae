@@ -19,5 +19,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/tournaments/{tournament}/competition', [CompetitionController::class, 'show']);
         });
         Route::post('/tournaments/{tournament}/performances/{performance}/scores', [CompetitionController::class, 'score'])->middleware('abilities:scores:write');
+        Route::put('/tournaments/{tournament}/categories/{category}/management-snapshot', [CompetitionController::class, 'import'])->scopeBindings()->middleware('abilities:competition:manage');
+        Route::post('/tournaments/{tournament}/categories', [CompetitionController::class, 'category'])->middleware('abilities:competition:manage');
     });
 });

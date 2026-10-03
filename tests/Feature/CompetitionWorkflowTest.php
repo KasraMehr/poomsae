@@ -49,7 +49,7 @@ class CompetitionWorkflowTest extends TestCase
         $this->assertDatabaseHas('users', ['email' => 'new-judge@example.test', 'is_admin' => false]);
         $this->post('/tournaments/'.$f['tournament']->id.'/categories', [
             'name' => 'رده دوم', 'gender' => 'female', 'minimum_age' => 12, 'maximum_age' => 20, 'format' => 'round_robin', 'performance_order' => 'phased',
-            'judge_count' => 7, 'accuracy_max' => 300, 'discard_each_end' => 1, 'rules_acknowledged' => true,
+            'judge_count' => 7, 'accuracy_max' => 400, 'discard_each_end' => 1, 'rules_acknowledged' => true,
             'form_names' => ['فرم سوم', 'فرم چهارم'],
         ])->assertSessionHasNoErrors()->assertRedirect();
         $this->assertDatabaseHas('categories', ['name' => 'رده دوم', 'judge_count' => '7', 'performance_order' => 'phased']);
@@ -86,7 +86,7 @@ class CompetitionWorkflowTest extends TestCase
         $this->schedule($f);
         $p = Performance::firstOrFail();
         $this->startScoring($f, $p);
-        $data = ['request_id' => (string) Str::uuid(), 'expected_version' => $p->fresh()->version, 'expected_revision' => 0, 'accuracy' => '2.50', 'presentation' => '6.00'];
+        $data = ['request_id' => (string) Str::uuid(), 'expected_version' => $p->fresh()->version, 'expected_revision' => 0, ...$this->detailedScoreInput('2.50', '6.00')];
         $submit = app(SubmitScore::class);
         $first = $submit->handle($f['judges'][0], $f['tournament'], $p, $data);
         $this->assertSame($first, $submit->handle($f['judges'][0], $f['tournament'], $p, $data));
@@ -105,16 +105,15 @@ class CompetitionWorkflowTest extends TestCase
         $this->schedule($fixture);
         $performance = Performance::firstOrFail();
         $this->startScoring($fixture, $performance);
-        $accuracy = ['1.00', '1.50', '2.00', '2.50', '2.75', '2.90', '3.00'];
-        $presentation = ['7.00', '6.50', '6.00', '5.50', '5.00', '4.50', '4.00'];
+        $accuracy = ['1.00', '1.50', '2.00', '2.50', '2.80', '2.90', '3.00'];
+        $presentation = ['6.00', '5.50', '5.00', '4.50', '4.00', '3.50', '3.00'];
 
         foreach ($fixture['judges'] as $seat => $judge) {
             app(SubmitScore::class)->handle($judge, $fixture['tournament'], $performance, [
                 'request_id' => (string) Str::uuid(),
                 'expected_version' => $performance->fresh()->version,
                 'expected_revision' => 0,
-                'accuracy' => $accuracy[$seat],
-                'presentation' => $presentation[$seat],
+                ...$this->detailedScoreInput($accuracy[$seat], $presentation[$seat]),
             ]);
         }
 
@@ -123,9 +122,9 @@ class CompetitionWorkflowTest extends TestCase
         ]);
 
         $result = $performance->result()->firstOrFail();
-        $this->assertSame('7.916667', $result->score);
+        $this->assertSame('6.933333', $result->score);
         $this->assertSame(2, $result->calculation_snapshot['rules']['discard_each_end']);
-        $this->assertSame([200, 250, 275], $result->calculation_snapshot['components']['accuracy']['kept_hundredths']);
+        $this->assertSame([200, 250, 280], $result->calculation_snapshot['components']['accuracy']['kept_hundredths']);
     }
 
     public function test_category_setup_rejects_two_discarded_scores_with_five_judges(): void
@@ -133,7 +132,7 @@ class CompetitionWorkflowTest extends TestCase
         $fixture = $this->competition();
         $data = [
             'name' => 'رده دوم', 'gender' => 'open', 'minimum_age' => 10, 'maximum_age' => 40,
-            'format' => 'knockout', 'execution_mode' => 'simultaneous', 'accuracy_max' => 300, 'discard_each_end' => 2,
+            'format' => 'knockout', 'execution_mode' => 'simultaneous', 'accuracy_max' => 400, 'discard_each_end' => 2,
             'rules_acknowledged' => true, 'form_names' => ['فرم سوم', 'فرم چهارم'],
         ];
 
@@ -220,6 +219,46 @@ class CompetitionWorkflowTest extends TestCase
         ])->assertSessionHasErrors('operation');
     }
 
+    public function test_round_robin_uses_all_judges_mean_to_break_equal_published_scores(): void
+    {
+        $fixture = $this->competition(5, 2, 'round_robin');
+        $this->schedule($fixture);
+        $bouts = $fixture['category']->rounds()->firstOrFail()->bouts()->with('performances')->orderBy('sequence')->get();
+        $favoredEntryId = $bouts->last()->entries()->firstOrFail()->id;
+
+        foreach ($bouts as $bout) {
+            foreach ($bout->performances->sortBy('form_number') as $performance) {
+                $this->startScoring($fixture, $performance);
+                $presentations = $performance->entry_id === $favoredEntryId
+                    ? ['5.00', '5.00', '5.00', '5.00', '6.00']
+                    : ['4.00', '5.00', '5.00', '5.00', '6.00'];
+
+                foreach ($fixture['judges'] as $seat => $judge) {
+                    app(SubmitScore::class)->handle($judge, $fixture['tournament'], $performance, [
+                        'request_id' => (string) Str::uuid(),
+                        'expected_version' => $performance->fresh()->version,
+                        'expected_revision' => 0,
+                        ...$this->detailedScoreInput('2.50', $presentations[$seat]),
+                    ]);
+                }
+
+                app(RunCompetition::class)->command($fixture['admin'], $fixture['tournament'], $performance, [
+                    'command' => 'approve', 'expected_version' => $performance->fresh()->version,
+                ]);
+            }
+        }
+
+        $standings = app(CompetitionView::class)->snapshot($fixture['tournament'], $fixture['admin'])['categories'][0]['standings'];
+
+        $this->assertSame($favoredEntryId, $standings[0]['id']);
+        $this->assertSame(1, $standings[0]['rank']);
+        $this->assertSame('15.000000', $standings[0]['score']);
+        $this->assertSame('15.400000', $standings[0]['tie_break_score']);
+        $this->assertSame(2, $standings[1]['rank']);
+        $this->assertSame('15.000000', $standings[1]['score']);
+        $this->assertSame('15.000000', $standings[1]['tie_break_score']);
+    }
+
     public function test_knockout_simultaneous_starts_and_finishes_each_pair_of_forms_together(): void
     {
         $fixture = $this->competition();
@@ -286,8 +325,7 @@ class CompetitionWorkflowTest extends TestCase
                     'request_id' => (string) Str::uuid(),
                     'expected_version' => $performance->fresh()->version,
                     'expected_revision' => 0,
-                    'accuracy' => '2.50',
-                    'presentation' => $presentations[$seat],
+                    ...$this->detailedScoreInput('2.50', $presentations[$seat]),
                 ]);
             }
 
@@ -312,10 +350,10 @@ class CompetitionWorkflowTest extends TestCase
         $this->schedule($f);
         $p = Performance::firstOrFail();
         $this->startScoring($f, $p);
-        $data = ['request_id' => (string) Str::uuid(), 'expected_version' => $p->fresh()->version, 'expected_revision' => 0, 'accuracy' => '2.50', 'presentation' => '6.00'];
+        $data = ['request_id' => (string) Str::uuid(), 'expected_version' => $p->fresh()->version, 'expected_revision' => 0, ...$this->detailedScoreInput('2.50', '6.00')];
         $submit = app(SubmitScore::class);
         $submit->handle($f['judges'][0], $f['tournament'], $p, $data);
-        $this->actingAs($f['judges'][0])->post('/tournaments/'.$f['tournament']->id.'/performances/'.$p->id.'/scores', [...$data, 'request_id' => (string) Str::uuid(), 'expected_revision' => 1, 'presentation' => '5.50', 'reason' => 'اصلاح اشتباه ورود نمره'])->assertSessionHasNoErrors();
+        $this->actingAs($f['judges'][0])->post('/tournaments/'.$f['tournament']->id.'/performances/'.$p->id.'/scores', [...$data, 'request_id' => (string) Str::uuid(), 'expected_revision' => 1, ...$this->detailedScoreInput('2.50', '5.50'), 'reason' => 'اصلاح اشتباه ورود نمره'])->assertSessionHasNoErrors();
         $this->assertDatabaseCount('score_revisions', 2);
         $this->assertDatabaseHas('score_components', ['criterion' => 'presentation', 'value_hundredths' => 550]);
     }

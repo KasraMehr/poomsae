@@ -10,6 +10,7 @@ use App\Models\ScoreSheet;
 use App\Models\Tournament;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 
 class SubmitScore
 {
@@ -30,7 +31,12 @@ class SubmitScore
                 ? JudgeAssignment::where('bout_id', $bout->id)->whereKey($data['judge_assignment_id'])->first()
                 : JudgeAssignment::where('bout_id', $bout->id)->where('user_id', $actor->id)->first();
             abort_unless($judge, 403);
-            $payload = ['performance_id' => $performance->id, 'judge_assignment_id' => $judge->id, 'proxy' => $proxy, 'expected_version' => (int) $data['expected_version'], 'expected_revision' => (int) $data['expected_revision'], 'accuracy' => $data['accuracy'], 'presentation' => $data['presentation'], 'reason' => $data['reason'] ?? null];
+            $freestyle = $category->discipline === 'freestyle';
+            $payload = ['performance_id' => $performance->id, 'judge_assignment_id' => $judge->id, 'proxy' => $proxy, 'expected_version' => (int) $data['expected_version'], 'expected_revision' => (int) $data['expected_revision'], 'score' => $data['score'] ?? null, 'accuracy' => $data['accuracy'] ?? null, 'presentation' => $data['presentation'] ?? null, 'reason' => $data['reason'] ?? null];
+            if (array_key_exists('accuracy_penalties', $data) || array_key_exists('presentation_components', $data)) {
+                $payload['accuracy_penalties'] = $data['accuracy_penalties'] ?? null;
+                $payload['presentation_components'] = $data['presentation_components'] ?? null;
+            }
             $hash = hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR));
             $existing = DB::table('idempotency_keys')->where('user_id', $actor->id)->where('request_id', $data['request_id'])->first();
             if ($existing) {
@@ -46,20 +52,33 @@ class SubmitScore
             $this->setup->check($proxy || ! $sheet || $sheet->submission_mode !== 'operator_proxy' || $sheet->status === 'draft', 'نمرهٔ دستی تأیید شده است و داور نمی‌تواند آن را بازنویسی کند.');
             $this->setup->check(! $proxy || mb_strlen(trim($data['reason'] ?? '')) >= 10, 'دلیل ثبت نمرهٔ جایگزین باید حداقل ۱۰ کاراکتر باشد.');
             $this->setup->check(! $sheet || mb_strlen(trim($data['reason'] ?? '')) >= 5, 'برای اصلاح نمره، دلیل حداقل ۵ کاراکتری بنویسید.');
-            $values = ['accuracy' => $this->calculator->hundredths($data['accuracy']), 'presentation' => $this->calculator->hundredths($data['presentation'])];
+            $values = ['accuracy' => $this->calculator->hundredths($freestyle ? $data['score'] : $data['accuracy']), 'presentation' => $freestyle ? 0 : $this->calculator->hundredths($data['presentation'])];
             $rules = $category->scoringRuleSet->definition;
+            $breakdown = ['method' => $freestyle ? 'single_score_v1' : 'direct', 'accuracy_hundredths' => $values['accuracy'], 'presentation_hundredths' => $values['presentation']];
+            $this->setup->check(($rules['input_method'] ?? null) !== 'deductions_and_components_v1'
+                || (array_key_exists('accuracy_penalties', $data) && array_key_exists('presentation_components', $data)), 'برای این رده ثبت کسرهای دقت و سه مؤلفهٔ اجرا الزامی است.');
+            if (array_key_exists('accuracy_penalties', $data) || array_key_exists('presentation_components', $data)) {
+                $this->setup->check(is_array($data['accuracy_penalties'] ?? null) && is_array($data['presentation_components'] ?? null), 'کسرهای دقت و سه مؤلفهٔ اجرا را با هم ثبت کنید.');
+                try {
+                    $detailed = $this->calculator->detailedInput($data['accuracy_penalties'], $data['presentation_components'], $rules);
+                } catch (InvalidArgumentException) {
+                    $this->setup->check(false, 'جزئیات دقت یا سه مؤلفهٔ اجرا معتبر نیست.');
+                }
+                $this->setup->check($values['accuracy'] === $detailed['accuracy'] && $values['presentation'] === $detailed['presentation'], 'مجموع نمره با جزئیات دقت و اجرا برابر نیست.');
+                $breakdown = $detailed['breakdown'];
+            }
             foreach ($values as $criterion => $value) {
                 $this->setup->check($value <= $rules[$criterion.'_max'], 'نمره از سقف مؤلفه بیشتر است.');
             }
             if (! $sheet) {
-                $sheet = ScoreSheet::create(['performance_id' => $performance->id, 'judge_assignment_id' => $judge->id, 'submitted_by' => $actor->id, 'submission_mode' => $proxy ? 'operator_proxy' : 'judge', 'revision' => 1, 'status' => $proxy ? 'draft' : 'submitted', 'submitted_at' => now()]);
+                $sheet = ScoreSheet::create(['performance_id' => $performance->id, 'judge_assignment_id' => $judge->id, 'submitted_by' => $actor->id, 'submission_mode' => $proxy ? 'operator_proxy' : 'judge', 'revision' => 1, 'breakdown' => $breakdown, 'status' => $proxy ? 'draft' : 'submitted', 'submitted_at' => now()]);
             } else {
-                $sheet->update(['submitted_by' => $actor->id, 'submission_mode' => 'judge', 'revision' => $sheet->revision + 1, 'status' => 'submitted', 'submitted_at' => now(), 'confirmed_by' => null, 'confirmed_at' => null]);
+                $sheet->update(['submitted_by' => $actor->id, 'submission_mode' => 'judge', 'revision' => $sheet->revision + 1, 'breakdown' => $breakdown, 'status' => 'submitted', 'submitted_at' => now(), 'confirmed_by' => null, 'confirmed_at' => null]);
             }
             foreach ($values as $criterion => $value) {
                 DB::table('score_components')->updateOrInsert(['score_sheet_id' => $sheet->id, 'criterion' => $criterion], ['value_hundredths' => $value]);
             }
-            DB::table('score_revisions')->insert(['score_sheet_id' => $sheet->id, 'changed_by' => $actor->id, 'revision' => $sheet->revision, 'snapshot' => json_encode($values, JSON_THROW_ON_ERROR), 'reason' => $data['reason'] ?? null, 'created_at' => now()]);
+            DB::table('score_revisions')->insert(['score_sheet_id' => $sheet->id, 'changed_by' => $actor->id, 'revision' => $sheet->revision, 'snapshot' => json_encode([...$values, 'breakdown' => $breakdown], JSON_THROW_ON_ERROR), 'reason' => $data['reason'] ?? null, 'created_at' => now()]);
             $response = ['score_sheet_id' => $sheet->id, 'revision' => $sheet->revision, 'requires_confirmation' => $sheet->status === 'draft'];
             DB::table('idempotency_keys')->insert(['user_id' => $actor->id, 'request_id' => $data['request_id'], 'payload_hash' => $hash, 'response_status' => 200, 'response_body' => json_encode($response, JSON_THROW_ON_ERROR), 'created_at' => now()]);
             $this->setup->audit($actor, $tournament, $proxy ? 'score.proxy_submitted' : 'score.submitted', 'score_sheet', $sheet->id, ['revision' => $sheet->revision, 'judge_assignment_id' => $judge->id, 'reason' => $data['reason'] ?? null]);

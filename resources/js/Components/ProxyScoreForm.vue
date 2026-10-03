@@ -3,18 +3,34 @@ import { computed, watch } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { requestId } from '../requestId';
 import FormErrors from './FormErrors.vue';
+import ScoreEntryFields from './ScoreEntryFields.vue';
 
 const props = defineProps({ performance: Object, rules: Object, endpoint: String });
 const missingJudges = computed(() => props.performance.judges.filter(judge => props.performance.missing_seats.includes(judge.seat)));
 const form = useForm({
     request_id: requestId(), judge_assignment_id: '', expected_version: props.performance.version,
-    expected_revision: 0, accuracy: '', presentation: '', reason: '',
+    expected_revision: 0, accuracy: '', presentation: '',
+    accuracy_penalties: props.rules.input_method === 'deductions_and_components_v1' ? [] : null,
+    presentation_components: props.rules.input_method === 'deductions_and_components_v1' ? ['', '', ''] : null,
+    reason: '',
 });
+const canSubmit = computed(() => !Array.isArray(form.presentation_components) || form.presentation_components.length === 3 && form.presentation_components.every(value => value !== '' && value !== null));
 watch(() => props.performance.version, version => form.expected_version = version);
-const submit = () => form.transform(data => ({ ...data, accuracy: String(data.accuracy), presentation: String(data.presentation) })).post(props.endpoint, {
+const submit = () => form.transform(data => {
+    const payload = { ...data, accuracy: String(data.accuracy), presentation: String(data.presentation) };
+    if (props.rules.input_method === 'single_score_v1') {
+        payload.score = payload.accuracy;
+        delete payload.accuracy;
+        delete payload.presentation;
+    }
+    if (Array.isArray(data.accuracy_penalties)) {
+        payload.presentation_components = data.presentation_components.map(value => Number(value).toFixed(2));
+    } else { delete payload.accuracy_penalties; delete payload.presentation_components; }
+    return payload;
+}).post(props.endpoint, {
     preserveScroll: true,
     onSuccess: () => {
-        form.reset('judge_assignment_id', 'accuracy', 'presentation', 'reason');
+        form.reset('judge_assignment_id', 'accuracy', 'presentation', 'accuracy_penalties', 'presentation_components', 'reason');
         form.request_id = requestId();
         form.expected_revision = 0;
         form.expected_version = props.performance.version;
@@ -32,14 +48,11 @@ const submit = () => form.transform(data => ({ ...data, accuracy: String(data.ac
                 <option value="" disabled>انتخاب صندلی داور</option>
                 <option v-for="judge in missingJudges" :key="judge.id" :value="judge.id">صندلی {{ judge.seat }} · {{ judge.name }}</option>
             </select>
-            <div class="score-inputs compact">
-                <div><label :for="`proxy-accuracy-${performance.id}`">دقت · از {{ rules.accuracy_max / 100 }}</label><input :id="`proxy-accuracy-${performance.id}`" v-model="form.accuracy" type="number" min="0" :max="rules.accuracy_max / 100" step="0.01" inputmode="decimal" required dir="ltr"></div>
-                <div><label :for="`proxy-presentation-${performance.id}`">اجرا · از {{ rules.presentation_max / 100 }}</label><input :id="`proxy-presentation-${performance.id}`" v-model="form.presentation" type="number" min="0" :max="rules.presentation_max / 100" step="0.01" inputmode="decimal" required dir="ltr"></div>
-            </div>
+            <ScoreEntryFields :form="form" :rules="rules" :id-prefix="`proxy-${performance.id}`" :disabled="form.processing" :reset-key="form.request_id" />
             <label :for="`proxy-reason-${performance.id}`">دلیل و شرح قطعی ارتباط</label>
             <textarea :id="`proxy-reason-${performance.id}`" v-model="form.reason" required minlength="10" maxlength="500" placeholder="مثال: تبلت صندلی ۳ از شبکه خارج شد و سرداور ثبت جایگزین را تأیید کرد."></textarea>
             <FormErrors :errors="form.errors" />
-            <button class="button danger" :disabled="form.processing">ثبت نمرهٔ جایگزین</button>
+            <button class="button danger" :disabled="form.processing || !canSubmit">ثبت نمرهٔ جایگزین</button>
         </form>
     </details>
 </template>

@@ -16,11 +16,10 @@ usePoll(2000,{only:['tournament']});
         <section class="judge-device-head"><div><span class="eyebrow">JUDGE SCORING DEVICE</span><h1>میز داوری</h1><p>{{ tournament.name }}</p></div><div class="judge-seat-label">ثبت امن و مستقیم نمره</div></section>
         <section v-if="!assigned.length" class="empty"><span class="empty-icon">◷</span><h2>منتظر شروع اجرای بعدی</h2><p>این صفحه هر دو ثانیه تازه می‌شود. پس از پایان اجرا، فرم ثبت نمره فعال می‌شود.</p></section>
         <section v-for="{category,bout,performance} in assigned" :key="performance.id" class="panel judging-card">
-            <div class="bout-heading"><div><span class="eyebrow">{{ category.name }} · {{ tournament.courts.find(c => c.id === bout.court_id)?.name }}</span><h2>{{ bout.entries.find(e => e.id === performance.entry_id)?.name }}</h2><p>{{ performance.form_name }} · فرم {{ performance.form_number }} از ۲</p></div><span class="badge running">{{ performance.status === 'running' ? 'در حال اجرا' : 'نوبت ثبت نمره' }}</span></div>
+            <div class="bout-heading"><div><span class="eyebrow">{{ category.name }} · {{ tournament.courts.find(c => c.id === bout.court_id)?.name }}</span><h2>{{ bout.entries.find(e => e.id === performance.entry_id)?.name }}</h2><p>{{ performance.form_name }}<span v-if="category.forms_per_round > 1"> · فرم {{ performance.form_number }} از {{ category.forms_per_round }}</span></p></div><span class="badge running">{{ performance.status === 'running' ? 'در حال اجرا' : 'نوبت ثبت نمره' }}</span></div>
             <JudgeScoreForm v-if="performance.status === 'scoring'" :key="performance.id + '-scoring'" :performance="performance" :rules="category.rules" :endpoint="base + '/performances/' + performance.id + '/scores'"/>
             <div v-else class="notice">اجرا در جریان است. پس از پایان توسط اپراتور، نمره را ثبت کنید.</div>
         </section>
         <p class="judge-offline-note">در قطع شبکه، پیش‌نویس روی همین دستگاه می‌ماند. فقط پیام موفق سرور به معنی ثبت نمره است.</p>
     </div></ArenaLayout>
 </template>
-

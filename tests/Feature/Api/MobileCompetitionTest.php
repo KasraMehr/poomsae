@@ -33,8 +33,7 @@ class MobileCompetitionTest extends TestCase
             'request_id' => (string) Str::uuid(),
             'expected_version' => $performance->fresh()->version,
             'expected_revision' => 0,
-            'accuracy' => '2.50',
-            'presentation' => '6.00',
+            ...$this->detailedScoreInput('2.50', '6.00'),
         ])->assertOk()->assertJsonPath('data.revision', 1);
 
         $this->assertDatabaseHas('score_sheets', [
@@ -51,7 +50,7 @@ class MobileCompetitionTest extends TestCase
         $this->startScoring($fixture, $performance);
         $payload = [
             'request_id' => (string) Str::uuid(), 'expected_version' => $performance->fresh()->version,
-            'expected_revision' => 0, 'accuracy' => '2.50', 'presentation' => '6.00',
+            'expected_revision' => 0, ...$this->detailedScoreInput('2.50', '6.00'),
         ];
         $url = '/api/v1/tournaments/'.$fixture['tournament']->id.'/performances/'.$performance->id.'/scores';
 

@@ -30,8 +30,7 @@ class ProxyScoringTest extends TestCase
             'judge_assignment_id' => $assignment->id,
             'expected_version' => $performance->fresh()->version,
             'expected_revision' => 0,
-            'accuracy' => '2.50',
-            'presentation' => '6.00',
+            ...$this->detailedScoreInput('2.50', '6.00'),
             'reason' => 'تبلت صندلی یک از شبکه خارج شد.',
         ])->assertSessionHasNoErrors()->assertRedirect();
 
@@ -64,7 +63,7 @@ class ProxyScoringTest extends TestCase
         $payload = [
             'request_id' => (string) Str::uuid(), 'judge_assignment_id' => $assignment->id,
             'expected_version' => $performance->fresh()->version, 'expected_revision' => 0,
-            'accuracy' => '2.50', 'presentation' => '6.00', 'reason' => 'کوتاه',
+            ...$this->detailedScoreInput('2.50', '6.00'), 'reason' => 'کوتاه',
         ];
 
         $this->actingAs($fixture['judges'][0])->post($url, $payload)->assertForbidden();
@@ -72,7 +71,7 @@ class ProxyScoringTest extends TestCase
 
         $this->actingAs($fixture['judges'][0])->post(route('judging.store', [$fixture['tournament'], $performance]), [
             'request_id' => (string) Str::uuid(), 'expected_version' => $performance->fresh()->version,
-            'expected_revision' => 0, 'accuracy' => '2.50', 'presentation' => '6.00',
+            'expected_revision' => 0, ...$this->detailedScoreInput('2.50', '6.00'),
         ])->assertSessionHasNoErrors();
 
         $this->actingAs($fixture['admin'])->post($url, [...$payload, 'request_id' => (string) Str::uuid(), 'reason' => 'ارتباط داور قطع شده است.'])
@@ -92,8 +91,7 @@ class ProxyScoringTest extends TestCase
             'judge_assignment_id' => $assignment->id,
             'expected_version' => $performance->fresh()->version,
             'expected_revision' => 0,
-            'accuracy' => '2.50',
-            'presentation' => '6.00',
+            ...$this->detailedScoreInput('2.50', '6.00'),
             'reason' => 'تبلت صندلی یک از شبکه خارج شد.',
         ])->assertSessionHasNoErrors();
 
@@ -102,8 +100,7 @@ class ProxyScoringTest extends TestCase
                 'request_id' => (string) Str::uuid(),
                 'expected_version' => $performance->fresh()->version,
                 'expected_revision' => 0,
-                'accuracy' => '2.50',
-                'presentation' => '6.00',
+                ...$this->detailedScoreInput('2.50', '6.00'),
             ]);
         }
 
@@ -119,8 +116,7 @@ class ProxyScoringTest extends TestCase
             'request_id' => (string) Str::uuid(),
             'expected_version' => $performance->fresh()->version,
             'expected_revision' => 0,
-            'accuracy' => '2.50',
-            'presentation' => '6.00',
+            ...$this->detailedScoreInput('2.50', '6.00'),
         ])->assertStatus(409);
 
         $reviewer = User::factory()->create();
@@ -142,8 +138,7 @@ class ProxyScoringTest extends TestCase
             'request_id' => (string) Str::uuid(),
             'expected_version' => $performance->fresh()->version,
             'expected_revision' => 1,
-            'accuracy' => '2.40',
-            'presentation' => '5.90',
+            ...$this->detailedScoreInput('2.40', '5.90'),
             'reason' => 'ارسال دیرهنگام تبلت داور',
         ])->assertSessionHasErrors('operation');
 
@@ -167,8 +162,7 @@ class ProxyScoringTest extends TestCase
             'judge_assignment_id' => $assignment->id,
             'expected_version' => $performance->fresh()->version,
             'expected_revision' => 0,
-            'accuracy' => '2.50',
-            'presentation' => '6.00',
+            ...$this->detailedScoreInput('2.50', '6.00'),
             'reason' => 'تبلت صندلی یک از شبکه خارج شد.',
         ])->assertSessionHasNoErrors();
 
@@ -177,8 +171,7 @@ class ProxyScoringTest extends TestCase
             'request_id' => (string) Str::uuid(),
             'expected_version' => $performance->fresh()->version,
             'expected_revision' => 1,
-            'accuracy' => '2.40',
-            'presentation' => '5.90',
+            ...$this->detailedScoreInput('2.40', '5.90'),
             'reason' => 'اصلاح نمرهٔ ثبت‌شده توسط اپراتور',
         ])->assertSessionHasNoErrors();
 

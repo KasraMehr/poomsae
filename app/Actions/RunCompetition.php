@@ -4,6 +4,7 @@ namespace App\Actions;
 
 use App\Models\Bout;
 use App\Models\Category;
+use App\Models\CompetitionRound;
 use App\Models\Performance;
 use App\Models\Result;
 use App\Models\Tournament;
@@ -23,6 +24,7 @@ class RunCompetition
             $performance = Performance::lockForUpdate()->findOrFail($performance->id);
             $bout = Bout::lockForUpdate()->findOrFail($performance->bout_id);
             $category = Category::lockForUpdate()->findOrFail($bout->category_id);
+            $round = CompetitionRound::lockForUpdate()->findOrFail($bout->competition_round_id);
             abort_unless($category->tournament_id === $tournament->id, 404);
             abort_unless($performance->version === (int) $data['expected_version'], 409, 'وضعیت اجرا تغییر کرده؛ صفحه را تازه کنید.');
             $this->setup->check(in_array($tournament->status, ['ready', 'running']), 'مسابقه آماده یا در حال برگزاری نیست.');
@@ -30,6 +32,17 @@ class RunCompetition
             $before = $performance->toArray();
             if ($data['command'] === 'start') {
                 $this->setup->check($performance->status === 'pending', 'فقط اجرای در انتظار را می‌توان شروع کرد.');
+                $this->setup->check($category->discipline === 'freestyle' || $performance->poomsae_form_id !== null && ($category->planned_round_count === null || $round->forms_drawn_at !== null && count($round->form_sequence ?? []) === 2), 'در انتظار قرعهٔ پومسه؛ قبل از تعیین فرم‌های مرحله، اجرا شروع نمی‌شود.');
+                $this->setup->check($category->discipline !== 'freestyle' || $performance->music_path !== null, 'فایل موسیقی اجرای ابداعی لازم است.');
+                if ($round->sequence > 1) {
+                    $previousRound = $category->rounds()->where('sequence', $round->sequence - 1)->first();
+                    $this->setup->check($previousRound && $previousRound->status === 'completed', 'مرحلهٔ قبل باید قبل از شروع این مرحله کامل شود.');
+                    if ($category->format === 'knockout') {
+                        $expectedEntries = $previousRound->bouts()->pluck('winner_entry_id')->sort()->values()->all();
+                        $actualEntries = $round->bouts()->with('entries')->get()->flatMap(fn ($item) => $item->entries->pluck('id'))->sort()->values()->all();
+                        $this->setup->check($expectedEntries === $actualEntries, 'جدول مرحلهٔ جدید باید دقیقاً شامل برندگان مرحلهٔ قبل باشد.');
+                    }
+                }
                 $judgeIds = $bout->judges()->orderBy('user_id')->lockForUpdate()->pluck('user_id');
                 User::whereIn('id', $judgeIds)->orderBy('id')->lockForUpdate()->get();
                 $this->setup->check($bout->court_id !== null && $tournament->courts()->whereKey($bout->court_id)->exists(), 'زمین معتبر لازم است.');
@@ -55,7 +68,7 @@ class RunCompetition
                     }
                 }
                 $bout->update(['status' => 'running']);
-                $bout->round->update(['status' => 'running']);
+                $round->update(['status' => 'running', 'started_at' => $round->started_at ?? now()]);
                 $tournament->update(['status' => 'running']);
             } elseif ($data['command'] === 'finish') {
                 $this->setup->check($performance->status === 'running', 'فقط اجرای در حال اجرا پایان می‌یابد.');
@@ -92,13 +105,13 @@ class RunCompetition
         $performances = $bout->performances()->with('result')->get();
         $totals = [];
         foreach ($performances->groupBy('entry_id') as $entryId => $forms) {
-            if ($forms->count() !== 2 || ! $forms->every(fn ($p) => $p->status === 'approved' && $p->result !== null)) {
+            if ($forms->count() !== $bout->category->forms_per_round || ! $forms->every(fn ($p) => $p->status === 'approved' && $p->result !== null)) {
                 continue;
             }
             $sum = $forms->sum(fn ($p) => $this->calculator->micros($p->result->score));
-            $totals[$entryId] = ($bout->category->scoringRuleSet->definition['aggregation'] ?? 'mean_two_forms') === 'sum_two_forms'
-                ? $sum
-                : intdiv($sum + 1, 2);
+            $totals[$entryId] = ($bout->category->scoringRuleSet->definition['aggregation'] ?? 'mean_two_forms') === 'mean_two_forms'
+                ? intdiv($sum + 1, 2)
+                : $sum;
         }
 
         return $totals;
@@ -130,7 +143,7 @@ class RunCompetition
     {
         $totals = [];
         foreach ($bout->performances()->with('result')->get()->groupBy('entry_id') as $entryId => $forms) {
-            if ($forms->count() !== 2 || ! $forms->every(fn ($performance) => $performance->status === 'approved' && $performance->result !== null)) {
+            if ($forms->count() !== $bout->category->forms_per_round || ! $forms->every(fn ($performance) => $performance->status === 'approved' && $performance->result !== null)) {
                 continue;
             }
 
@@ -140,9 +153,9 @@ class RunCompetition
             }
 
             $sum = $restoredMeans->sum();
-            $totals[$entryId] = ($bout->category->scoringRuleSet->definition['aggregation'] ?? 'mean_two_forms') === 'sum_two_forms'
-                ? $sum
-                : intdiv($sum + 1, 2);
+            $totals[$entryId] = ($bout->category->scoringRuleSet->definition['aggregation'] ?? 'mean_two_forms') === 'mean_two_forms'
+                ? intdiv($sum + 1, 2)
+                : $sum;
         }
 
         return $totals;
@@ -172,7 +185,7 @@ class RunCompetition
 
         arsort($comparison, SORT_NUMERIC);
         $winnerEntryId = array_key_first($comparison);
-        $bout->update(['status' => 'completed', 'winner_entry_id' => $winnerEntryId, 'resolved_by' => $actor->id, 'resolution_reason' => $isPrimaryTie ? 'میانگین همهٔ نمره‌های داوران با بازگرداندن کمینه و بیشینه در دو فرم' : 'بالاترین نتیجهٔ دو فرم']);
+        $bout->update(['status' => 'completed', 'winner_entry_id' => $winnerEntryId, 'resolved_by' => $actor->id, 'resolution_reason' => $isPrimaryTie ? 'میانگین همهٔ نمره‌های داوران با بازگرداندن کمینه و بیشینه' : 'بالاترین نتیجه']);
         $this->completeRound($bout);
         if ($isPrimaryTie) {
             $this->setup->audit($actor, $tournament, 'bout.tie_break_resolved', 'bout', $bout->id, [
@@ -236,6 +249,7 @@ class RunCompetition
             foreach ($categories as $category) {
                 $round = $category->rounds()->orderByDesc('sequence')->first();
                 $this->setup->check($round && $round->status === 'completed', 'همهٔ رده‌ها باید دور کامل‌شده داشته باشند.');
+                $this->setup->check($category->planned_round_count === null || $round->sequence === $category->planned_round_count && ! $category->rounds()->where('status', '!=', 'completed')->exists(), 'تمام مراحل از پیش تعیین‌شده باید کامل شوند.');
                 $this->setup->check($category->format !== 'knockout' || $round->bouts()->count() === 1, 'فینال تمام رده‌های تک‌حذفی باید برگزار شود.');
             }
             $tournament->update(['status' => 'completed']);

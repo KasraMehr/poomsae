@@ -27,7 +27,9 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('/categories/{category}/entries', [OperationsController::class, 'entry'])->name('operations.entry');
         Route::patch('/entries/{entry}/status', [OperationsController::class, 'entryStatus'])->name('operations.entry.status');
         Route::post('/categories/{category}/rounds', [OperationsController::class, 'schedule'])->name('operations.schedule');
+        Route::post('/categories/{category}/forms/draw', [OperationsController::class, 'drawForms'])->name('operations.forms.draw');
         Route::post('/performances/{performance}/command', [OperationsController::class, 'command'])->name('operations.command');
+        Route::get('/performances/{performance}/music', [OperationsController::class, 'music'])->name('operations.performance.music');
         Route::post('/performances/{performance}/proxy-scores', ProxyScoreController::class)->name('operations.proxy-score');
         Route::post('/performances/{performance}/proxy-scores/{scoreSheet}/confirm', [ProxyScoreController::class, 'confirm'])->name('operations.proxy-score.confirm');
         Route::post('/bouts/{bout}/resolve', [OperationsController::class, 'resolve'])->name('operations.resolve');

@@ -90,7 +90,7 @@ class CompetitionSecurityTest extends TestCase
         $this->startScoring($f, $p);
         $outsider = User::factory()->create();
         $f['tournament']->users()->attach($outsider, ['role' => 'judge']);
-        $data = ['request_id' => (string) Str::uuid(), 'expected_version' => $p->fresh()->version, 'expected_revision' => 0, 'accuracy' => '3.01', 'presentation' => '6.00'];
+        $data = ['request_id' => (string) Str::uuid(), 'expected_version' => $p->fresh()->version, 'expected_revision' => 0, 'accuracy' => '4.01', 'presentation' => '6.00'];
         $url = '/tournaments/'.$f['tournament']->id.'/performances/'.$p->id.'/scores';
         $this->actingAs($outsider)->post($url, $data)->assertForbidden();
         $this->actingAs($f['judges'][0])->post($url, $data)->assertSessionHasErrors('operation');
@@ -156,7 +156,7 @@ class CompetitionSecurityTest extends TestCase
         $this->scoreAll($f, $p);
         $record = DB::table('idempotency_keys')->where('user_id', $f['judges'][0]->id)->first();
         $url = '/tournaments/'.$f['tournament']->id.'/performances/'.$p->id.'/scores';
-        $data = ['request_id' => $record->request_id, 'expected_version' => $p->fresh()->version, 'expected_revision' => 1, 'accuracy' => '2.00', 'presentation' => '6.00', 'reason' => 'تصحیح نمره'];
+        $data = ['request_id' => $record->request_id, 'expected_version' => $p->fresh()->version, 'expected_revision' => 1, ...$this->detailedScoreInput('2.00', '6.00'), 'reason' => 'تصحیح نمره'];
         $this->actingAs($f['judges'][0])->post($url, $data)->assertStatus(409);
         app(RunCompetition::class)->command($f['admin'], $f['tournament'], $p, ['command' => 'approve', 'expected_version' => $p->fresh()->version]);
         $this->post($url, [...$data, 'request_id' => (string) Str::uuid(), 'expected_version' => $p->fresh()->version])->assertSessionHasErrors('operation');

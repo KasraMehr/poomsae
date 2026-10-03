@@ -82,7 +82,7 @@ class CompetitionFlowTest extends TestCase
         $scoreUrl = '/tournaments/'.$fixture['tournament']->id.'/performances/'.$performance->id.'/scores';
         $score = [
             'request_id' => (string) Str::uuid(), 'expected_version' => $performance->version,
-            'expected_revision' => 0, 'accuracy' => '2.50', 'presentation' => '6.00',
+            'expected_revision' => 0, ...$this->detailedScoreInput('2.50', '6.00'),
         ];
         $this->actingAs($fixture['judges'][0])->post($scoreUrl, $score)->assertSessionHasErrors('operation');
         $this->assertDatabaseCount('score_sheets', 0);

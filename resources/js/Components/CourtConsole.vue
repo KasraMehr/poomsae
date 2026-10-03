@@ -31,7 +31,8 @@ const confirmProxyScore = (performance, score) => {
         <section v-if="court.active" class="active-performance" :class="court.active.status">
             <span class="eyebrow">{{ court.active.category_name }} · {{ court.active.round_name }} · رقابت {{ court.active.bout_sequence }}</span>
             <h2>{{ court.active.entry_name }}<template v-if="court.active.paired_entry_name && court.active.status === 'running'"> و {{ court.active.paired_entry_name }}</template></h2>
-            <p>{{ court.active.form_name }} · فرم {{ court.active.form_number }} از ۲</p>
+            <p>{{ court.active.form_name }}<span v-if="court.active.forms_per_round > 1"> · فرم {{ court.active.form_number }} از {{ court.active.forms_per_round }}</span></p>
+            <audio v-if="court.active.music_url" :src="court.active.music_url" controls preload="none">پخش موسیقی پشتیبانی نمی‌شود.</audio>
 
             <div v-if="court.active.status === 'scoring'" class="judge-readiness">
                 <div class="readiness-title"><b>{{ court.active.submitted_count }} از {{ court.active.judge_count }}</b><span>نمره دریافت شده</span></div>
@@ -45,7 +46,7 @@ const confirmProxyScore = (performance, score) => {
             <div v-if="court.active.pending_review_seats.length" class="proxy-score">
                 <h3>تأیید نمرهٔ جایگزین</h3>
                 <div v-for="score in court.active.scores.filter(score => score.submission_mode === 'operator_proxy' && score.status === 'draft')" :key="score.id" class="judge-score-row">
-                    <span>صندلی {{ score.seat }} · {{ (score.values.accuracy / 100).toFixed(2) }} + {{ (score.values.presentation / 100).toFixed(2) }}</span>
+                    <span>صندلی {{ score.seat }} · {{ (score.values.accuracy / 100).toFixed(2) }}<template v-if="court.active.discipline !== 'freestyle'"> + {{ (score.values.presentation / 100).toFixed(2) }}</template></span>
                     <button type="button" class="button secondary small" :disabled="confirmation.processing || score.submitted_by === page.props.auth.user.id" @click="confirmProxyScore(court.active, score)">تأیید توسط مسئول دوم</button>
                 </div>
                 <small v-if="court.active.scores.some(score => score.status === 'draft' && score.submitted_by === page.props.auth.user.id)">ثبت‌کنندهٔ نمره نمی‌تواند همان نمره را تأیید کند.</small>

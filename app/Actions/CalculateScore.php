@@ -28,6 +28,62 @@ class CalculateScore
         return (int) $whole * 1000000 + (int) str_pad($fraction, 6, '0');
     }
 
+    /**
+     * @param  array<int, string>  $accuracyPenalties
+     * @param  array<int, string>  $presentationComponents
+     * @param  array<string, mixed>  $rules
+     * @return array{accuracy:int, presentation:int, breakdown:array<string, mixed>}
+     */
+    public function detailedInput(array $accuracyPenalties, array $presentationComponents, array $rules): array
+    {
+        if (($rules['input_method'] ?? null) !== 'deductions_and_components_v1'
+            || (int) ($rules['accuracy_max'] ?? 0) !== 400
+            || (int) ($rules['presentation_max'] ?? 0) !== 600
+            || ! array_is_list($accuracyPenalties)
+            || count($accuracyPenalties) > 40
+            || ! array_is_list($presentationComponents)
+            || count($presentationComponents) !== 3) {
+            throw new InvalidArgumentException('Invalid detailed scoring rules or fields.');
+        }
+
+        $penalties = [];
+        foreach ($accuracyPenalties as $penalty) {
+            if (! in_array($penalty, ['0.10', '0.30'], true)) {
+                throw new InvalidArgumentException('Invalid accuracy deduction.');
+            }
+            $penalties[] = $this->hundredths($penalty);
+        }
+        $accuracy = 400 - array_sum($penalties);
+        if ($accuracy < 0) {
+            throw new InvalidArgumentException('Accuracy deductions exceed four points.');
+        }
+
+        $components = [];
+        foreach ($presentationComponents as $component) {
+            if (! is_string($component)) {
+                throw new InvalidArgumentException('Invalid presentation component.');
+            }
+            $value = $this->hundredths($component);
+            if ($value > 200) {
+                throw new InvalidArgumentException('Presentation component exceeds two points.');
+            }
+            $components[] = $value;
+        }
+        $presentation = array_sum($components);
+
+        return [
+            'accuracy' => $accuracy,
+            'presentation' => $presentation,
+            'breakdown' => [
+                'method' => 'deductions_and_components_v1',
+                'accuracy_penalties_hundredths' => $penalties,
+                'presentation_components_hundredths' => $components,
+                'accuracy_hundredths' => $accuracy,
+                'presentation_hundredths' => $presentation,
+            ],
+        ];
+    }
+
     /** @param array<string, mixed> $calculationSnapshot */
     public function restoredMeanMicros(array $calculationSnapshot): ?int
     {

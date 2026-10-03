@@ -30,12 +30,16 @@ class CompetitionConsole
                             ...$performance,
                             'category_id' => $category['id'],
                             'category_name' => $category['name'],
+                            'forms_per_round' => $category['forms_per_round'],
+                            'discipline' => $category['discipline'],
                             'format' => $category['format'],
                             'execution_mode' => $category['execution_mode'],
                             'performance_order' => $category['performance_order'],
                             'score_based' => $category['score_based'],
                             'round_id' => $round['id'],
                             'round_name' => $round['name'],
+                            'forms_ready' => $round['forms_ready'],
+                            'previous_completed' => $round['previous_completed'],
                             'bout_id' => $bout['id'],
                             'bout_sequence' => $bout['sequence'],
                             'bout_status' => $bout['status'],
@@ -65,6 +69,7 @@ class CompetitionConsole
                 'active' => $courtPerformances->first(fn (array $performance) => in_array($performance['status'], ['running', 'scoring'], true)),
                 'queue' => $courtPerformances
                     ->filter(fn (array $performance) => $performance['status'] === 'pending')
+                    ->filter(fn (array $performance) => $performance['forms_ready'] && $performance['previous_completed'])
                     ->filter(fn (array $performance) => $this->isReadyForCourt($performance, $courtPerformances))
                     ->sortBy(fn (array $performance) => sprintf('%010d-%010d-%02d-%010d', $performance['category_id'], $performance['round_id'], $performance['form_number'], $performance['bout_sequence']))
                     ->take(5)
