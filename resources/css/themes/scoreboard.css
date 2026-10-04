@@ -50,6 +50,15 @@
     /* ===== Judge ===== */
     --color-rtds-judge: #e9c400;
 
+    /* ===== Tokens اضافه‌شده از طراحی‌های Figma Scoreboard ===== */
+    --color-rtds-text-light: #e1e1ef;
+    --color-rtds-text-muted: #64748b;
+    --color-rtds-surface-light: #f1f5f9;
+    --color-rtds-gold: #ffcc00;
+    --color-rtds-gold-bright: #fcd116;
+    --color-rtds-blue-soft: #94b7ff;
+    --color-rtds-divider: #434656;
+
     /* ===== Font =====
      * متغیر است: بسته به فارسی/انگلیسی بودن محتوا عوض می‌شود.
      * نسخهٔ فعلی (فارسی) موقتی است و پس از مشخص شدن توسط کارفرما ویرایش می‌شود.

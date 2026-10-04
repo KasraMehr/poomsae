@@ -2,6 +2,9 @@
 import { computed } from "vue";
 import { Head } from "@inertiajs/vue3";
 import ScoreboardLayout from "../../Shared/Layouts/ScoreboardLayout.vue";
+import ScoreboardHeader from "../../Components/scoreboard/ScoreboardHeader.vue";
+import ScoreCard from "../../Components/scoreboard/ScoreCard.vue";
+import ScoreItem from "../../Components/scoreboard/ScoreItem.vue";
 
 /**
  * صفحهٔ placeholder — هنوز از Backend رندر نمی‌شود
@@ -30,14 +33,30 @@ const categories = computed(() =>
         const bouts = category.rounds.flatMap((round) =>
             round.bouts
                 .filter((bout) => bout.status === "completed")
-                .map((bout) => ({
-                    id: bout.id,
-                    label: `${round.name} · رقابت ${bout.sequence}`,
-                    winner: bout.entries.find(
-                        (entry) => entry.id === bout.winner_entry_id,
-                    )?.name,
-                    total: bout.totals?.[bout.winner_entry_id] ?? null,
-                })),
+                .map((bout) => {
+                    // هر ورزشکار یک بلوک امتیاز دارد؛ برنده فقط کادر زرد می‌گیرد.
+                    const sides = bout.entries.map((entry) => ({
+                        side: entry.side ?? "chung",
+                        isWinner: entry.id === bout.winner_entry_id,
+                        accuracy: entry.accuracy_score ?? null,
+                        presentation: entry.presentation_score ?? null,
+                        total: bout.totals?.[entry.id] ?? null,
+                    }));
+
+                    return {
+                        id: bout.id,
+                        label: `${round.name} · رقابت ${bout.sequence}`,
+                        winner: bout.entries.find(
+                            (entry) => entry.id === bout.winner_entry_id,
+                        )?.name ?? null,
+                        winnerSide: bout.entries.find(
+                            (entry) => entry.id === bout.winner_entry_id,
+                        )?.side ?? null,
+                        sides,
+                        total: bout.totals?.[bout.winner_entry_id] ?? null,
+                        roundsCount: category.rounds.length,
+                    };
+                }),
         );
         return {
             id: category.id,
@@ -51,13 +70,14 @@ const categories = computed(() =>
     }),
 );
 
-const score = (value) =>
-    value == null
-        ? "—"
-        : Number(value).toLocaleString("fa-IR", {
-              minimumFractionDigits: 3,
-              maximumFractionDigits: 6,
-          });
+/*
+ * TODO / Proposed Contract (مرحلهٔ بعد):
+ * - country / country_code / flag برندگان → AthleteInfo کامل‌تر
+ * - کلید سمبل فرم هر رقابت (`form_number`)
+ * - entry.accuracy_score / presentation_score (الان null → «--»)
+ *   مجموع (total) از bout.totals می‌آید و در فرانت جمع نمی‌شود.
+ * - logoUrl هدر
+ */
 </script>
 
 <template>
@@ -67,9 +87,16 @@ const score = (value) =>
         :center="tournament?.name ?? ''"
         category=""
     >
+        <template #header>
+            <ScoreboardHeader
+                :stage="stage"
+                :event-title="tournament?.name ?? ''"
+            />
+        </template>
+
         <!--
           ساختار placeholder: فقط داده‌ای که همین الان در snapshot هست.
-          Proposed Contract: photo_url
+          Proposed Contract: country / country_code / flag
         -->
         <p
             v-if="!categories.some((category) => category.bouts.length)"
@@ -92,23 +119,47 @@ const score = (value) =>
                 </span>
             </div>
 
-            <ul v-if="category.bouts.length">
+            <ul v-if="category.bouts.length" class="space-y-3">
                 <li
                     v-for="bout in category.bouts"
                     :key="bout.id"
-                    class="mb-3 flex items-center justify-between rounded-xl bg-rtds-bg-card px-5 py-4"
+                    class="rounded-xl bg-rtds-bg-card px-5 py-4"
                 >
-                    <div>
-                        <span class="block text-xs text-rtds-text-tertiary">
-                            {{ bout.label }}
-                        </span>
-                        <b v-if="bout.winner" class="mt-1 block">
-                            {{ bout.winner }}
-                        </b>
+                    <span class="block text-xs text-rtds-text-tertiary">
+                        {{ bout.label }}
+                    </span>
+
+                    <!-- بلوک هر ورزشکار: Accuracy / Presentation / Total
+                         سقف‌ها ثابت‌اند (۴/۶/۱۰) و کادر زرد فقط روی total برنده می‌آید. -->
+                    <div class="mt-3 flex flex-wrap items-start gap-12">
+                        <ScoreCard
+                            v-for="(s, index) in bout.sides"
+                            :key="index"
+                            class="w-[258px]"
+                            :side="s.side"
+                            :winner="s.isWinner"
+                        >
+                            <ScoreItem
+                                label="Accuracy"
+                                :max="4"
+                                :value="s.accuracy"
+                                :side="s.side"
+                            />
+                            <ScoreItem
+                                label="Presentation"
+                                :max="6"
+                                :value="s.presentation"
+                                :side="s.side"
+                            />
+                            <ScoreItem
+                                label="Total Score"
+                                :max="10"
+                                :value="s.total"
+                                variant="total"
+                                :side="s.side"
+                            />
+                        </ScoreCard>
                     </div>
-                    <b class="text-2xl tabular-nums text-rtds-success">
-                        {{ score(bout.total) }}
-                    </b>
                 </li>
             </ul>
         </section>
