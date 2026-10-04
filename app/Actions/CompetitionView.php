@@ -16,7 +16,7 @@ class CompetitionView
         $operate = ! $display && $actor->can('operate', $tournament);
         $tournament->load(['courts', 'categories.scoringRuleSet', 'categories.forms', 'categories.entries.athletes', 'categories.rounds.bouts.entries', 'categories.rounds.bouts.judges.user', 'categories.rounds.bouts.performances.form', 'categories.rounds.bouts.performances.result', 'categories.rounds.bouts.performances.scoreSheets']);
         $sheetIds = $tournament->categories->flatMap(fn ($c) => $c->rounds)->flatMap(fn ($r) => $r->bouts)->flatMap(fn ($b) => $b->performances)->flatMap(fn ($p) => $p->scoreSheets)->pluck('id');
-        $components = $display ? collect() : DB::table('score_components')->whereIn('score_sheet_id', $sheetIds)->get()->groupBy('score_sheet_id');
+        $components = DB::table('score_components')->whereIn('score_sheet_id', $sheetIds)->get()->groupBy('score_sheet_id');
         $revisions = $operate ? DB::table('score_revisions')->join('users', 'users.id', '=', 'score_revisions.changed_by')
             ->whereIn('score_sheet_id', $sheetIds)
             ->select('score_revisions.*', 'users.name as changed_by_name')
@@ -67,11 +67,20 @@ class CompetitionView
                         'performances' => $bout->performances->sortBy('id')->map(function ($p) use ($bout, $display, $operate, $ownJudge, $components, $revisions, $category) {
                             $own = ! $display && $ownJudge ? $p->scoreSheets->firstWhere('judge_assignment_id', $ownJudge->id) : null;
                             $ownValues = $own ? ($components->get($own->id, collect())->pluck('value_hundredths', 'criterion')->all()) : null;
+                            $previewResult = null;
+                            $submitted = $p->scoreSheets->where('status', 'submitted');
+                            if ($display && $p->status === 'scoring'
+                                && $bout->judges->count() === $category->judge_count
+                                && $submitted->pluck('judge_assignment_id')->sort()->values()->all() === $bout->judges->pluck('id')->sort()->values()->all()) {
+                                $values = $submitted->map(fn ($sheet) => $components->get($sheet->id, collect())->pluck('value_hundredths', 'criterion')->map(fn ($value) => (int) $value)->all())->values()->all();
+                                $previewResult = $this->calculator->calculate($values, $category->scoringRuleSet->definition, $category->judge_count)['score'];
+                            }
 
                             return [
                                 'id' => $p->id, 'entry_id' => $p->entry_id, 'form_number' => $p->form_number, 'form_name' => $p->form?->name ?? ($category->discipline === 'freestyle' ? 'اجرای ابداعی' : 'در انتظار قرعهٔ پومسه'), 'music_url' => $p->music_path && $operate ? route('operations.performance.music', [$category->tournament_id, $p->id]) : null, 'status' => $p->status, 'version' => $p->version,
                                 'started_at' => $p->started_at?->toISOString(), 'ended_at' => $p->ended_at?->toISOString(),
                                 'result' => $p->result?->published_at ? $p->result->score : null,
+                                'preview_result' => $previewResult,
                                 'submitted_count' => $p->scoreSheets->where('status', 'submitted')->count(),
                                 'is_assigned' => ! $display && $ownJudge !== null,
                                 'own_score' => $own ? ['revision' => $own->revision, 'values' => $ownValues, 'breakdown' => $own->breakdown] : null,

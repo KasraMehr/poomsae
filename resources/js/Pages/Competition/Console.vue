@@ -19,7 +19,7 @@ usePoll(2000, { only: ['console', 'can'] });
 </script>
 
 <template>
-    <ArenaLayout :connection="realtime"><template #actions><Link v-if="can.manage" :href="competitionUrls.setup">آماده‌سازی</Link><Link v-if="can.judge" :href="competitionUrls.judge">پنل داور</Link><Link :href="competitionUrls.scoreboard">نمایشگر</Link></template><div class="arena-ui">
+    <ArenaLayout :connection="realtime"><template #actions><Link v-if="can.manage" :href="competitionUrls.setup">آماده‌سازی</Link><Link v-if="can.judge" :href="competitionUrls.judge">پنل داور</Link><Link :href="competitionUrls.scoreboard">نمایشگر</Link><Link :href="competitionUrls.rtds">RTDS</Link></template><div class="arena-ui">
         <Head :title="`میز اجرا · ${tournament.name}`" />
         <section class="page-heading console-heading">
             <div><div class="arena-kicker"><span>COURT CONTROL</span><span>LIVE OPERATIONS</span></div><h1>{{ tournament.name }}</h1><p class="subtle">{{ tournament.venue || 'محل تعیین نشده' }} · مرکز فرمان اجرای زنده</p></div>

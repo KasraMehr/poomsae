@@ -37,6 +37,8 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('/judge', [JudgingController::class, 'index'])->name('judging.index');
         Route::post('/performances/{performance}/scores', [JudgingController::class, 'store'])->name('judging.store');
         Route::get('/scoreboard', [ScoreboardController::class, 'show'])->name('scoreboard.show');
+        Route::get('/rtds', [ScoreboardController::class, 'rtds'])->name('scoreboard.rtds');
+        Route::get('/display-data', [ScoreboardController::class, 'data'])->name('scoreboard.data');
         Route::get('/results.csv', [ScoreboardController::class, 'export'])->name('scoreboard.export');
     });
 });

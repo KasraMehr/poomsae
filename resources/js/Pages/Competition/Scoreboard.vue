@@ -1,34 +1,39 @@
 <script setup>
-import { useCompetitionUpdates } from '../../useCompetitionUpdates';
-import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
-import { Head, Link, usePoll, usePage } from '@inertiajs/vue3';
-const props = defineProps({ tournament: Object });
-useCompetitionUpdates(props.tournament.id);
-const page = usePage();
+import { computed, ref } from 'vue';
+import { Head, Link } from '@inertiajs/vue3';
+import DisplayBout from '../../Components/DisplayBout.vue';
+import { useDisplayUpdates } from '../../useDisplayUpdates';
+import { connectionLabels, entryTotal, formatScore, statusLabels } from '../../display';
+const props = defineProps({ display: Object, displayUrls: Object });
+const { display, now, connection } = useDisplayUpdates(props.display, props.displayUrls.data);
+const tournament = computed(() => display.value.tournament);
 const courtId = ref('');
-const now = ref(Date.now());
-const refreshed = ref(Date.now());
-watch(() => props.tournament, () => refreshed.value = Date.now());
-let clock;
-onMounted(() => clock = setInterval(() => now.value = Date.now(),1000));
-onUnmounted(() => clearInterval(clock));
-usePoll(2000,{only:['tournament']});
-const bouts = computed(() => props.tournament.categories.flatMap(c => c.rounds.flatMap(r => r.bouts.filter(b => !courtId.value || b.court_id === Number(courtId.value)).map(b => ({...b,category:c.name,format:c.format,aggregation:c.rules?.aggregation,round:r.name})))));
-const active = computed(() => bouts.value.filter(b => b.status === 'running'));
-const recent = computed(() => bouts.value.filter(b => b.status === 'completed').slice(-6).reverse());
-const elapsed = p => p.started_at ? Math.max(0,Math.floor(((p.ended_at ? new Date(p.ended_at).getTime() : now.value)-new Date(p.started_at).getTime())/1000)) : 0;
-const score = value => value == null ? '—' : Number(value).toLocaleString('fa-IR',{minimumFractionDigits:3,maximumFractionDigits:6});
+const categoryId = ref('');
+const categories = computed(() => tournament.value.categories.filter(category => !categoryId.value || category.id === Number(categoryId.value)));
+const bouts = computed(() => categories.value.flatMap(category => category.rounds.flatMap(round => round.bouts
+    .filter(bout => !courtId.value || bout.court_id === Number(courtId.value))
+    .map(bout => ({ bout, category, round })))));
+const active = computed(() => bouts.value.filter(item => item.bout.status === 'running'));
+const recent = computed(() => bouts.value.filter(item => item.bout.status === 'completed').sort((a, b) => b.bout.id - a.bout.id).slice(0, 2));
+const courtName = id => tournament.value.courts.find(court => court.id === id)?.name || 'زمین تعیین نشده';
+const stageBouts = round => round.bouts.filter(bout => !courtId.value || bout.court_id === Number(courtId.value));
 </script>
+
 <template>
-    <div class="scoreboard"><Head title="نمایشگر سالن"/>
-        <header class="scoreboard-header"><div><span class="eyebrow">POOMSAE · LIVE RESULTS</span><h1>{{ tournament.name }}</h1></div><div class="row-actions"><label for="display-court" class="sr-only">زمین نمایشگر</label><select id="display-court" v-model="courtId"><option value="">همهٔ زمین‌ها</option><option v-for="court in tournament.courts" :key="court.id" :value="court.id">{{ court.name }}</option></select><Link :href="page.props.urls.tournaments + '/' + tournament.id">بازگشت</Link></div></header>
-        <div v-if="now - refreshed > 12000" class="connection-alert" role="alert">به‌روزرسانی متوقف شده؛ نتایج زیر ممکن است قدیمی باشند. اتصال شبکه را بررسی کنید.</div>
-        <section v-if="!active.length" class="scoreboard-wait"><span>{{ tournament.status === 'completed' ? 'مسابقه پایان یافت' : 'آمادهٔ اجرای بعدی' }}</span><p>نتایج فقط پس از تأیید اپراتور منتشر می‌شوند.</p></section>
-        <section v-for="bout in active" :key="bout.id" class="live-bout"><div class="section-heading"><h2>{{ bout.category }} · {{ bout.round }} · رقابت {{ bout.sequence }}</h2><span>{{ tournament.courts.find(c=>c.id === bout.court_id)?.name }}</span></div>
-            <div class="contestants" :class="{ solo: bout.entries.length === 1 }"><article v-for="entry in bout.entries" :key="entry.id" :class="entry.side"><span class="eyebrow">{{ bout.format === 'round_robin' ? 'دورهای' : (entry.side === 'chung' ? 'چونگ' : 'هونگ') }}</span><h2>{{ entry.name }}</h2><div v-for="performance in bout.performances.filter(p=>p.entry_id === entry.id)" :key="performance.id" class="display-form"><span>{{ performance.form_name }}</span><strong>{{ score(performance.result) }}</strong><small v-if="performance.status === 'running'">در حال اجرا · {{ Math.floor(elapsed(performance)/60) }}:{{ String(elapsed(performance)%60).padStart(2,'0') }}</small><small v-else-if="performance.status === 'scoring'">در انتظار تأیید نتیجه</small><small v-else-if="performance.status === 'pending'">در انتظار اجرا</small></div><div class="display-total">{{ bout.aggregation === 'single_performance' ? 'نمرهٔ اجرا' : bout.aggregation === 'sum_two_forms' ? 'مجموع دو فرم' : 'میانگین دو فرم' }} <b>{{ score(bout.totals[entry.id]) }}</b></div></article></div>
-            <p v-if="Object.keys(bout.totals).length === 2 && !bout.winner_entry_id" class="display-tie">تساوی · منتظر تصمیم سرداور</p>
+    <div class="scoreboard hall-display">
+        <Head :title="`نمایشگر سالن · ${tournament.name}`" />
+        <header class="scoreboard-header"><div><span class="eyebrow">نمایشگر اصلی سالن</span><h1>{{ tournament.name }}</h1><p>{{ statusLabels[tournament.status] }}</p></div><div class="display-controls"><label>زمین<select v-model="courtId"><option value="">همهٔ زمین‌ها</option><option v-for="court in tournament.courts" :key="court.id" :value="court.id">{{ court.name }}</option></select></label><label>رده<select v-model="categoryId"><option value="">همهٔ رده‌ها</option><option v-for="category in tournament.categories" :key="category.id" :value="category.id">{{ category.name }}</option></select></label><Link :href="displayUrls.rtds">نمایشگر RTDS</Link><Link :href="displayUrls.back">بازگشت</Link></div></header>
+        <p class="display-connection" :class="connection" role="status">{{ connectionLabels[connection] }}<span v-if="connection === 'denied'"> · <Link :href="displayUrls.back">ورود مجدد</Link></span></p>
+        <section v-if="!active.length" class="scoreboard-wait"><span>{{ tournament.status === 'completed' ? 'مسابقه پایان یافته است' : 'آمادهٔ اجرای بعدی' }}</span><p>امتیاز موقت پس از دریافت همهٔ نمره‌ها و نتیجهٔ قطعی پس از تأیید مسئول نمایش داده می‌شود.</p></section>
+        <DisplayBout v-for="item in active" :key="item.bout.id" v-bind="item" :court-name="courtName(item.bout.court_id)" :now="now" />
+        <section v-if="recent.length" class="display-section"><h2>آخرین نتایج قطعی</h2><DisplayBout v-for="item in recent" :key="item.bout.id" v-bind="item" :court-name="courtName(item.bout.court_id)" :now="now" /></section>
+        <section v-for="category in categories" :key="category.id" class="display-section">
+            <div class="section-heading"><h2>{{ category.name }} · {{ category.format === 'knockout' ? 'جدول تک‌حذفی' : 'Table' }}</h2><span v-if="category.champion_id" class="display-winner">قهرمان: {{ category.entries.find(entry => entry.id === category.champion_id)?.name }}</span></div>
+            <div class="display-stages"><article v-for="round in category.rounds" :key="round.id" class="display-stage"><div class="section-heading"><h3>{{ round.name }}</h3><span class="display-badge" :class="round.status">{{ statusLabels[round.status] }}</span></div><p>{{ category.discipline === 'freestyle' ? 'یک اجرای ابداعی با موسیقی' : (round.form_names.length ? round.form_names.join('، ') : category.form_names.length ? category.form_names.join('، ') : 'در انتظار قرعهٔ پومسه') }}</p><p v-if="!round.scheduled">جدول مرحله هنوز ساخته نشده است.</p><p v-else-if="!round.previous_completed">در انتظار پایان مرحلهٔ قبل</p>
+                <div v-if="stageBouts(round).length" class="table-wrap"><table><thead><tr><th>رقابت / زمین</th><th>بازیکن یا تیم</th><th>نمره‌های پومسه‌ها</th><th>مجموع / نتیجه</th></tr></thead><tbody><tr v-for="bout in stageBouts(round)" :key="bout.id"><td>{{ bout.sequence.toLocaleString('fa-IR') }} · {{ courtName(bout.court_id) }}<small>{{ statusLabels[bout.status] }}</small></td><td><p v-for="entry in bout.entries" :key="entry.id" :class="category.format === 'knockout' ? entry.side : ''">{{ entry.name }}</p></td><td><p v-for="entry in bout.entries" :key="entry.id"><span v-for="performance in bout.performances.filter(item => item.entry_id === entry.id).sort((a, b) => a.form_number - b.form_number)" :key="performance.id" class="stage-form-score">{{ performance.form_name }}: {{ formatScore(performance.result ?? performance.preview_result) }}<small v-if="performance.result == null && performance.preview_result != null">موقت</small></span><span v-if="!bout.performances.length">استراحت</span></p></td><td><p v-for="entry in bout.entries" :key="entry.id">{{ formatScore(entryTotal(bout, category, entry.id).score) }}<small v-if="entryTotal(bout, category, entry.id).temporary">موقت</small><b v-if="bout.winner_entry_id === entry.id" class="display-winner"> · برنده</b></p></td></tr></tbody></table></div>
+            </article></div>
+            <section v-if="category.standings.length" class="display-stage"><h3>رتبه‌بندی {{ category.rounds.find(round => round.id === category.standings_round_id)?.name }} · {{ category.completed ? 'پایان رده' : 'موقت' }}</h3><div class="table-wrap"><table><thead><tr><th>رتبه</th><th>بازیکن / تیم</th><th>امتیاز قطعی</th><th>معیار رفع تساوی</th></tr></thead><tbody><tr v-for="entry in category.standings" :key="entry.id"><td>{{ entry.rank?.toLocaleString('fa-IR') ?? '—' }}</td><td>{{ entry.name }}</td><td>{{ formatScore(entry.score) }}</td><td>{{ formatScore(entry.tie_break_score) }}</td></tr></tbody></table></div></section>
         </section>
-        <section v-if="recent.length" class="recent-results"><h2>آخرین اجراهای پایان‌یافته</h2><article v-for="bout in recent" :key="bout.id"><div><span>{{ bout.category }} · {{ bout.round }} · رقابت {{ bout.sequence }}</span><h3>{{ bout.format === 'round_robin' ? bout.entries[0]?.name : bout.entries.find(e=>e.id === bout.winner_entry_id)?.name }}</h3></div><b>{{ bout.performances.length ? score(bout.totals[bout.format === 'round_robin' ? bout.entries[0]?.id : bout.winner_entry_id]) : 'استراحت' }}</b></article></section>
-        <footer>نمایش نتایج تأییدشده <span>به‌روزرسانی هر ۲ ثانیه</span></footer>
+        <footer>نتیجهٔ موقت، برنده یا رتبهٔ قطعی را تغییر نمی‌دهد.<span>دریافت تغییرات با اعلان زنده و بررسی دوره‌ای</span></footer>
     </div>
 </template>

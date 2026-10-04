@@ -77,6 +77,7 @@ class TournamentController extends Controller
             'setup' => route('tournaments.setup', $tournament),
             'judge' => route('judging.index', $tournament),
             'scoreboard' => route('scoreboard.show', $tournament),
+            'rtds' => route('scoreboard.rtds', $tournament),
             'export' => route('scoreboard.export', $tournament),
         ];
     }
