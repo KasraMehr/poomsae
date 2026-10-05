@@ -42,7 +42,7 @@ class CompetitionSetupRequest extends FormRequest
                 'execution_mode' => ['sometimes', Rule::in(['alternating', 'simultaneous'])],
                 'performance_order' => ['sometimes', Rule::in(['consecutive', 'phased'])],
                 'judge_count' => ['required', 'integer', Rule::in([5, 7])],
-                'accuracy_max' => ['sometimes', 'integer', Rule::in($discipline === 'freestyle' ? [1000] : [400])],
+                'accuracy_max' => ['sometimes', 'integer', Rule::in($discipline === 'freestyle' ? [600] : [400])],
                 'discard_each_end' => ['required', 'integer', Rule::in($this->integer('judge_count') === 7 ? [1, 2] : [1])],
                 'rules_acknowledged' => ['accepted'],
                 'planned_round_count' => ['sometimes', 'integer', 'min:1', 'max:6'],

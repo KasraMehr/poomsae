@@ -14,7 +14,7 @@ watch(() => category.judge_count, (judgeCount) => {
 });
 watch(() => category.discipline, discipline => {
     category.entry_type = 'individual';
-    category.accuracy_max = discipline === 'freestyle' ? 1000 : 400;
+    category.accuracy_max = discipline === 'freestyle' ? 600 : 400;
 });
 const submitCategory = () => category.transform(data => {
     const payload = { ...data };
@@ -66,7 +66,7 @@ const submitCategory = () => category.transform(data => {
                     <div><label for="form-draw-timing">زمان قرعهٔ پومسه‌ها</label><select id="form-draw-timing" v-model="category.form_draw_timing"><option value="day_before">روز قبل مسابقه · تمام مراحل</option><option value="morning">صبح مسابقه · تمام مراحل</option><option value="before_stage">قبل از شروع هر مرحله</option></select></div>
                     <div v-if="category.form_draw_timing !== 'before_stage'"><label for="form-draw-time">ساعت قرعه در منطقهٔ زمانی مسابقه</label><input id="form-draw-time" v-model="category.form_draw_time" type="time" required></div>
                 </template>
-                <div><label>ساختار امتیاز</label><p v-if="category.discipline === 'recognized'">۴ نمرهٔ دقت + ۶ نمرهٔ اجرا؛ اجرا در سه مؤلفهٔ ۲ نمره‌ای ثبت می‌شود.</p><p v-else>هر داور برای یک اجرا با موسیقی، یک نمرهٔ کل از ۱۰ ثبت می‌کند.</p></div>
+                <div><label>ساختار امتیاز</label><p v-if="category.discipline === 'recognized'">دقت از ۴ با افزایش/کاهش ۰٫۱ و ۰٫۳؛ اجرا از ۶ در سه مؤلفهٔ ۲ نمره‌ای.</p><p v-else>دقت از ۶ در سه مؤلفهٔ ۲ نمره‌ای؛ اجرا از ۴ با افزایش/کاهش ۰٫۱ و ۰٫۳. یک اجرا با موسیقی.</p></div>
                 <div class="rules-summary wide">
                     <label for="discard-each-end">روش حذف نمره‌های داوران</label>
                     <select id="discard-each-end" v-model.number="category.discard_each_end">
@@ -74,7 +74,7 @@ const submitCategory = () => category.transform(data => {
                         <option :value="2" :disabled="category.judge_count !== 7">دو نمرهٔ بالا و دو نمرهٔ پایین · فقط ۷ داور، روش سفارشی</option>
                     </select>
                     <p v-if="category.discipline === 'recognized'">برای دقت و اجرا جداگانه اعمال می‌شود. داور کسرهای دقت و سه مؤلفهٔ اجرا را ثبت می‌کند؛ نتیجهٔ رقابت مجموع دو فرم است.</p>
-                    <p v-else>نمره‌های بالا و پایین از مجموع نمرهٔ داوران حذف می‌شوند و میانگین باقی‌مانده نتیجهٔ همان اجرای تک‌نوبتی است.</p>
+                    <p v-else>دقت و اجرا جداگانه فیلتر و میانگین‌گیری می‌شوند؛ جمع دو میانگین، نتیجهٔ یک اجرای ابداعی از ۱۰ است.</p>
                     <p>در تساوی، نمره‌های حذف‌شده برمی‌گردند و میانگین همهٔ داوران معیار دوم است. سن در روز شروع مسابقه سنجیده می‌شود.</p>
                     <label class="check"><input v-model="category.rules_acknowledged" type="checkbox" required>این روش محاسبه و شرایط رده را برای این رویداد تأیید می‌کنم.</label>
                 </div>

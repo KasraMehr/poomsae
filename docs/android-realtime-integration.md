@@ -67,11 +67,31 @@ Content-Type: application/json
   "expected_version": 3,
   "expected_revision": 0,
   "accuracy": "2.50",
-  "presentation": "6.00"
+  "presentation": "6.00",
+  "accuracy_penalties": ["0.30", "0.30", "0.30", "0.30", "0.30"],
+  "presentation_components": ["2.00", "2.00", "2.00"]
 }
 ```
 
 همان `request_id` فقط برای retry همان payload استفاده شود. تلاش جدید UUID جدید می‌خواهد. `409` یعنی snapshot یا revision قدیمی، `422` خطای قواعد نمره، `403` نبود نقش/تخصیص صندلی و `401` توکن نامعتبر است. فقط پاسخ `200` ثبت قطعی را ثابت می‌کند.
+
+کلاینت باید `category.rules.input_method` در snapshot را بخواند. نمونهٔ بالا برای استاندارد جدید (`deductions_and_components_v1`) است: دقت از ۴ با کسرهای `0.10`/`0.30` و اجرا از ۶ در سه مؤلفهٔ ۲ نمره‌ای.
+
+ابداعی جدید (`components_and_deductions_v1`) برعکس است: دقت از ۶ در سه مؤلفهٔ ۲ و اجرا از ۴ با کسرهای `0.10`/`0.30`:
+
+```json
+{
+  "request_id": "UUID-V4",
+  "expected_version": 3,
+  "expected_revision": 0,
+  "accuracy": "5.50",
+  "presentation": "3.60",
+  "accuracy_components": ["2.00", "1.75", "1.75"],
+  "presentation_penalties": ["0.30", "0.10"]
+}
+```
+
+آرایهٔ کسر برای نمرهٔ کامل باید `[]` باشد. افزایش نمرهٔ بخش ۴ نمره‌ای با کم‌کردن مجموع کسرها انجام می‌شود؛ مؤلفهٔ بخش ۶ نمره‌ای جداگانه بین صفر و ۲ تغییر می‌کند. مقدار نهایی هر بخش باید با جزئیات برابر باشد. ابداعی قدیمیِ شروع‌شده با `single_score_v1` فقط `score` از ۱۰ می‌پذیرد؛ برای قاعدهٔ بدون `input_method`، مقادیر مستقیم `accuracy` و `presentation` مطابق سقف snapshot ارسال می‌شوند.
 
 ## ۵. hub محلی و LAN
 

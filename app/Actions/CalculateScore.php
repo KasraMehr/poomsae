@@ -29,55 +29,58 @@ class CalculateScore
     }
 
     /**
-     * @param  array<int, string>  $accuracyPenalties
-     * @param  array<int, string>  $presentationComponents
+     * @param  array<int, string>  $deductions
+     * @param  array<int, string>  $componentScores
      * @param  array<string, mixed>  $rules
      * @return array{accuracy:int, presentation:int, breakdown:array<string, mixed>}
      */
-    public function detailedInput(array $accuracyPenalties, array $presentationComponents, array $rules): array
+    public function detailedInput(array $deductions, array $componentScores, array $rules): array
     {
-        if (($rules['input_method'] ?? null) !== 'deductions_and_components_v1'
-            || (int) ($rules['accuracy_max'] ?? 0) !== 400
-            || (int) ($rules['presentation_max'] ?? 0) !== 600
-            || ! array_is_list($accuracyPenalties)
-            || count($accuracyPenalties) > 40
-            || ! array_is_list($presentationComponents)
-            || count($presentationComponents) !== 3) {
+        $method = $rules['input_method'] ?? null;
+        $freestyle = $method === 'components_and_deductions_v1';
+        if (! in_array($method, ['deductions_and_components_v1', 'components_and_deductions_v1'], true)
+            || (int) ($rules['accuracy_max'] ?? 0) !== ($freestyle ? 600 : 400)
+            || (int) ($rules['presentation_max'] ?? 0) !== ($freestyle ? 400 : 600)
+            || ! array_is_list($deductions)
+            || count($deductions) > 40
+            || ! array_is_list($componentScores)
+            || count($componentScores) !== 3) {
             throw new InvalidArgumentException('Invalid detailed scoring rules or fields.');
         }
 
         $penalties = [];
-        foreach ($accuracyPenalties as $penalty) {
+        foreach ($deductions as $penalty) {
             if (! in_array($penalty, ['0.10', '0.30'], true)) {
-                throw new InvalidArgumentException('Invalid accuracy deduction.');
+                throw new InvalidArgumentException('Invalid score deduction.');
             }
             $penalties[] = $this->hundredths($penalty);
         }
-        $accuracy = 400 - array_sum($penalties);
-        if ($accuracy < 0) {
-            throw new InvalidArgumentException('Accuracy deductions exceed four points.');
+        $deductionScore = 400 - array_sum($penalties);
+        if ($deductionScore < 0) {
+            throw new InvalidArgumentException('Deductions exceed four points.');
         }
 
         $components = [];
-        foreach ($presentationComponents as $component) {
+        foreach ($componentScores as $component) {
             if (! is_string($component)) {
-                throw new InvalidArgumentException('Invalid presentation component.');
+                throw new InvalidArgumentException('Invalid score component.');
             }
             $value = $this->hundredths($component);
             if ($value > 200) {
-                throw new InvalidArgumentException('Presentation component exceeds two points.');
+                throw new InvalidArgumentException('Score component exceeds two points.');
             }
             $components[] = $value;
         }
-        $presentation = array_sum($components);
+        $accuracy = $freestyle ? array_sum($components) : $deductionScore;
+        $presentation = $freestyle ? $deductionScore : array_sum($components);
 
         return [
             'accuracy' => $accuracy,
             'presentation' => $presentation,
             'breakdown' => [
-                'method' => 'deductions_and_components_v1',
-                'accuracy_penalties_hundredths' => $penalties,
-                'presentation_components_hundredths' => $components,
+                'method' => $method,
+                ($freestyle ? 'presentation_penalties_hundredths' : 'accuracy_penalties_hundredths') => $penalties,
+                ($freestyle ? 'accuracy_components_hundredths' : 'presentation_components_hundredths') => $components,
                 'accuracy_hundredths' => $accuracy,
                 'presentation_hundredths' => $presentation,
             ],

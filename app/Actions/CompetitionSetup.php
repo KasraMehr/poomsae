@@ -88,9 +88,9 @@ class CompetitionSetup
             $this->check($plannedRoundCount === null || $plannedRoundCount >= 1 && $plannedRoundCount <= 6, 'تعداد مراحل باید بین ۱ تا ۶ باشد.');
             $this->check($discipline === 'freestyle' || $allowRepetition || $plannedRoundCount <= 4, 'با هشت پومسه و دو فرم در هر مرحله، حالت غیرتکراری حداکثر چهار مرحله دارد.');
             $this->check($discipline === 'freestyle' ? in_array($entryType, ['individual', 'pair'], true) : in_array($entryType, ['individual', 'team'], true), 'نوع شرکت در این سبک معتبر نیست.');
-            $this->check((int) ($data['accuracy_max'] ?? ($discipline === 'freestyle' ? 1000 : 400)) === ($discipline === 'freestyle' ? 1000 : 400), 'سقف نمرهٔ رده معتبر نیست.');
+            $this->check((int) ($data['accuracy_max'] ?? ($discipline === 'freestyle' ? 600 : 400)) === ($discipline === 'freestyle' ? 600 : 400), 'سقف نمرهٔ رده معتبر نیست.');
             $definition = $discipline === 'freestyle'
-                ? ['algorithm' => 'component_trimmed_mean_v1', 'accuracy_max' => 1000, 'presentation_max' => 0, 'input_method' => 'single_score_v1', 'discard_each_end' => $discardEachEnd, 'aggregation' => 'single_performance', 'tie_break' => 'restore_all_judges_mean_then_operator', 'age_basis' => 'birthday_on_start_date']
+                ? ['algorithm' => 'component_trimmed_mean_v1', 'accuracy_max' => 600, 'presentation_max' => 400, 'accuracy_component_max' => 200, 'presentation_deduction_options' => [10, 30], 'input_method' => 'components_and_deductions_v1', 'discard_each_end' => $discardEachEnd, 'aggregation' => 'single_performance', 'tie_break' => 'restore_all_judges_mean_then_operator', 'age_basis' => 'birthday_on_start_date']
                 : ['algorithm' => 'component_trimmed_mean_v1', 'accuracy_max' => 400, 'presentation_max' => 600, 'accuracy_deduction_options' => [10, 30], 'presentation_component_max' => 200, 'input_method' => 'deductions_and_components_v1', 'discard_each_end' => $discardEachEnd, 'aggregation' => 'sum_two_forms', 'tie_break' => 'restore_all_judges_mean_then_operator', 'age_basis' => 'birthday_on_start_date'];
             $rule = ScoringRuleSet::create([
                 'name' => 'تنظیمات برگزارکننده '.Str::uuid(), 'version' => 1, 'discipline' => $discipline,

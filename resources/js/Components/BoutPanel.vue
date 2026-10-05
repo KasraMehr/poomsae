@@ -10,6 +10,7 @@ const command = (performance,value) => { action.command = value; action.expected
 const entryName = (id) => props.bout.entries.find(e => e.id === id)?.name || '—';
 const labels = {pending:'در انتظار',running:'در حال اجرا',scoring:'دریافت نمره',approved:'تأیید و منتشر شده',cancelled:'لغو شده',completed:'پایان‌یافته'};
 const fmt = value => value === null || value === undefined ? '—' : Number(value).toLocaleString('fa-IR',{minimumFractionDigits:3,maximumFractionDigits:6});
+const rawScore = (values, method) => method === 'single_score_v1' ? (values.accuracy / 100).toFixed(2) : `دقت ${(values.accuracy / 100).toFixed(2)} + اجرا ${(values.presentation / 100).toFixed(2)}`;
 const orderedPerformances = computed(() => [...props.bout.performances].sort((a, b) => props.category.format === 'knockout' ? a.form_number - b.form_number || a.id - b.id : a.id - b.id));
 const nextPerformanceId = computed(() => {
     const performances = props.category.score_based
@@ -39,7 +40,16 @@ const nextPerformanceId = computed(() => {
                     <button v-if="p.status === 'running'" class="button small" :disabled="action.processing" @click="command(p,'finish')">پایان اجرا و دریافت نمره</button>
                     <button v-if="p.status === 'scoring'" class="button small" :disabled="action.processing || p.submitted_count !== category.judge_count" @click="command(p,'approve')">تأیید نهایی و انتشار</button>
                 </div>
-                <details v-if="canOperate && p.scores.length"><summary>نمرهٔ خام داوران و تاریخچه</summary><div v-for="score in p.scores" :key="score.seat"><div class="judge-score-row"><span>صندلی {{ score.seat }} · ویرایش {{ score.revision }}</span><b>{{ category.discipline === 'freestyle' ? (score.values.accuracy / 100).toFixed(2) : `${(score.values.accuracy / 100).toFixed(2)} + ${(score.values.presentation / 100).toFixed(2)}` }}</b></div><p v-if="score.breakdown?.method === 'deductions_and_components_v1'" class="subtle">کسرهای دقت: {{ score.breakdown.accuracy_penalties_hundredths.length ? score.breakdown.accuracy_penalties_hundredths.map(value => (value / 100).toFixed(2)).join('، ') : 'بدون کسر' }} · مؤلفه‌های اجرا: {{ score.breakdown.presentation_components_hundredths.map(value => (value / 100).toFixed(2)).join(' + ') }}</p><p v-else class="subtle">نمرهٔ ثبت‌شده به روش مستقیم</p><details v-if="score.history?.length"><summary>سابقهٔ ثبت و اصلاح</summary><div v-for="revision in score.history" :key="revision.revision" class="judge-score-row"><span>ویرایش {{ revision.revision }} · {{ revision.changed_by_name }} · {{ new Date(revision.created_at).toLocaleString('fa-IR') }}<small v-if="revision.reason"> · {{ revision.reason }}</small></span><b>{{ category.discipline === 'freestyle' ? (revision.snapshot.accuracy / 100).toFixed(2) : `${(revision.snapshot.accuracy / 100).toFixed(2)} + ${(revision.snapshot.presentation / 100).toFixed(2)}` }}</b></div></details></div></details>
+                <details v-if="canOperate && p.scores.length">
+                    <summary>نمرهٔ خام داوران و تاریخچه</summary>
+                    <div v-for="score in p.scores" :key="score.seat">
+                        <div class="judge-score-row"><span>صندلی {{ score.seat }} · ویرایش {{ score.revision }}</span><b>{{ rawScore(score.values, score.breakdown?.method) }}</b></div>
+                        <p v-if="score.breakdown?.method === 'deductions_and_components_v1'" class="subtle">کسرهای دقت: {{ score.breakdown.accuracy_penalties_hundredths.length ? score.breakdown.accuracy_penalties_hundredths.map(value => (value / 100).toFixed(2)).join('، ') : 'بدون کسر' }} · مؤلفه‌های اجرا: {{ score.breakdown.presentation_components_hundredths.map(value => (value / 100).toFixed(2)).join(' + ') }}</p>
+                        <p v-else-if="score.breakdown?.method === 'components_and_deductions_v1'" class="subtle">مؤلفه‌های دقت: {{ score.breakdown.accuracy_components_hundredths.map(value => (value / 100).toFixed(2)).join(' + ') }} · کسرهای اجرا: {{ score.breakdown.presentation_penalties_hundredths.length ? score.breakdown.presentation_penalties_hundredths.map(value => (value / 100).toFixed(2)).join('، ') : 'بدون کسر' }}</p>
+                        <p v-else class="subtle">نمرهٔ ثبت‌شده به روش مستقیم</p>
+                        <details v-if="score.history?.length"><summary>سابقهٔ ثبت و اصلاح</summary><div v-for="revision in score.history" :key="revision.revision" class="judge-score-row"><span>ویرایش {{ revision.revision }} · {{ revision.changed_by_name }} · {{ new Date(revision.created_at).toLocaleString('fa-IR') }}<small v-if="revision.reason"> · {{ revision.reason }}</small></span><b>{{ rawScore(revision.snapshot, revision.snapshot.breakdown?.method) }}</b></div></details>
+                    </div>
+                </details>
             </section>
         </div>
         <FormErrors :errors="action.errors"/>

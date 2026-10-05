@@ -4,6 +4,7 @@ import { useForm, usePage } from '@inertiajs/vue3';
 import FormErrors from './FormErrors.vue';
 import ScoreEntryFields from './ScoreEntryFields.vue';
 import { requestId } from '../requestId';
+import { hasScoreDetails, scoreComponentsComplete, scoreDetailFields, scorePayload } from '../scoring';
 const props = defineProps({ performance: Object, rules: Object, endpoint: String });
 const page = usePage();
 const key = 'poomsae-score:' + page.props.auth.user.id + ':' + props.performance.id;
@@ -12,36 +13,24 @@ try { cached = JSON.parse(localStorage.getItem(key) || 'null'); } catch { cached
 const saved = ref(false);
 let suppressDraft = false;
 const previousBreakdown = props.performance.own_score?.breakdown;
-const detailedInput = props.rules.input_method === 'deductions_and_components_v1' && (!props.performance.own_score || previousBreakdown?.method === 'deductions_and_components_v1');
+const inputMethod = !props.performance.own_score || previousBreakdown?.method === props.rules.input_method ? props.rules.input_method : null;
 const initial = {
     request_id: requestId(), expected_version: props.performance.version, expected_revision: props.performance.own_score?.revision || 0,
     accuracy: props.performance.own_score ? (props.performance.own_score.values.accuracy / 100).toFixed(2) : '',
     presentation: props.performance.own_score ? (props.performance.own_score.values.presentation / 100).toFixed(2) : '',
-    accuracy_penalties: detailedInput ? (previousBreakdown?.accuracy_penalties_hundredths || []).map(value => (value / 100).toFixed(2)) : null,
-    presentation_components: detailedInput ? (previousBreakdown?.presentation_components_hundredths || ['', '', '']).map(value => value === '' ? '' : (value / 100).toFixed(2)) : null,
+    ...scoreDetailFields(inputMethod, previousBreakdown),
     reason: '',
 };
-const usableDraft = cached?.expected_version === props.performance.version && (!detailedInput || Array.isArray(cached.accuracy_penalties) && Array.isArray(cached.presentation_components));
+const usableDraft = cached?.expected_version === props.performance.version && hasScoreDetails(cached, inputMethod);
 const form = useForm(usableDraft ? cached : initial);
-const canSubmit = computed(() => !Array.isArray(form.presentation_components) || form.presentation_components.length === 3 && form.presentation_components.every(value => value !== '' && value !== null));
+const canSubmit = computed(() => scoreComponentsComplete(form));
 const store = () => { try { localStorage.setItem(key,JSON.stringify(form.data())); saved.value = true; } catch { saved.value = false; } };
-watch(() => [form.accuracy, form.presentation, form.accuracy_penalties, form.presentation_components, form.reason], () => {
+watch(() => [form.accuracy, form.presentation, form.accuracy_penalties, form.presentation_components, form.presentation_penalties, form.accuracy_components, form.reason], () => {
     if (!suppressDraft) { form.request_id = requestId(); store(); }
 }, { flush: 'sync', deep: true });
 const submit = () => {
     store();
-    form.transform(data => {
-        const payload = { ...data, accuracy: String(data.accuracy), presentation: String(data.presentation) };
-        if (props.rules.input_method === 'single_score_v1') {
-            payload.score = payload.accuracy;
-            delete payload.accuracy;
-            delete payload.presentation;
-        }
-        if (Array.isArray(data.accuracy_penalties)) {
-            payload.presentation_components = data.presentation_components.map(value => Number(value).toFixed(2));
-        } else { delete payload.accuracy_penalties; delete payload.presentation_components; }
-        return payload;
-    }).post(props.endpoint, {
+    form.transform(data => scorePayload(data, props.rules.input_method)).post(props.endpoint, {
         preserveScroll: true,
         onSuccess: () => {
             suppressDraft = true;
@@ -59,8 +48,7 @@ const reloadOwn = () => {
     form.accuracy = props.performance.own_score ? (props.performance.own_score.values.accuracy / 100).toFixed(2) : '';
     form.presentation = props.performance.own_score ? (props.performance.own_score.values.presentation / 100).toFixed(2) : '';
     const breakdown = props.performance.own_score?.breakdown;
-    form.accuracy_penalties = breakdown?.method === 'deductions_and_components_v1' ? breakdown.accuracy_penalties_hundredths.map(value => (value / 100).toFixed(2)) : null;
-    form.presentation_components = breakdown?.method === 'deductions_and_components_v1' ? breakdown.presentation_components_hundredths.map(value => (value / 100).toFixed(2)) : null;
+    Object.assign(form, scoreDetailFields(breakdown?.method ?? props.rules.input_method, breakdown));
     form.expected_revision = props.performance.own_score?.revision || 0;
     form.expected_version = props.performance.version;
     form.reason = '';

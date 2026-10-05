@@ -31,11 +31,16 @@ class SubmitScore
                 ? JudgeAssignment::where('bout_id', $bout->id)->whereKey($data['judge_assignment_id'])->first()
                 : JudgeAssignment::where('bout_id', $bout->id)->where('user_id', $actor->id)->first();
             abort_unless($judge, 403);
-            $freestyle = $category->discipline === 'freestyle';
+            $rules = $category->scoringRuleSet->definition;
+            $singleScore = ($rules['input_method'] ?? null) === 'single_score_v1';
             $payload = ['performance_id' => $performance->id, 'judge_assignment_id' => $judge->id, 'proxy' => $proxy, 'expected_version' => (int) $data['expected_version'], 'expected_revision' => (int) $data['expected_revision'], 'score' => $data['score'] ?? null, 'accuracy' => $data['accuracy'] ?? null, 'presentation' => $data['presentation'] ?? null, 'reason' => $data['reason'] ?? null];
             if (array_key_exists('accuracy_penalties', $data) || array_key_exists('presentation_components', $data)) {
                 $payload['accuracy_penalties'] = $data['accuracy_penalties'] ?? null;
                 $payload['presentation_components'] = $data['presentation_components'] ?? null;
+            }
+            if (array_key_exists('presentation_penalties', $data) || array_key_exists('accuracy_components', $data)) {
+                $payload['presentation_penalties'] = $data['presentation_penalties'] ?? null;
+                $payload['accuracy_components'] = $data['accuracy_components'] ?? null;
             }
             $hash = hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR));
             $existing = DB::table('idempotency_keys')->where('user_id', $actor->id)->where('request_id', $data['request_id'])->first();
@@ -52,17 +57,21 @@ class SubmitScore
             $this->setup->check($proxy || ! $sheet || $sheet->submission_mode !== 'operator_proxy' || $sheet->status === 'draft', 'نمرهٔ دستی تأیید شده است و داور نمی‌تواند آن را بازنویسی کند.');
             $this->setup->check(! $proxy || mb_strlen(trim($data['reason'] ?? '')) >= 10, 'دلیل ثبت نمرهٔ جایگزین باید حداقل ۱۰ کاراکتر باشد.');
             $this->setup->check(! $sheet || mb_strlen(trim($data['reason'] ?? '')) >= 5, 'برای اصلاح نمره، دلیل حداقل ۵ کاراکتری بنویسید.');
-            $values = ['accuracy' => $this->calculator->hundredths($freestyle ? $data['score'] : $data['accuracy']), 'presentation' => $freestyle ? 0 : $this->calculator->hundredths($data['presentation'])];
-            $rules = $category->scoringRuleSet->definition;
-            $breakdown = ['method' => $freestyle ? 'single_score_v1' : 'direct', 'accuracy_hundredths' => $values['accuracy'], 'presentation_hundredths' => $values['presentation']];
+            $values = ['accuracy' => $this->calculator->hundredths($singleScore ? $data['score'] : $data['accuracy']), 'presentation' => $singleScore ? 0 : $this->calculator->hundredths($data['presentation'])];
+            $breakdown = ['method' => $singleScore ? 'single_score_v1' : 'direct', 'accuracy_hundredths' => $values['accuracy'], 'presentation_hundredths' => $values['presentation']];
             $this->setup->check(($rules['input_method'] ?? null) !== 'deductions_and_components_v1'
                 || (array_key_exists('accuracy_penalties', $data) && array_key_exists('presentation_components', $data)), 'برای این رده ثبت کسرهای دقت و سه مؤلفهٔ اجرا الزامی است.');
-            if (array_key_exists('accuracy_penalties', $data) || array_key_exists('presentation_components', $data)) {
-                $this->setup->check(is_array($data['accuracy_penalties'] ?? null) && is_array($data['presentation_components'] ?? null), 'کسرهای دقت و سه مؤلفهٔ اجرا را با هم ثبت کنید.');
+            $freestyleDetailed = ($rules['input_method'] ?? null) === 'components_and_deductions_v1';
+            $this->setup->check(! $freestyleDetailed
+                || (array_key_exists('presentation_penalties', $data) && array_key_exists('accuracy_components', $data)), 'برای ابداعی ثبت سه مؤلفهٔ دقت و کسرهای اجرا الزامی است.');
+            $penaltyField = $freestyleDetailed ? 'presentation_penalties' : 'accuracy_penalties';
+            $componentField = $freestyleDetailed ? 'accuracy_components' : 'presentation_components';
+            if (array_key_exists($penaltyField, $data) || array_key_exists($componentField, $data)) {
+                $this->setup->check(is_array($data[$penaltyField] ?? null) && is_array($data[$componentField] ?? null), 'کسرها و سه مؤلفهٔ نمره را با هم ثبت کنید.');
                 try {
-                    $detailed = $this->calculator->detailedInput($data['accuracy_penalties'], $data['presentation_components'], $rules);
+                    $detailed = $this->calculator->detailedInput($data[$penaltyField], $data[$componentField], $rules);
                 } catch (InvalidArgumentException) {
-                    $this->setup->check(false, 'جزئیات دقت یا سه مؤلفهٔ اجرا معتبر نیست.');
+                    $this->setup->check(false, 'کسرهای نمره یا سه مؤلفهٔ دقت و اجرا معتبر نیست.');
                 }
                 $this->setup->check($values['accuracy'] === $detailed['accuracy'] && $values['presentation'] === $detailed['presentation'], 'مجموع نمره با جزئیات دقت و اجرا برابر نیست.');
                 $breakdown = $detailed['breakdown'];

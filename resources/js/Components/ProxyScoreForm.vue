@@ -4,33 +4,22 @@ import { useForm } from '@inertiajs/vue3';
 import { requestId } from '../requestId';
 import FormErrors from './FormErrors.vue';
 import ScoreEntryFields from './ScoreEntryFields.vue';
+import { scoreComponentsComplete, scoreDetailFields, scorePayload } from '../scoring';
 
 const props = defineProps({ performance: Object, rules: Object, endpoint: String });
 const missingJudges = computed(() => props.performance.judges.filter(judge => props.performance.missing_seats.includes(judge.seat)));
 const form = useForm({
     request_id: requestId(), judge_assignment_id: '', expected_version: props.performance.version,
     expected_revision: 0, accuracy: '', presentation: '',
-    accuracy_penalties: props.rules.input_method === 'deductions_and_components_v1' ? [] : null,
-    presentation_components: props.rules.input_method === 'deductions_and_components_v1' ? ['', '', ''] : null,
+    ...scoreDetailFields(props.rules.input_method),
     reason: '',
 });
-const canSubmit = computed(() => !Array.isArray(form.presentation_components) || form.presentation_components.length === 3 && form.presentation_components.every(value => value !== '' && value !== null));
+const canSubmit = computed(() => scoreComponentsComplete(form));
 watch(() => props.performance.version, version => form.expected_version = version);
-const submit = () => form.transform(data => {
-    const payload = { ...data, accuracy: String(data.accuracy), presentation: String(data.presentation) };
-    if (props.rules.input_method === 'single_score_v1') {
-        payload.score = payload.accuracy;
-        delete payload.accuracy;
-        delete payload.presentation;
-    }
-    if (Array.isArray(data.accuracy_penalties)) {
-        payload.presentation_components = data.presentation_components.map(value => Number(value).toFixed(2));
-    } else { delete payload.accuracy_penalties; delete payload.presentation_components; }
-    return payload;
-}).post(props.endpoint, {
+const submit = () => form.transform(data => scorePayload(data, props.rules.input_method)).post(props.endpoint, {
     preserveScroll: true,
     onSuccess: () => {
-        form.reset('judge_assignment_id', 'accuracy', 'presentation', 'accuracy_penalties', 'presentation_components', 'reason');
+        form.reset('judge_assignment_id', 'accuracy', 'presentation', 'accuracy_penalties', 'presentation_components', 'presentation_penalties', 'accuracy_components', 'reason');
         form.request_id = requestId();
         form.expected_revision = 0;
         form.expected_version = props.performance.version;

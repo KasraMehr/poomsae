@@ -31,7 +31,7 @@ class CompetitionTypesTest extends TestCase
             'name' => 'ردهٔ آزمایشی', 'discipline' => $discipline, 'entry_type' => $entryType,
             'gender' => 'open', 'minimum_age' => 10, 'maximum_age' => 40,
             'format' => $format, 'judge_count' => 5, 'discard_each_end' => 1,
-            'accuracy_max' => $discipline === 'freestyle' ? 1000 : 400, 'rules_acknowledged' => true,
+            'accuracy_max' => $discipline === 'freestyle' ? 600 : 400, 'rules_acknowledged' => true,
         ];
         if ($discipline === 'recognized') {
             $data['form_names'] = ['فرم یک', 'فرم دو'];
@@ -103,7 +103,9 @@ class CompetitionTypesTest extends TestCase
             foreach ($fixture['judges'] as $judge) {
                 $this->actingAs($judge)->post('/tournaments/'.$fixture['tournament']->id.'/performances/'.$item->id.'/scores', [
                     'request_id' => (string) Str::uuid(), 'expected_version' => $item->fresh()->version,
-                    'expected_revision' => 0, 'score' => $item->id === $performance->id ? '8.00' : '7.00',
+                    'expected_revision' => 0, 'accuracy' => $item->id === $performance->id ? '5.00' : '4.00',
+                    'presentation' => '3.00', 'accuracy_components' => $item->id === $performance->id ? ['2.00', '2.00', '1.00'] : ['2.00', '1.00', '1.00'],
+                    'presentation_penalties' => ['0.30', '0.30', '0.30', '0.10'],
                 ])->assertSessionHasNoErrors();
             }
             $run->command($fixture['admin'], $fixture['tournament'], $item, ['command' => 'approve', 'expected_version' => $item->fresh()->version]);
@@ -155,7 +157,8 @@ class CompetitionTypesTest extends TestCase
 
         $this->actingAs($fixture['judges'][0])->post('/tournaments/'.$fixture['tournament']->id.'/performances/'.$performance->id.'/scores', [
             'request_id' => (string) Str::uuid(), 'expected_version' => $performance->fresh()->version,
-            'expected_revision' => 0, 'score' => '10.01',
+            'expected_revision' => 0, 'accuracy' => '6.01', 'presentation' => '4.00',
+            'accuracy_components' => ['2.01', '2.00', '2.00'], 'presentation_penalties' => [],
         ])->assertSessionHasErrors('operation');
         $this->assertDatabaseCount('score_sheets', 0);
     }
