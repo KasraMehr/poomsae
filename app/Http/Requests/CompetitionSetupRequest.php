@@ -16,7 +16,6 @@ class CompetitionSetupRequest extends FormRequest
     {
         $tournament = $this->route('tournament');
         $discipline = $this->input('discipline', 'recognized');
-        $entryType = $this->input('entry_type', 'individual');
         $category = $this->route('category');
         $memberCount = match ($category?->entry_type) {
             'pair' => 2,
@@ -35,19 +34,19 @@ class CompetitionSetupRequest extends FormRequest
                 'name' => ['required', 'string', 'max:100', Rule::unique('categories')->where('tournament_id', $tournament->id)->ignore($this->route('category')?->id)],
                 'discipline' => ['sometimes', Rule::in(['recognized', 'freestyle'])],
                 'entry_type' => ['sometimes', Rule::in($discipline === 'freestyle' ? ['individual', 'pair'] : ['individual', 'team'])],
-                'gender' => ['required', Rule::in($entryType === 'individual' ? ['male', 'female', 'open'] : ['male', 'female', 'mixed', 'open'])],
+                'gender' => ['required', Rule::in(['male', 'female'])],
                 'minimum_age' => ['nullable', 'integer', 'min:1', 'max:100'],
                 'maximum_age' => ['nullable', 'integer', 'min:1', 'max:100', 'gte:minimum_age'],
                 'format' => ['required', Rule::in(['knockout', 'round_robin'])],
                 'execution_mode' => ['sometimes', Rule::in(['alternating', 'simultaneous'])],
                 'performance_order' => ['sometimes', Rule::in(['consecutive', 'phased'])],
-                'judge_count' => ['required', 'integer', Rule::in([5, 7])],
+                'judge_count' => ['required', 'integer', Rule::in([3, 5, 7])],
                 'accuracy_max' => ['sometimes', 'integer', Rule::in($discipline === 'freestyle' ? [600] : [400])],
-                'discard_each_end' => ['required', 'integer', Rule::in($this->integer('judge_count') === 7 ? [1, 2] : [1])],
+                'discard_each_end' => ['required', 'integer', Rule::in(match ($this->integer('judge_count')) {
+                    3 => [0], 7 => [1, 2], default => [1],
+                })],
                 'rules_acknowledged' => ['accepted'],
-                'planned_round_count' => ['sometimes', 'integer', 'min:1', 'max:6'],
-                'stage_names' => ['sometimes', 'array', 'size:'.$this->integer('planned_round_count', 1)],
-                'stage_names.*' => ['required', 'string', 'max:100'],
+                'planned_round_count' => ['sometimes', 'integer', 'min:1'],
                 'allow_form_repetition' => ['sometimes', 'boolean'],
                 'form_draw_timing' => ['sometimes', Rule::in(['day_before', 'morning', 'before_stage'])],
                 'form_draw_time' => ['sometimes', 'date_format:H:i'],

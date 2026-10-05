@@ -17,13 +17,15 @@ class ProxyScoreController extends Controller
     {
         $submit->handle($request->user(), $tournament, $performance, $request->validated(), true);
 
-        return back()->with('success', 'نمرهٔ جایگزین ثبت شد و در انتظار تأیید مسئول دوم است.');
+        return back()->with('success', $request->integer('expected_revision') > 0
+            ? 'اصلاح نمره با دلیل ثبت شد.'
+            : 'نمرهٔ جایگزین ثبت شد؛ می‌توانید خودتان آن را تأیید کنید.');
     }
 
     public function confirm(ConfirmProxyScoreRequest $request, Tournament $tournament, Performance $performance, ScoreSheet $scoreSheet, ConfirmProxyScore $confirm): RedirectResponse
     {
         $confirm->handle($request->user(), $tournament, $performance, $scoreSheet, $request->integer('expected_revision'));
 
-        return back()->with('success', 'نمرهٔ دستی توسط مسئول دوم تأیید شد.');
+        return back()->with('success', 'نمرهٔ دستی تأیید شد.');
     }
 }

@@ -147,7 +147,7 @@ class CompetitionSecurityTest extends TestCase
         ]);
     }
 
-    public function test_published_score_is_immutable_and_idempotency_conflict_is_rejected(): void
+    public function test_published_score_correction_requires_reason_and_idempotency_conflict_is_rejected(): void
     {
         $f = $this->competition();
         $this->schedule($f);
@@ -159,7 +159,7 @@ class CompetitionSecurityTest extends TestCase
         $data = ['request_id' => $record->request_id, 'expected_version' => $p->fresh()->version, 'expected_revision' => 1, ...$this->detailedScoreInput('2.00', '6.00'), 'reason' => 'تصحیح نمره'];
         $this->actingAs($f['judges'][0])->post($url, $data)->assertStatus(409);
         app(RunCompetition::class)->command($f['admin'], $f['tournament'], $p, ['command' => 'approve', 'expected_version' => $p->fresh()->version]);
-        $this->post($url, [...$data, 'request_id' => (string) Str::uuid(), 'expected_version' => $p->fresh()->version])->assertSessionHasErrors('operation');
+        $this->post($url, [...$data, 'request_id' => (string) Str::uuid(), 'expected_version' => $p->fresh()->version, 'reason' => ''])->assertSessionHasErrors('operation');
     }
 
     public function test_entry_age_and_setup_lock_are_enforced(): void

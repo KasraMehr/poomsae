@@ -31,7 +31,7 @@ class SubmitProxyScoreRequest extends FormRequest
             'request_id' => ['required', 'uuid'],
             'judge_assignment_id' => ['required', 'integer', 'min:1'],
             'expected_version' => ['required', 'integer', 'min:1'],
-            'expected_revision' => ['required', 'integer', 'in:0'],
+            'expected_revision' => ['required', 'integer', 'min:0'],
             'score' => [$singleScore ? 'required' : 'prohibited', 'string', 'regex:/^\d{1,2}(?:\.\d{1,2})?$/D'],
             'accuracy' => [$singleScore ? 'prohibited' : 'required', 'string', 'regex:/^\d{1,2}(?:\.\d{1,2})?$/D'],
             'presentation' => [$singleScore ? 'prohibited' : 'required', 'string', 'regex:/^\d{1,2}(?:\.\d{1,2})?$/D'],

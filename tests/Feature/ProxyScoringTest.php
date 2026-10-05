@@ -78,15 +78,17 @@ class ProxyScoringTest extends TestCase
             ->assertStatus(409);
     }
 
-    public function test_proxy_score_requires_confirmation_by_another_operator_before_publication(): void
+    public function test_proxy_score_can_be_confirmed_by_the_same_operator_before_publication(): void
     {
         $fixture = $this->competition();
+        $operator = User::factory()->create();
+        $fixture['tournament']->users()->attach($operator, ['role' => 'operator']);
         $this->schedule($fixture);
         $performance = Performance::query()->firstOrFail();
         $this->startScoring($fixture, $performance);
         $assignment = $performance->bout->judges()->orderBy('seat')->firstOrFail();
 
-        $this->actingAs($fixture['admin'])->post(route('operations.proxy-score', [$fixture['tournament'], $performance]), [
+        $this->actingAs($operator)->post(route('operations.proxy-score', [$fixture['tournament'], $performance]), [
             'request_id' => (string) Str::uuid(),
             'judge_assignment_id' => $assignment->id,
             'expected_version' => $performance->fresh()->version,
@@ -110,8 +112,6 @@ class ProxyScoringTest extends TestCase
 
         $scoreSheet = ScoreSheet::where('judge_assignment_id', $assignment->id)->firstOrFail();
         $confirmUrl = route('operations.proxy-score.confirm', [$fixture['tournament'], $performance, $scoreSheet]);
-        $this->post($confirmUrl, ['expected_revision' => 1])->assertSessionHasErrors('operation');
-
         $this->actingAs($fixture['judges']->firstWhere('id', $assignment->user_id))->post(route('judging.store', [$fixture['tournament'], $performance]), [
             'request_id' => (string) Str::uuid(),
             'expected_version' => $performance->fresh()->version,
@@ -119,19 +119,17 @@ class ProxyScoringTest extends TestCase
             ...$this->detailedScoreInput('2.50', '6.00'),
         ])->assertStatus(409);
 
-        $reviewer = User::factory()->create();
-        $fixture['tournament']->users()->attach($reviewer, ['role' => 'operator']);
-        $this->actingAs($reviewer)->post($confirmUrl, ['expected_revision' => 1])->assertSessionHasNoErrors();
+        $this->actingAs($operator)->post($confirmUrl, ['expected_revision' => 1])->assertRedirect()->assertSessionHasNoErrors();
 
         $this->assertDatabaseHas('score_sheets', [
             'id' => $scoreSheet->id,
             'status' => 'submitted',
-            'confirmed_by' => $reviewer->id,
+            'confirmed_by' => $operator->id,
         ]);
         $this->assertDatabaseHas('audit_logs', [
             'action' => 'score.proxy_confirmed',
             'subject_id' => $scoreSheet->id,
-            'user_id' => $reviewer->id,
+            'user_id' => $operator->id,
         ]);
 
         $this->actingAs($fixture['judges']->firstWhere('id', $assignment->user_id))->post(route('judging.store', [$fixture['tournament'], $performance]), [

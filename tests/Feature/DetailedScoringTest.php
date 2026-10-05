@@ -25,7 +25,7 @@ class DetailedScoringTest extends TestCase
         $this->assertSame('deductions_and_components_v1', $definition['input_method']);
 
         $this->actingAs($fixture['admin'])->post(route('operations.category', $fixture['tournament']), [
-            'name' => 'رده با قانون نادرست', 'gender' => 'open', 'format' => 'knockout',
+            'name' => 'رده با قانون نادرست', 'gender' => 'male', 'format' => 'knockout',
             'judge_count' => 5, 'accuracy_max' => 300, 'discard_each_end' => 1,
             'rules_acknowledged' => true, 'form_names' => ['فرم سوم', 'فرم چهارم'],
         ])->assertSessionHasErrors('accuracy_max');

@@ -188,12 +188,12 @@ class ManagementSnapshotTest extends TestCase
         $fixture = $this->competition(5, 0, 'knockout', 1, 1);
         Sanctum::actingAs($fixture['admin'], ['competition:manage']);
         $this->postJson('/api/v1/tournaments/'.$fixture['tournament']->id.'/categories', [
-            'name' => 'ردهٔ سیستم مدیریت', 'gender' => 'open', 'format' => 'round_robin', 'judge_count' => 5,
+            'name' => 'ردهٔ سیستم مدیریت', 'gender' => 'male', 'format' => 'round_robin', 'judge_count' => 5,
             'discard_each_end' => 1, 'rules_acknowledged' => true, 'planned_round_count' => 2,
             'stage_names' => ['مقدماتی', 'نهایی'], 'form_draw_timing' => 'day_before', 'form_draw_time' => '10:00',
             'allow_form_repetition' => false, 'draw_method' => 'random',
             'form_names' => array_map(fn ($number) => 'فرم مدیریت '.$number, range(1, 8)),
         ])->assertCreated()->assertJsonPath('data.planned_round_count', 2)
-            ->assertJsonCount(8, 'data.form_pool')->assertJsonPath('data.stages.0.name', 'مقدماتی')->assertJsonPath('data.stages.1.name', 'نهایی');
+            ->assertJsonCount(8, 'data.form_pool')->assertJsonPath('data.stages.0.name', 'مرحله 1')->assertJsonPath('data.stages.1.name', 'مرحله 2');
     }
 }

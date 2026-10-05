@@ -131,7 +131,7 @@ class CompetitionWorkflowTest extends TestCase
     {
         $fixture = $this->competition();
         $data = [
-            'name' => 'رده دوم', 'gender' => 'open', 'minimum_age' => 10, 'maximum_age' => 40,
+            'name' => 'رده دوم', 'gender' => 'male', 'minimum_age' => 10, 'maximum_age' => 40,
             'format' => 'knockout', 'execution_mode' => 'simultaneous', 'accuracy_max' => 400, 'discard_each_end' => 2,
             'rules_acknowledged' => true, 'form_names' => ['فرم سوم', 'فرم چهارم'],
         ];

@@ -57,7 +57,7 @@ const reloadOwn = () => {
 </script>
 <template>
     <form class="judge-form" @submit.prevent="submit">
-        <p v-if="performance.own_score" class="notice">نمرهٔ شما ثبت شده است · نسخه {{ performance.own_score.revision }}. اصلاح تا پیش از تأیید اپراتور مجاز است.</p>
+        <p v-if="performance.own_score" class="notice">نمرهٔ شما ثبت شده است · نسخه {{ performance.own_score.revision }}. اصلاح با ثبت دلیل مجاز است و در تاریخچه باقی می‌ماند.</p>
         <ScoreEntryFields :form="form" :rules="rules" :id-prefix="`judge-${performance.id}`" :disabled="form.processing" />
         <div v-if="form.expected_revision > 0"><label :for="'correction-'+performance.id">دلیل اصلاح</label><textarea :id="'correction-'+performance.id" v-model="form.reason" :disabled="form.processing" required minlength="5" maxlength="500"></textarea></div>
         <p class="subtle">{{ saved ? 'پیش‌نویس روی همین دستگاه ذخیره شد؛ هنوز به معنای ثبت روی سرور نیست.' : 'ثبت قطعی فقط پس از پاسخ موفق سرور انجام می‌شود.' }}</p>

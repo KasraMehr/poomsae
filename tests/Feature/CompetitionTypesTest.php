@@ -29,7 +29,7 @@ class CompetitionTypesTest extends TestCase
         }
         $data = [
             'name' => 'ردهٔ آزمایشی', 'discipline' => $discipline, 'entry_type' => $entryType,
-            'gender' => 'open', 'minimum_age' => 10, 'maximum_age' => 40,
+            'gender' => 'male', 'minimum_age' => 10, 'maximum_age' => 40,
             'format' => $format, 'judge_count' => 5, 'discard_each_end' => 1,
             'accuracy_max' => $discipline === 'freestyle' ? 600 : 400, 'rules_acknowledged' => true,
         ];

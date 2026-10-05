@@ -7,6 +7,19 @@ use PHPUnit\Framework\TestCase;
 
 class ScoreCalculationTest extends TestCase
 {
+    public function test_three_judges_are_averaged_without_discarding_scores(): void
+    {
+        $result = (new CalculateScore)->calculate([
+            ['accuracy' => 100, 'presentation' => 400],
+            ['accuracy' => 200, 'presentation' => 500],
+            ['accuracy' => 300, 'presentation' => 600],
+        ], ['algorithm' => 'component_trimmed_mean_v1', 'accuracy_max' => 400, 'presentation_max' => 600, 'discard_each_end' => 0], 3);
+
+        $this->assertSame('7.000000', $result['score']);
+        $this->assertSame([100, 200, 300], $result['components']['accuracy']['kept_hundredths']);
+        $this->assertNull((new CalculateScore)->restoredMeanMicros($result));
+    }
+
     public function test_each_component_is_trimmed_independently_with_integer_arithmetic(): void
     {
         $calculator = new CalculateScore;

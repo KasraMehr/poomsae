@@ -27,7 +27,7 @@ class FreestyleDetailedScoringTest extends TestCase
         $setup = app(CompetitionSetup::class);
         $setup->category($fixture['admin'], $fixture['tournament'], [
             'name' => 'Freestyle', 'discipline' => 'freestyle', 'entry_type' => 'individual',
-            'gender' => 'open', 'minimum_age' => 10, 'maximum_age' => 40, 'format' => 'knockout',
+            'gender' => 'male', 'minimum_age' => 10, 'maximum_age' => 40, 'format' => 'knockout',
             'judge_count' => 5, 'accuracy_max' => 600, 'discard_each_end' => 1, 'rules_acknowledged' => true,
         ]);
         $fixture['category'] = $fixture['tournament']->categories()->where('discipline', 'freestyle')->firstOrFail();

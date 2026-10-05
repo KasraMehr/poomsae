@@ -88,7 +88,7 @@ class StageDrawTest extends TestCase
     {
         $fixture = $this->competition();
         $this->actingAs($fixture['admin'])->post('/tournaments/'.$fixture['tournament']->id.'/categories', [
-            'name' => 'غیرتکراری', 'gender' => 'open', 'format' => 'knockout', 'judge_count' => 5,
+            'name' => 'غیرتکراری', 'gender' => 'male', 'format' => 'knockout', 'judge_count' => 5,
             'discard_each_end' => 1, 'rules_acknowledged' => true, 'planned_round_count' => 5,
             'allow_form_repetition' => false, 'form_names' => array_map(fn ($number) => 'فرم '.$number, range(1, 8)),
         ])->assertSessionHasErrors('operation');

@@ -59,7 +59,7 @@ class DatabaseIntegrityTest extends TestCase
         Tournament::firstOrFail()->delete();
     }
 
-    public function test_only_five_or_seven_judges_are_allowed(): void
+    public function test_unsupported_judge_counts_are_rejected(): void
     {
         User::factory()->create(['is_admin' => true]);
         $this->seed(DemoSeeder::class);

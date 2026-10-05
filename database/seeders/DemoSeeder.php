@@ -27,7 +27,7 @@ class DemoSeeder extends Seeder
             $tournament->users()->syncWithoutDetaching([$admin->id => ['role' => 'manager']]);
             Court::firstOrCreate(['tournament_id' => $tournament->id, 'name' => 'زمین یک']);
             $category = Category::firstOrCreate(['tournament_id' => $tournament->id, 'name' => 'رده آزمایشی انفرادی'], [
-                'discipline' => 'recognized', 'entry_type' => 'individual', 'gender' => 'open',
+                'discipline' => 'recognized', 'entry_type' => 'individual', 'gender' => 'male',
                 'format' => 'knockout', 'execution_mode' => 'alternating', 'judge_count' => '5',
                 'forms_per_round' => 2, 'draw_timing' => 'day_start',
             ]);

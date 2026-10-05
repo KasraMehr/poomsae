@@ -85,7 +85,7 @@ class CompetitionView
                                 'is_assigned' => ! $display && $ownJudge !== null,
                                 'own_score' => $own ? ['revision' => $own->revision, 'values' => $ownValues, 'breakdown' => $own->breakdown] : null,
                                 'scores' => $operate ? $p->scoreSheets->map(fn ($s) => [
-                                    'id' => $s->id, 'seat' => $bout->judges->firstWhere('id', $s->judge_assignment_id)?->seat, 'revision' => $s->revision, 'status' => $s->status,
+                                    'id' => $s->id, 'judge_assignment_id' => $s->judge_assignment_id, 'seat' => $bout->judges->firstWhere('id', $s->judge_assignment_id)?->seat, 'revision' => $s->revision, 'status' => $s->status,
                                     'submission_mode' => $s->submission_mode, 'submitted_by' => $s->submitted_by, 'submitted_at' => $s->submitted_at?->toISOString(),
                                     'confirmed_by' => $s->confirmed_by, 'confirmed_at' => $s->confirmed_at?->toISOString(),
                                     'values' => $components->get($s->id, collect())->pluck('value_hundredths', 'criterion')->all(), 'breakdown' => $s->breakdown,
@@ -101,12 +101,16 @@ class CompetitionView
                 })->values();
 
                 $formsReady = $category->discipline === 'freestyle' || ($category->planned_round_count === null ? count($category->form_sequence ?? []) === 2 : $round->forms_drawn_at !== null && count($round->form_sequence ?? []) === 2);
+                $previous = $category->rounds->firstWhere('sequence', $round->sequence - 1);
+                $advancementReview = $category->format === 'knockout' && $round->started_at !== null && $previous
+                    && $previous->bouts->pluck('winner_entry_id')->sort()->values()->all() !== $round->bouts->flatMap(fn ($bout) => $bout->entries->pluck('id'))->sort()->values()->all();
 
                 return ['id' => $round->id, 'name' => $round->name, 'sequence' => $round->sequence, 'status' => $round->status, 'bouts' => $bouts,
                     'scheduled' => $round->scheduled_at !== null || $bouts->isNotEmpty(), 'forms_ready' => $formsReady,
                     'form_ids' => $round->form_sequence ?? [], 'form_names' => collect($round->form_sequence ?? [])->map(fn ($id) => $category->forms->firstWhere('id', $id)?->name)->values(),
                     'forms_drawn_at' => $round->forms_drawn_at?->toISOString(), 'started_at' => $round->started_at?->toISOString(),
-                    'previous_completed' => $round->sequence === 1 || $category->rounds->firstWhere('sequence', $round->sequence - 1)?->status === 'completed',
+                    'previous_completed' => $round->sequence === 1 || $round->started_at !== null || $previous?->status === 'completed',
+                    'advancement_review_required' => (bool) $advancementReview,
                     'schedule_version' => $round->schedule_version, 'source_version' => $round->source_version,
                 ];
             })->values();

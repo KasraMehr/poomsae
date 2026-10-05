@@ -21,7 +21,7 @@ trait CreatesCompetition
         $setup = app(CompetitionSetup::class);
         $setup->court($admin, $tournament, ['name' => 'زمین یک']);
         $categoryData = [
-            'name' => 'انفرادی', 'gender' => 'open', 'minimum_age' => 10, 'maximum_age' => 40, 'format' => $format,
+            'name' => 'انفرادی', 'gender' => 'male', 'minimum_age' => 10, 'maximum_age' => 40, 'format' => $format,
             'judge_count' => $judgeCount, 'accuracy_max' => 400, 'discard_each_end' => $discardEachEnd, 'rules_acknowledged' => true, 'form_names' => ['فرم اول', 'فرم دوم'],
         ];
         if ($plannedRoundCount !== null) {

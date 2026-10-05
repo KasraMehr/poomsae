@@ -39,7 +39,7 @@ const submit = () => form.transform(data => scorePayload(data, props.rules.input
             </select>
             <ScoreEntryFields :form="form" :rules="rules" :id-prefix="`proxy-${performance.id}`" :disabled="form.processing" :reset-key="form.request_id" />
             <label :for="`proxy-reason-${performance.id}`">دلیل و شرح قطعی ارتباط</label>
-            <textarea :id="`proxy-reason-${performance.id}`" v-model="form.reason" required minlength="10" maxlength="500" placeholder="مثال: تبلت صندلی ۳ از شبکه خارج شد و سرداور ثبت جایگزین را تأیید کرد."></textarea>
+            <textarea :id="`proxy-reason-${performance.id}`" v-model="form.reason" required minlength="10" maxlength="500" placeholder="مثال: تبلت صندلی ۳ از شبکه خارج شد و نمره به‌صورت دستی ثبت شد."></textarea>
             <FormErrors :errors="form.errors" />
             <button class="button danger" :disabled="form.processing || !canSubmit">ثبت نمرهٔ جایگزین</button>
         </form>

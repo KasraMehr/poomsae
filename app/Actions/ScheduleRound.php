@@ -46,7 +46,6 @@ class ScheduleRound
                 $check(! $category->entries()->where('status', 'registered')->exists(), 'حضور یا انصراف تمام ورزشکاران ثبت‌نام‌شده را مشخص کنید.');
                 $ids = $category->entries()->where('status', 'checked_in')->orderBy('id')->pluck('id')->all();
                 $check(count($ids) >= 2, 'حداقل دو ورودی حاضر لازم است.');
-                $check(count($ids) <= ($category->format === 'round_robin' ? 16 : 64), 'حداکثر این نسخه: ۱۶ ورودی دورهای یا ۶۴ ورودی تک‌حذفی.');
                 if ($category->discipline === 'freestyle') {
                     $check($category->entries()->whereIn('id', $ids)->whereNull('music_path')->doesntExist(), 'فایل موسیقی تمام ورودی‌های حاضر لازم است.');
                 }
@@ -60,7 +59,7 @@ class ScheduleRound
             $sequence = ($previous?->sequence ?? 0) + 1;
             $check($category->planned_round_count === null || $sequence <= $category->planned_round_count, 'تمام مراحل برنامه‌ریزی‌شده ساخته شده‌اند.');
             $round = $category->planned_round_count === null
-                ? $category->rounds()->create(['name' => 'دور '.$sequence, 'sequence' => $sequence, 'status' => 'pending', 'form_sequence' => $forms])
+                ? $category->rounds()->create(['name' => 'مرحله '.$sequence, 'sequence' => $sequence, 'status' => 'pending', 'form_sequence' => $forms])
                 : $category->rounds()->where('sequence', $sequence)->firstOrFail();
             $pairs = [];
             if ($category->format === 'round_robin') {

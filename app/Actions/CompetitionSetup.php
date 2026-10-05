@@ -80,12 +80,17 @@ class CompetitionSetup
                 $this->editable($category);
             }
             $discardEachEnd = (int) $data['discard_each_end'];
-            $this->check(in_array($discardEachEnd, [1, 2], true) && ($discardEachEnd === 1 || (int) $data['judge_count'] === 7), 'حذف دو نمره از هر طرف فقط با هفت داور مجاز است.');
+            $judgeCount = (int) $data['judge_count'];
+            $this->check(in_array($judgeCount, [3, 5, 7], true), 'تعداد داورها باید ۳، ۵ یا ۷ باشد.');
+            $this->check(in_array($discardEachEnd, match ($judgeCount) {
+                3 => [0], 7 => [1, 2], default => [1],
+            }, true), 'با ۳ داور نمره‌ای حذف نمی‌شود؛ حذف دو نمره از هر طرف فقط با ۷ داور مجاز است.');
+            $this->check(in_array($data['gender'], ['male', 'female'], true), 'جنسیت رده باید بانوان یا آقایان باشد.');
             $discipline = $data['discipline'] ?? 'recognized';
             $entryType = $data['entry_type'] ?? 'individual';
             $plannedRoundCount = isset($data['planned_round_count']) ? (int) $data['planned_round_count'] : null;
             $allowRepetition = (bool) ($data['allow_form_repetition'] ?? true);
-            $this->check($plannedRoundCount === null || $plannedRoundCount >= 1 && $plannedRoundCount <= 6, 'تعداد مراحل باید بین ۱ تا ۶ باشد.');
+            $this->check($plannedRoundCount === null || $plannedRoundCount >= 1, 'تعداد مراحل باید حداقل ۱ باشد.');
             $this->check($discipline === 'freestyle' || $allowRepetition || $plannedRoundCount <= 4, 'با هشت پومسه و دو فرم در هر مرحله، حالت غیرتکراری حداکثر چهار مرحله دارد.');
             $this->check($discipline === 'freestyle' ? in_array($entryType, ['individual', 'pair'], true) : in_array($entryType, ['individual', 'team'], true), 'نوع شرکت در این سبک معتبر نیست.');
             $this->check((int) ($data['accuracy_max'] ?? ($discipline === 'freestyle' ? 600 : 400)) === ($discipline === 'freestyle' ? 600 : 400), 'سقف نمرهٔ رده معتبر نیست.');
@@ -121,7 +126,7 @@ class CompetitionSetup
             }
             $category->forms()->sync($formIds);
             for ($sequence = 1; $sequence <= ($plannedRoundCount ?? 0); $sequence++) {
-                $category->rounds()->create(['name' => $data['stage_names'][$sequence - 1] ?? 'مرحله '.$sequence, 'sequence' => $sequence, 'status' => 'pending', 'form_sequence' => []]);
+                $category->rounds()->create(['name' => 'مرحله '.$sequence, 'sequence' => $sequence, 'status' => 'pending', 'form_sequence' => []]);
             }
             $this->audit($actor, $tournament, 'category.saved', 'category', $category->id, $fields, $before);
 

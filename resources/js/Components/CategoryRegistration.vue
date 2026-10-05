@@ -38,7 +38,7 @@ const scheduleRound = () => schedule.post(props.base + '/categories/' + props.ca
                 <div><label :for="'first-'+category.id">نام</label><input :id="'first-'+category.id" v-model="entry.first_name" required maxlength="100"></div>
                 <div><label :for="'last-'+category.id">نام خانوادگی</label><input :id="'last-'+category.id" v-model="entry.last_name" required maxlength="100"></div>
                 <div><label :for="'birth-'+category.id">تاریخ تولد (میلادی)</label><input :id="'birth-'+category.id" v-model="entry.birth_date" type="date" required :max="tournament.starts_on" dir="ltr"></div>
-                <div><label :for="'sex-'+category.id">جنسیت</label><select :id="'sex-'+category.id" v-model="entry.gender"><option value="male">مرد</option><option value="female">زن</option></select></div>
+                <div><label :for="'sex-'+category.id">جنسیت</label><select :id="'sex-'+category.id" v-model="entry.gender"><option value="female">بانوان</option><option value="male">آقایان</option></select></div>
                 <div><label :for="'club-'+category.id">باشگاه</label><input :id="'club-'+category.id" v-model="entry.club" maxlength="100"></div>
                 </template>
                 <div v-for="(member,index) in entry.members.slice(0, memberCount)" v-else :key="index" class="wide fields-two">
@@ -46,7 +46,7 @@ const scheduleRound = () => schedule.post(props.base + '/categories/' + props.ca
                     <div><label :for="`member-first-${category.id}-${index}`">نام</label><input :id="`member-first-${category.id}-${index}`" v-model="member.first_name" required maxlength="100"></div>
                     <div><label :for="`member-last-${category.id}-${index}`">نام خانوادگی</label><input :id="`member-last-${category.id}-${index}`" v-model="member.last_name" required maxlength="100"></div>
                     <div><label :for="`member-birth-${category.id}-${index}`">تاریخ تولد (میلادی)</label><input :id="`member-birth-${category.id}-${index}`" v-model="member.birth_date" type="date" required :max="tournament.starts_on" dir="ltr"></div>
-                    <div><label :for="`member-gender-${category.id}-${index}`">جنسیت</label><select :id="`member-gender-${category.id}-${index}`" v-model="member.gender"><option value="male">مرد</option><option value="female">زن</option></select></div>
+                    <div><label :for="`member-gender-${category.id}-${index}`">جنسیت</label><select :id="`member-gender-${category.id}-${index}`" v-model="member.gender"><option value="female">بانوان</option><option value="male">آقایان</option></select></div>
                     <div><label :for="`member-club-${category.id}-${index}`">باشگاه</label><input :id="`member-club-${category.id}-${index}`" v-model="member.club" maxlength="100"></div>
                 </div>
                 <div v-if="category.discipline === 'freestyle'"><label :for="`music-${category.id}`">فایل موسیقی (MP3، WAV یا M4A، حداکثر ۲۰ مگابایت)</label><input :id="`music-${category.id}`" type="file" accept=".mp3,.wav,.m4a,audio/*" required @change="entry.music = $event.target.files[0] || null"></div>

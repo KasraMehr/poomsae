@@ -11,6 +11,7 @@ use App\Models\Tournament;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Str;
 
 class RunCompetition
 {
@@ -36,11 +37,11 @@ class RunCompetition
                 $this->setup->check($category->discipline !== 'freestyle' || $performance->music_path !== null, 'فایل موسیقی اجرای ابداعی لازم است.');
                 if ($round->sequence > 1) {
                     $previousRound = $category->rounds()->where('sequence', $round->sequence - 1)->first();
-                    $this->setup->check($previousRound && $previousRound->status === 'completed', 'مرحلهٔ قبل باید قبل از شروع این مرحله کامل شود.');
+                    $this->setup->check($previousRound && ($previousRound->status === 'completed' || $round->started_at !== null), 'مرحلهٔ قبل باید قبل از شروع این مرحله کامل شود.');
                     if ($category->format === 'knockout') {
                         $expectedEntries = $previousRound->bouts()->pluck('winner_entry_id')->sort()->values()->all();
                         $actualEntries = $round->bouts()->with('entries')->get()->flatMap(fn ($item) => $item->entries->pluck('id'))->sort()->values()->all();
-                        $this->setup->check($expectedEntries === $actualEntries, 'جدول مرحلهٔ جدید باید دقیقاً شامل برندگان مرحلهٔ قبل باشد.');
+                        $this->setup->check($expectedEntries === $actualEntries || $round->started_at !== null, 'جدول مرحلهٔ جدید باید دقیقاً شامل برندگان مرحلهٔ قبل باشد.');
                     }
                 }
                 $judgeIds = $bout->judges()->orderBy('user_id')->lockForUpdate()->pluck('user_id');
@@ -86,18 +87,84 @@ class RunCompetition
                 }
             } else {
                 $this->setup->check($performance->status === 'scoring', 'فقط اجرای منتظر نمره قابل تأیید است.');
-                $sheets = $performance->scoreSheets()->where('status', 'submitted')->get();
-                $assigned = $bout->judges()->pluck('id')->sort()->values()->all();
-                $this->setup->check($sheets->pluck('judge_assignment_id')->sort()->values()->all() === $assigned && count($assigned) === $category->judge_count, 'نمرهٔ تمام داوران تخصیص‌داده‌شده لازم است.');
-                $scores = $sheets->map(fn ($sheet) => DB::table('score_components')->where('score_sheet_id', $sheet->id)->pluck('value_hundredths', 'criterion')->map(fn ($value) => (int) $value)->all())->all();
-                $calculation = $this->calculator->calculate($scores, $category->scoringRuleSet->definition, $category->judge_count);
-                $calculation['sheet_revisions'] = $sheets->pluck('revision', 'id')->all();
-                Result::create(['performance_id' => $performance->id, 'scoring_rule_set_id' => $category->scoring_rule_set_id, 'score' => $calculation['score'], 'calculation_snapshot' => $calculation, 'published_at' => now()]);
+                $this->publishResult($performance, $bout, $category);
                 $performance->update(['status' => 'approved', 'approved_at' => now(), 'approved_by' => $actor->id, 'version' => $performance->version + 1]);
                 $this->finalizeBout($actor, $tournament, $bout);
             }
             $this->setup->audit($actor, $tournament, 'performance.'.$data['command'], 'performance', $performance->id, $performance->fresh()->toArray(), $before);
         }, 3);
+    }
+
+    private function publishResult(Performance $performance, Bout $bout, Category $category): Result
+    {
+        $sheets = $performance->scoreSheets()->where('status', 'submitted')->get();
+        $assigned = $bout->judges()->pluck('id')->sort()->values()->all();
+        $this->setup->check($sheets->pluck('judge_assignment_id')->sort()->values()->all() === $assigned && count($assigned) === $category->judge_count, 'نمرهٔ تمام داوران تخصیص‌داده‌شده لازم است.');
+        $scores = $sheets->map(fn ($sheet) => DB::table('score_components')->where('score_sheet_id', $sheet->id)->pluck('value_hundredths', 'criterion')->map(fn ($value) => (int) $value)->all())->all();
+        $calculation = $this->calculator->calculate($scores, $category->scoringRuleSet->definition, $category->judge_count);
+        $calculation['sheet_revisions'] = $sheets->pluck('revision', 'id')->all();
+
+        return Result::updateOrCreate(['performance_id' => $performance->id], ['scoring_rule_set_id' => $category->scoring_rule_set_id, 'score' => $calculation['score'], 'calculation_snapshot' => $calculation, 'published_at' => now()]);
+    }
+
+    public function recalculateApprovedResult(User $actor, Tournament $tournament, Performance $performance, string $reason): void
+    {
+        $bout = Bout::with('category.scoringRuleSet', 'round')->lockForUpdate()->findOrFail($performance->bout_id);
+        $this->setup->check($performance->status === 'approved' && $performance->result !== null, 'فقط نتیجهٔ تأییدشده قابل اصلاح است.');
+        $before = $performance->result->toArray();
+        $boutBefore = $bout->toArray();
+        $result = $this->publishResult($performance, $bout, $bout->category);
+        $performance->update(['version' => $performance->version + 1, 'approved_by' => $actor->id, 'approved_at' => now()]);
+        if (! $bout->performances()->where('status', '!=', 'approved')->exists()) {
+            $bout->update(['status' => 'running', 'winner_entry_id' => null, 'resolved_by' => null, 'resolution_reason' => null]);
+            $bout->round->update(['status' => 'running']);
+            $this->finalizeBout($actor, $tournament, $bout);
+            $this->synchronizeAdvancement($actor, $tournament, $bout->fresh(), $reason, $boutBefore['winner_entry_id']);
+            if ($bout->fresh()->status !== 'completed' && $tournament->status === 'completed') {
+                $tournament->update(['status' => 'running']);
+            }
+        }
+        $this->setup->audit($actor, $tournament, 'result.corrected', 'result', $result->id, [...$result->toArray(), 'reason' => $reason], $before);
+        $this->setup->audit($actor, $tournament, 'bout.result_corrected', 'bout', $bout->id, [...$bout->fresh()->toArray(), 'reason' => $reason], $boutBefore);
+    }
+
+    private function synchronizeAdvancement(User $actor, Tournament $tournament, Bout $bout, string $reason, ?int $previousWinner = null): void
+    {
+        if ($bout->category->format !== 'knockout' || $bout->winner_entry_id === null || $previousWinner === $bout->winner_entry_id) {
+            return;
+        }
+        $nextRound = $bout->category->rounds()->where('sequence', $bout->round->sequence + 1)->first();
+        if (! $nextRound || $nextRound->started_at !== null) {
+            return;
+        }
+        $losers = $previousWinner !== null ? [$previousWinner] : $bout->entries()->where('entries.id', '!=', $bout->winner_entry_id)->pluck('entries.id')->all();
+        $nextBouts = $nextRound->bouts()->whereHas('entries', fn ($query) => $query->whereIn('entries.id', $losers))->get();
+        foreach ($nextBouts as $nextBout) {
+            $this->setup->check(! $nextBout->performances()->where(fn ($query) => $query->where('status', '!=', 'pending')->orWhereHas('scoreSheets'))->exists(), 'جدول مرحلهٔ شروع‌شده قابل جایگزینی خودکار نیست.');
+            $before = $nextBout->entries()->pluck('entries.id')->all();
+            $oldEntry = $nextBout->entries()->whereIn('entries.id', $losers)->firstOrFail();
+            $pending = $nextBout->performances()->where('entry_id', $oldEntry->id)->get();
+            foreach ($pending as $nextPerformance) {
+                $nextPerformance->delete();
+            }
+            $nextBout->entries()->detach($oldEntry->id);
+            $nextBout->entries()->attach($bout->winner_entry_id, ['category_id' => $bout->category_id, 'side' => $oldEntry->pivot->side]);
+            $musicPath = $bout->category->entries()->whereKey($bout->winner_entry_id)->value('music_path');
+            foreach ($pending as $nextPerformance) {
+                $nextBout->performances()->create([
+                    'public_id' => (string) Str::uuid(), 'entry_id' => $bout->winner_entry_id,
+                    'poomsae_form_id' => $nextPerformance->poomsae_form_id, 'draw_id' => $nextPerformance->draw_id,
+                    'form_number' => $nextPerformance->form_number, 'music_path' => $musicPath,
+                    'status' => 'pending', 'version' => $nextPerformance->version + 1,
+                ]);
+            }
+            if ($nextBout->winner_entry_id === $oldEntry->id) {
+                $nextBout->update(['winner_entry_id' => $bout->winner_entry_id]);
+                $this->synchronizeAdvancement($actor, $tournament, $nextBout, $reason, $oldEntry->id);
+            }
+            $nextRound->update(['schedule_version' => $nextRound->schedule_version + 1]);
+            $this->setup->audit($actor, $tournament, 'bout.advancement_corrected', 'bout', $nextBout->id, ['entry_ids' => $nextBout->entries()->pluck('entries.id')->all(), 'reason' => $reason], ['entry_ids' => $before]);
+        }
     }
 
     public function totals(Bout $bout): array
@@ -234,6 +301,9 @@ class RunCompetition
             }
             $bout->update(['status' => 'completed', 'winner_entry_id' => $data['winner_entry_id'], 'resolved_by' => $actor->id, 'resolution_reason' => $data['reason']]);
             $this->completeRound($bout);
+            if (! $walkover) {
+                $this->synchronizeAdvancement($actor, $tournament, $bout, $data['reason']);
+            }
             $this->setup->audit($actor, $tournament, $walkover ? 'bout.walkover' : 'bout.tie_resolved', 'bout', $bout->id, $data);
         }, 3);
     }

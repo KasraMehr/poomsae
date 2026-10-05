@@ -82,7 +82,7 @@ class ImportManagementSnapshot
                 $this->setup->check($category->discipline !== 'freestyle' || $chosenForms === [], 'ابداعی قرعهٔ فرم استاندارد ندارد.');
                 $this->setup->check($chosenForms === [] || count($chosenForms) === 2, 'قرعهٔ فرم‌ها باید خالی یا شامل دو پومسه باشد.');
                 $this->clearPendingBouts($round);
-                $round->update(['name' => $stage['name'], 'status' => 'pending', 'form_sequence' => [], 'forms_drawn_at' => null, 'form_draw_id' => null, 'scheduled_at' => null]);
+                $round->update(['name' => 'مرحله '.$round->sequence, 'status' => 'pending', 'form_sequence' => [], 'forms_drawn_at' => null, 'form_draw_id' => null, 'scheduled_at' => null]);
                 $changes[] = [$round, $stage, $pairs, $stageHash, $chosenForms];
             }
             foreach ($changes as [$round, $stage, $pairs, $stageHash, $chosenForms]) {
@@ -140,7 +140,7 @@ class ImportManagementSnapshot
             return;
         }
         $ids = array_merge(...$pairs);
-        $this->setup->check(count($ids) >= 2 && count($ids) <= ($category->format === 'round_robin' ? 16 : 64) && count($ids) === count(array_unique($ids)), 'تعداد ورودی‌ها یا تکرار آن‌ها در مرحله معتبر نیست.');
+        $this->setup->check(count($ids) >= 2 && count($ids) === count(array_unique($ids)), 'تعداد ورودی‌ها یا تکرار آن‌ها در مرحله معتبر نیست.');
         if ($category->format === 'knockout') {
             $size = 2 ** (int) ceil(log(count($ids), 2));
             $byes = count(array_filter($pairs, fn ($pair) => count($pair) === 1));

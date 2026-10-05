@@ -2,6 +2,7 @@
 import { useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import FormErrors from './FormErrors.vue';
+import ScoreCorrectionForm from './ScoreCorrectionForm.vue';
 const props = defineProps({ bout: Object, round: Object, category: Object, tournament: Object, base: String, canOperate: Boolean });
 const action = useForm({ command: '', expected_version: 1 });
 const resolution = useForm({ winner_entry_id: '', reason: '' });
@@ -26,6 +27,7 @@ const nextPerformanceId = computed(() => {
 </script>
 <template>
     <article class="bout-panel">
+        <p v-if="round.advancement_review_required && bout.sequence === 1" class="notice">نیاز به بررسی: اصلاح نتیجهٔ مرحلهٔ قبل، برندهٔ راه‌یافته را تغییر داده است. شرکت‌کنندگان و نتایج این مرحله چون شروع شده بود، حفظ شده‌اند.</p>
         <div class="bout-heading"><div><span class="eyebrow">{{ category.score_based ? 'اجرا' : 'رقابت' }} {{ bout.sequence }} · {{ tournament.courts.find(c => c.id === bout.court_id)?.name }}</span><h3><span v-for="(entry,index) in bout.entries" :key="entry.id"><span :class="entry.side">{{ entry.name }}</span><span v-if="index === 0 && bout.entries.length === 2" class="versus"> / </span></span></h3></div><span class="badge" :class="bout.status">{{ labels[bout.status] }}</span></div>
         <div v-if="bout.winner_entry_id" class="winner">برنده: {{ entryName(bout.winner_entry_id) }} <small>{{ bout.resolution_reason }}</small></div>
         <div v-if="bout.performances.length" class="performance-grid">
@@ -47,6 +49,7 @@ const nextPerformanceId = computed(() => {
                         <p v-if="score.breakdown?.method === 'deductions_and_components_v1'" class="subtle">کسرهای دقت: {{ score.breakdown.accuracy_penalties_hundredths.length ? score.breakdown.accuracy_penalties_hundredths.map(value => (value / 100).toFixed(2)).join('، ') : 'بدون کسر' }} · مؤلفه‌های اجرا: {{ score.breakdown.presentation_components_hundredths.map(value => (value / 100).toFixed(2)).join(' + ') }}</p>
                         <p v-else-if="score.breakdown?.method === 'components_and_deductions_v1'" class="subtle">مؤلفه‌های دقت: {{ score.breakdown.accuracy_components_hundredths.map(value => (value / 100).toFixed(2)).join(' + ') }} · کسرهای اجرا: {{ score.breakdown.presentation_penalties_hundredths.length ? score.breakdown.presentation_penalties_hundredths.map(value => (value / 100).toFixed(2)).join('، ') : 'بدون کسر' }}</p>
                         <p v-else class="subtle">نمرهٔ ثبت‌شده به روش مستقیم</p>
+                        <ScoreCorrectionForm v-if="['scoring', 'approved'].includes(p.status) && tournament.status !== 'archived'" :key="score.id" :performance="p" :score="score" :rules="category.rules" :endpoint="`${base}/performances/${p.id}/proxy-scores`" />
                         <details v-if="score.history?.length"><summary>سابقهٔ ثبت و اصلاح</summary><div v-for="revision in score.history" :key="revision.revision" class="judge-score-row"><span>ویرایش {{ revision.revision }} · {{ revision.changed_by_name }} · {{ new Date(revision.created_at).toLocaleString('fa-IR') }}<small v-if="revision.reason"> · {{ revision.reason }}</small></span><b>{{ rawScore(revision.snapshot, revision.snapshot.breakdown?.method) }}</b></div></details>
                     </div>
                 </details>

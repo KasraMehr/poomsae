@@ -30,7 +30,6 @@ class ConfirmProxyScore
             abort_unless($scoreSheet->revision === $expectedRevision, 409, 'نمره در دستگاه دیگری تغییر کرده است؛ نسخهٔ تازه را دریافت کنید.');
             $this->setup->check($tournament->status === 'running' && $performance->status === 'scoring', 'تأیید نمرهٔ دستی فقط پیش از تأیید نهایی اجرا مجاز است.');
             $this->setup->check($scoreSheet->submission_mode === 'operator_proxy' && $scoreSheet->status === 'draft', 'این نمرهٔ دستی در انتظار تأیید نیست.');
-            $this->setup->check($scoreSheet->submitted_by !== $actor->id, 'ثبت‌کنندهٔ نمرهٔ دستی نمی‌تواند تأییدکنندهٔ همان نمره باشد.');
 
             $scoreSheet->update(['status' => 'submitted', 'confirmed_by' => $actor->id, 'confirmed_at' => now()]);
             $this->setup->audit($actor, $tournament, 'score.proxy_confirmed', 'score_sheet', $scoreSheet->id, [

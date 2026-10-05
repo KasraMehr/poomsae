@@ -1,10 +1,9 @@
 <script setup>
-import { useForm, usePage } from '@inertiajs/vue3';
+import { useForm } from '@inertiajs/vue3';
 import FormErrors from './FormErrors.vue';
 import ProxyScoreForm from './ProxyScoreForm.vue';
 
 const props = defineProps({ court: Object, base: String, rules: Object, onlineJudgeIds: Array });
-const page = usePage();
 const action = useForm({ command: '', expected_version: 1 });
 const confirmation = useForm({ expected_revision: 1 });
 const labels = { pending: 'آمادهٔ فراخوان', running: 'در حال اجرا', scoring: 'منتظر نمره‌ها', approved: 'تأیید شده' };
@@ -40,16 +39,15 @@ const confirmProxyScore = (performance, score) => {
                     <span v-for="judge in court.active.judges" :key="judge.id" :title="`${judge.name} · ${onlineJudgeIds.includes(judge.user_id) ? 'متصل' : 'بدون اتصال زنده'}`" :class="{ received: court.active.submitted_seats.includes(judge.seat), online: onlineJudgeIds.includes(judge.user_id) }">{{ judge.seat }}<i></i></span>
                 </div>
                 <small v-if="court.active.missing_seats.length">در انتظار صندلی‌های {{ court.active.missing_seats.join('، ') }}</small>
-                <small v-if="court.active.pending_review_seats.length">نمرهٔ جایگزین صندلی‌های {{ court.active.pending_review_seats.join('، ') }} در انتظار تأیید مسئول دوم است.</small>
+                <small v-if="court.active.pending_review_seats.length">نمرهٔ جایگزین صندلی‌های {{ court.active.pending_review_seats.join('، ') }} در انتظار تأیید اپراتور است.</small>
             </div>
 
             <div v-if="court.active.pending_review_seats.length" class="proxy-score">
                 <h3>تأیید نمرهٔ جایگزین</h3>
                 <div v-for="score in court.active.scores.filter(score => score.submission_mode === 'operator_proxy' && score.status === 'draft')" :key="score.id" class="judge-score-row">
                     <span>صندلی {{ score.seat }} · {{ (score.values.accuracy / 100).toFixed(2) }}<template v-if="rules.input_method !== 'single_score_v1'"> + {{ (score.values.presentation / 100).toFixed(2) }}</template></span>
-                    <button type="button" class="button secondary small" :disabled="confirmation.processing || score.submitted_by === page.props.auth.user.id" @click="confirmProxyScore(court.active, score)">تأیید توسط مسئول دوم</button>
+                    <button type="button" class="button secondary small" :disabled="confirmation.processing" @click="confirmProxyScore(court.active, score)">تأیید نمرهٔ دستی</button>
                 </div>
-                <small v-if="court.active.scores.some(score => score.status === 'draft' && score.submitted_by === page.props.auth.user.id)">ثبت‌کنندهٔ نمره نمی‌تواند همان نمره را تأیید کند.</small>
                 <FormErrors :errors="confirmation.errors" />
             </div>
 

@@ -99,7 +99,7 @@ class CalculateScore
         }
 
         $judgeCount = (int) ($calculationSnapshot['judge_count'] ?? 0);
-        if (! in_array($judgeCount, [5, 7], true) || ($discard === 2 && $judgeCount !== 7)) {
+        if (! in_array($judgeCount, [3, 5, 7], true) || ($discard === 2 && $judgeCount !== 7)) {
             throw new InvalidArgumentException('Invalid judge count in calculation snapshot.');
         }
 
@@ -125,7 +125,7 @@ class CalculateScore
     /** @param array<int,array{accuracy:int,presentation:int}> $scores */
     public function calculate(array $scores, array $rules, int $judgeCount): array
     {
-        if (! in_array($judgeCount, [5, 7], true) || count($scores) !== $judgeCount || ($rules['algorithm'] ?? '') !== 'component_trimmed_mean_v1') {
+        if (! in_array($judgeCount, [3, 5, 7], true) || count($scores) !== $judgeCount || ($rules['algorithm'] ?? '') !== 'component_trimmed_mean_v1') {
             throw new InvalidArgumentException('Incomplete panel or unsupported rules.');
         }
         $discard = (int) $rules['discard_each_end'];
