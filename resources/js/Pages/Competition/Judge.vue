@@ -1,15 +1,17 @@
 <script setup>
 import { useCompetitionUpdates } from '../../useCompetitionUpdates';
+import { useJudgePresence } from '../../useJudgePresence';
 import { computed } from 'vue';
 import { Head, usePoll, usePage, Link } from '@inertiajs/vue3';
 import ArenaLayout from '../../Layouts/ArenaLayout.vue';
 import JudgeScoreForm from '../../Components/JudgeScoreForm.vue';
 const props = defineProps({ tournament: Object });
 const realtime = useCompetitionUpdates(props.tournament.id);
+useJudgePresence(props.tournament.id);
 const page = usePage();
 const base = computed(() => page.props.urls.tournaments + '/' + props.tournament.id);
 const assigned = computed(() => props.tournament.categories.flatMap(category => category.rounds.flatMap(round => round.bouts.flatMap(bout => bout.performances.filter(p => p.is_assigned && ['running','scoring'].includes(p.status)).map(performance => ({ category, bout, performance }))))));
-const approved = computed(() => props.tournament.status === 'archived' ? [] : props.tournament.categories.flatMap(category => category.rounds.flatMap(round => round.bouts.flatMap(bout => bout.performances.filter(p => p.is_assigned && p.status === 'approved' && p.own_score).map(performance => ({ category, round, bout, performance }))))));
+const approved = computed(() => props.tournament.categories.flatMap(category => category.rounds.filter(round => round.score_correction_open).flatMap(round => round.bouts.flatMap(bout => bout.performances.filter(p => p.is_assigned && p.status === 'approved' && p.own_score).map(performance => ({ category, round, bout, performance }))))));
 usePoll(2000,{only:['tournament']});
 </script>
 <template>
@@ -23,6 +25,7 @@ usePoll(2000,{only:['tournament']});
         </section>
         <section v-if="approved.length" class="panel">
             <h2>اصلاح نمره‌های تأییدشده با دلیل</h2>
+            <p class="subtle">اصلاح نمره فقط تا پیش از شروع مرحلهٔ بعدِ همان رده مجاز است.</p>
             <details v-for="{category,round,bout,performance} in approved" :key="performance.id">
                 <summary>{{ category.name }} · {{ round.name }} · {{ bout.entries.find(entry => entry.id === performance.entry_id)?.name }} · {{ performance.form_name }}</summary>
                 <JudgeScoreForm :performance="performance" :rules="category.rules" :endpoint="base + '/performances/' + performance.id + '/scores'" />

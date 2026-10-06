@@ -2,7 +2,6 @@
 
 namespace App\Actions;
 
-use App\Events\CompetitionUpdated;
 use App\Models\Athlete;
 use App\Models\AuditLog;
 use App\Models\Category;
@@ -46,7 +45,7 @@ class CompetitionSetup
     public function audit(User $actor, Tournament $tournament, string $action, string $type, int $id, array $after = [], ?array $before = null): void
     {
         $audit = AuditLog::create(['tournament_id' => $tournament->id, 'user_id' => $actor->id, 'action' => $action, 'subject_type' => $type, 'subject_id' => $id, 'before' => $before, 'after' => $after]);
-        CompetitionUpdated::dispatch($tournament->id, $audit->id);
+        app(PublishCompetitionUpdate::class)->handle($audit);
     }
 
     public function court(User $actor, Tournament $tournament, array $data): void
@@ -88,6 +87,16 @@ class CompetitionSetup
             $this->check(in_array($data['gender'], ['male', 'female'], true), 'جنسیت رده باید بانوان یا آقایان باشد.');
             $discipline = $data['discipline'] ?? 'recognized';
             $entryType = $data['entry_type'] ?? 'individual';
+            $ageCategory = null;
+            if (isset($data['age_category'])) {
+                $ageCategory = config('poomsae.age_categories')[$data['age_category']] ?? null;
+                $this->check($ageCategory !== null && $ageCategory['discipline'] === $discipline && $ageCategory['entry_type'] === $entryType, 'ردهٔ سنی با سبک و نوع شرکت سازگار نیست.');
+                $ageCategory = ['id' => $data['age_category'], 'year' => config('poomsae.age_table_year'), ...$ageCategory];
+                $data['minimum_age'] = $ageCategory['minimum_age'];
+                $data['maximum_age'] = $ageCategory['maximum_age'];
+                $data['form_names'] = array_map(fn (int $number): string => 'فرم '.$number, $ageCategory['forms']);
+                $data['planned_round_count'] ??= 1;
+            }
             $plannedRoundCount = isset($data['planned_round_count']) ? (int) $data['planned_round_count'] : null;
             $allowRepetition = (bool) ($data['allow_form_repetition'] ?? true);
             $this->check($plannedRoundCount === null || $plannedRoundCount >= 1, 'تعداد مراحل باید حداقل ۱ باشد.');
@@ -97,6 +106,10 @@ class CompetitionSetup
             $definition = $discipline === 'freestyle'
                 ? ['algorithm' => 'component_trimmed_mean_v1', 'accuracy_max' => 600, 'presentation_max' => 400, 'accuracy_component_max' => 200, 'presentation_deduction_options' => [10, 30], 'input_method' => 'components_and_deductions_v1', 'discard_each_end' => $discardEachEnd, 'aggregation' => 'single_performance', 'tie_break' => 'restore_all_judges_mean_then_operator', 'age_basis' => 'birthday_on_start_date']
                 : ['algorithm' => 'component_trimmed_mean_v1', 'accuracy_max' => 400, 'presentation_max' => 600, 'accuracy_deduction_options' => [10, 30], 'presentation_component_max' => 200, 'input_method' => 'deductions_and_components_v1', 'discard_each_end' => $discardEachEnd, 'aggregation' => 'sum_two_forms', 'tie_break' => 'restore_all_judges_mean_then_operator', 'age_basis' => 'birthday_on_start_date'];
+            if ($ageCategory !== null) {
+                $definition['age_basis'] = 'birth_date_range';
+                $definition['age_category'] = $ageCategory;
+            }
             $rule = ScoringRuleSet::create([
                 'name' => 'تنظیمات برگزارکننده '.Str::uuid(), 'version' => 1, 'discipline' => $discipline,
                 'definition' => $definition,
@@ -161,13 +174,19 @@ class CompetitionSetup
             'individual' => 1, 'pair' => 2, 'team' => 3
         }, 'تعداد اعضای ورودی معتبر نیست.');
         $identities = [];
+        $ageCategory = $category->scoringRuleSet?->definition['age_category'] ?? null;
         foreach ($members as $member) {
             $identity = mb_strtolower(trim($member['first_name']).'|'.trim($member['last_name']).'|'.$member['birth_date']);
             $this->check(! in_array($identity, $identities, true), 'یک ورزشکار در همین گروه تکرار شده است.');
             $identities[] = $identity;
             $this->check($category->gender === 'open' || $category->gender === 'mixed' || $category->gender === $member['gender'], 'جنسیت ورزشکار با رده سازگار نیست.');
-            $age = (int) CarbonImmutable::parse($member['birth_date'])->diffInYears(CarbonImmutable::parse($tournament->starts_on));
-            $this->check(($category->minimum_age === null || $age >= $category->minimum_age) && ($category->maximum_age === null || $age <= $category->maximum_age), 'سن ورزشکار در روز شروع مسابقه با رده سازگار نیست.');
+            if ($ageCategory !== null) {
+                $birthDate = CarbonImmutable::parse($member['birth_date'])->toDateString();
+                $this->check(($ageCategory['birth_date_min'] === null || $birthDate >= $ageCategory['birth_date_min']) && ($ageCategory['birth_date_max'] === null || $birthDate <= $ageCategory['birth_date_max']), 'تاریخ تولد ورزشکار با ردهٔ سنی سازگار نیست: '.$ageCategory['birth_date_label']);
+            } else {
+                $age = (int) CarbonImmutable::parse($member['birth_date'])->diffInYears(CarbonImmutable::parse($tournament->starts_on));
+                $this->check(($category->minimum_age === null || $age >= $category->minimum_age) && ($category->maximum_age === null || $age <= $category->maximum_age), 'سن ورزشکار در روز شروع مسابقه با رده سازگار نیست.');
+            }
             $this->check(! $category->entries()->when($entryId, fn ($query) => $query->where('id', '!=', $entryId))->whereHas('athletes', fn ($q) => $q->where('first_name', $member['first_name'])->where('last_name', $member['last_name'])->whereDate('birth_date', $member['birth_date']))->exists(), 'ورزشکار با همین نام و تاریخ تولد قبلاً در این رده ثبت شده است.');
         }
         $this->check($category->gender !== 'mixed' || count(array_unique(array_column($members, 'gender'))) === 2, 'ردهٔ مختلط به ورزشکار زن و مرد نیاز دارد.');

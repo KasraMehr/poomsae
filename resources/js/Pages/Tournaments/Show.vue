@@ -7,7 +7,7 @@ import CompetitionSetupPanel from '../../Components/CompetitionSetupPanel.vue';
 import CategoryRegistration from '../../Components/CategoryRegistration.vue';
 import BoutPanel from '../../Components/BoutPanel.vue';
 import FormErrors from '../../Components/FormErrors.vue';
-const props = defineProps({ tournament: Object, can: Object, competitionUrls: Object });
+const props = defineProps({ tournament: Object, can: Object, competitionUrls: Object, ageCategories: Array, ageTableYear: Number });
 useCompetitionUpdates(props.tournament.id);
 const tab = ref('setup');
 const selectedId = ref(props.tournament.categories[0]?.id);
@@ -21,7 +21,7 @@ usePoll(5000, { only: ['tournament','can'] });
         <section class="page-heading"><div><span class="eyebrow">آماده‌سازی مسابقه</span><h1>{{ tournament.name }}</h1><p class="subtle">{{ tournament.venue || 'محل تعیین نشده' }} · {{ labels[tournament.status] }}</p></div><div class="row-actions"><Link :href="competitionUrls.base" class="button">بازگشت به میز اجرا</Link><Link :href="competitionUrls.scoreboard" class="button secondary">نمایشگر سالن</Link></div></section>
         <div class="progress-steps"><span :class="{done:tournament.courts.length}">۱ · زمین و داور</span><span :class="{done:tournament.categories.length}">۲ · رده و ثبت‌نام</span><span :class="{done:tournament.categories.some(c=>c.rounds.some(r=>r.scheduled))}">۳ · قرعه و اجرا</span><span :class="{done:tournament.status === 'completed'}">۴ · نتیجهٔ نهایی</span></div>
         <nav class="tabs"><button v-if="can.manage && tournament.status !== 'completed'" :class="{selected:tab === 'setup'}" @click="tab='setup'">آماده‌سازی</button><button :class="{selected:tab === 'control'}" @click="tab='control'">رده‌ها و میز اجرا</button></nav>
-        <CompetitionSetupPanel v-if="tab === 'setup' && can.manage && tournament.status !== 'completed'" :tournament="tournament" :base="competitionUrls.base"/>
+        <CompetitionSetupPanel v-if="tab === 'setup' && can.manage && tournament.status !== 'completed'" :tournament="tournament" :base="competitionUrls.base" :age-categories="ageCategories" :age-table-year="ageTableYear"/>
         <div v-else>
             <div v-if="!tournament.categories.length" class="empty"><h2>ابتدا ردهٔ مسابقه را بسازید</h2><p>از آماده‌سازی، زمین، داور و رده را تعریف کنید.</p></div>
             <template v-if="selected">

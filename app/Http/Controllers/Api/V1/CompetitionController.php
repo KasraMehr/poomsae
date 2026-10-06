@@ -6,6 +6,7 @@ use App\Actions\CompetitionSetup;
 use App\Actions\CompetitionView;
 use App\Actions\ImportManagementSnapshot;
 use App\Actions\SubmitScore;
+use App\Events\CompetitionDomainUpdated;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CompetitionSetupRequest;
 use App\Http\Requests\ManagementSnapshotRequest;
@@ -32,6 +33,7 @@ class CompetitionController extends Controller
                 'channel' => 'private-tournaments.'.$tournament->id,
                 'presence_channel' => 'presence-tournaments.'.$tournament->id.'.judges',
                 'event' => 'competition.updated',
+                'events' => array_map(fn (string $domain): string => $domain.'.updated', CompetitionDomainUpdated::DOMAINS),
             ],
         ]);
     }

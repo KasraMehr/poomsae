@@ -53,6 +53,8 @@ class TournamentController extends Controller
         Gate::authorize('update', $tournament);
 
         return Inertia::render('Tournaments/Show', [
+            'ageCategories' => collect(config('poomsae.age_categories'))->map(fn (array $category, string $id): array => ['id' => $id, ...$category])->values(),
+            'ageTableYear' => config('poomsae.age_table_year'),
             'tournament' => $view->snapshot($tournament, $request->user()),
             'can' => $this->permissions($request, $tournament),
             'competitionUrls' => $this->urls($tournament),

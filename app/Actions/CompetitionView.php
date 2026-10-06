@@ -2,6 +2,7 @@
 
 namespace App\Actions;
 
+use App\Models\AuditLog;
 use App\Models\Tournament;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -23,12 +24,13 @@ class CompetitionView
             ->orderBy('score_revisions.revision')->get()->groupBy('score_sheet_id') : collect();
         $categories = $tournament->categories->map(function ($category) use ($actor, $display, $operate, $components, $revisions, $tournament) {
             $standingsRoundId = $category->rounds->filter(fn ($round) => $round->bouts->isNotEmpty())->sortBy('sequence')->last()?->id;
+            $lastStartedSequence = $category->rounds->filter(fn ($round) => $round->started_at !== null || in_array($round->status, ['running', 'completed'], true))->max('sequence') ?? 0;
             $wins = [];
             $played = [];
             $scores = [];
             $restoredScores = [];
             $scoreBased = $category->format === 'round_robin' && $category->rounds->flatMap(fn ($round) => $round->bouts)->every(fn ($bout) => $bout->entries->count() === 1);
-            $rounds = $category->rounds->sortBy('sequence')->map(function ($round) use ($actor, $display, $operate, $components, $revisions, &$wins, &$played, &$scores, &$restoredScores, $scoreBased, $category, $standingsRoundId) {
+            $rounds = $category->rounds->sortBy('sequence')->map(function ($round) use ($actor, $display, $operate, $components, $revisions, &$wins, &$played, &$scores, &$restoredScores, $scoreBased, $category, $standingsRoundId, $lastStartedSequence, $tournament) {
                 $bouts = $round->bouts->sortBy('sequence')->map(function ($bout) use ($actor, $display, $operate, $components, $revisions, &$wins, &$played, &$scores, &$restoredScores, $scoreBased, $category, $round, $standingsRoundId) {
                     $ownJudge = $bout->judges->firstWhere('user_id', $actor->id);
                     $totals = [];
@@ -106,6 +108,8 @@ class CompetitionView
                     && $previous->bouts->pluck('winner_entry_id')->sort()->values()->all() !== $round->bouts->flatMap(fn ($bout) => $bout->entries->pluck('id'))->sort()->values()->all();
 
                 return ['id' => $round->id, 'name' => $round->name, 'sequence' => $round->sequence, 'status' => $round->status, 'bouts' => $bouts,
+                    'score_correction_open' => in_array($tournament->status, ['running', 'completed'], true) && $round->sequence >= $lastStartedSequence,
+                    'court_ids' => $bouts->pluck('court_id')->unique()->values(),
                     'scheduled' => $round->scheduled_at !== null || $bouts->isNotEmpty(), 'forms_ready' => $formsReady,
                     'form_ids' => $round->form_sequence ?? [], 'form_names' => collect($round->form_sequence ?? [])->map(fn ($id) => $category->forms->firstWhere('id', $id)?->name)->values(),
                     'forms_drawn_at' => $round->forms_drawn_at?->toISOString(), 'started_at' => $round->started_at?->toISOString(),
@@ -171,6 +175,7 @@ class CompetitionView
         })->values();
 
         return [
+            'revision' => (int) AuditLog::where('tournament_id', $tournament->id)->max('id'),
             'id' => $tournament->id, 'name' => $tournament->name, 'venue' => $tournament->venue, 'starts_on' => $tournament->starts_on->format('Y-m-d'), 'timezone' => $tournament->timezone, 'status' => $tournament->status,
             'courts' => $tournament->courts->map(fn ($c) => ['id' => $c->id, 'name' => $c->name])->values(),
             'members' => $manage ? $tournament->users()->get(['users.id', 'users.name', 'users.email', 'users.is_active'])->map(fn ($u) => ['id' => $u->id, 'name' => $u->name, 'email' => $u->email, 'role' => $u->pivot->role, 'is_active' => $u->is_active])->values() : [],

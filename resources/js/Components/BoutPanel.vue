@@ -15,7 +15,7 @@ const rawScore = (values, method) => method === 'single_score_v1' ? (values.accu
 const orderedPerformances = computed(() => [...props.bout.performances].sort((a, b) => props.category.format === 'knockout' ? a.form_number - b.form_number || a.id - b.id : a.id - b.id));
 const nextPerformanceId = computed(() => {
     const performances = props.category.score_based
-        ? props.round.bouts.flatMap(b => b.performances.map(p => ({ ...p, bout_sequence: b.sequence })))
+        ? props.round.bouts.filter(b => b.court_id === props.bout.court_id).flatMap(b => b.performances.map(p => ({ ...p, bout_sequence: b.sequence })))
         : props.bout.performances.map(p => ({ ...p, bout_sequence: props.bout.sequence }));
     performances.sort((a, b) => props.category.score_based && props.category.performance_order === 'phased'
         ? a.form_number - b.form_number || a.bout_sequence - b.bout_sequence || a.id - b.id
@@ -49,7 +49,8 @@ const nextPerformanceId = computed(() => {
                         <p v-if="score.breakdown?.method === 'deductions_and_components_v1'" class="subtle">کسرهای دقت: {{ score.breakdown.accuracy_penalties_hundredths.length ? score.breakdown.accuracy_penalties_hundredths.map(value => (value / 100).toFixed(2)).join('، ') : 'بدون کسر' }} · مؤلفه‌های اجرا: {{ score.breakdown.presentation_components_hundredths.map(value => (value / 100).toFixed(2)).join(' + ') }}</p>
                         <p v-else-if="score.breakdown?.method === 'components_and_deductions_v1'" class="subtle">مؤلفه‌های دقت: {{ score.breakdown.accuracy_components_hundredths.map(value => (value / 100).toFixed(2)).join(' + ') }} · کسرهای اجرا: {{ score.breakdown.presentation_penalties_hundredths.length ? score.breakdown.presentation_penalties_hundredths.map(value => (value / 100).toFixed(2)).join('، ') : 'بدون کسر' }}</p>
                         <p v-else class="subtle">نمرهٔ ثبت‌شده به روش مستقیم</p>
-                        <ScoreCorrectionForm v-if="['scoring', 'approved'].includes(p.status) && tournament.status !== 'archived'" :key="score.id" :performance="p" :score="score" :rules="category.rules" :endpoint="`${base}/performances/${p.id}/proxy-scores`" />
+                        <ScoreCorrectionForm v-if="['scoring', 'approved'].includes(p.status) && round.score_correction_open" :key="score.id" :performance="p" :score="score" :rules="category.rules" :endpoint="`${base}/performances/${p.id}/proxy-scores`" />
+                        <p v-else-if="p.status === 'approved' && !round.score_correction_open" class="subtle">مهلت اصلاح نمرهٔ این مرحله بسته شده است.</p>
                         <details v-if="score.history?.length"><summary>سابقهٔ ثبت و اصلاح</summary><div v-for="revision in score.history" :key="revision.revision" class="judge-score-row"><span>ویرایش {{ revision.revision }} · {{ revision.changed_by_name }} · {{ new Date(revision.created_at).toLocaleString('fa-IR') }}<small v-if="revision.reason"> · {{ revision.reason }}</small></span><b>{{ rawScore(revision.snapshot, revision.snapshot.breakdown?.method) }}</b></div></details>
                     </div>
                 </details>

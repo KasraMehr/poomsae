@@ -37,6 +37,20 @@ class ImportManagementSnapshot
                 abort_unless($this->fingerprint($data['category'] ?? []) === $this->fingerprint($category->management_snapshot['category'] ?? []), 409, 'ردهٔ سنی مرحلهٔ شروع‌شده قابل تغییر نیست.');
             } else {
                 $categoryFields = $data['category'] ?? [];
+                $ageCategory = $category->scoringRuleSet->definition['age_category'] ?? null;
+                if ($ageCategory !== null) {
+                    foreach (['minimum_age', 'maximum_age'] as $field) {
+                        $receivedAge = isset($categoryFields[$field]) ? (int) $categoryFields[$field] : null;
+                        $this->setup->check(! array_key_exists($field, $categoryFields) || $receivedAge === $ageCategory[$field], 'بازهٔ سن ردهٔ جدول قابل تغییر نیست.');
+                    }
+                    if (isset($categoryFields['form_names'])) {
+                        $expectedForms = array_map(fn (int $number): string => 'فرم '.$number, $ageCategory['forms']);
+                        $receivedForms = array_map('trim', $categoryFields['form_names']);
+                        sort($expectedForms);
+                        sort($receivedForms);
+                        $this->setup->check($receivedForms === $expectedForms, 'فهرست فرم‌ها باید مطابق جدول ردهٔ سنی باشد.');
+                    }
+                }
                 unset($categoryFields['form_names']);
                 $category->update($categoryFields);
                 if (isset($data['category']['form_names'])) {
@@ -53,8 +67,7 @@ class ImportManagementSnapshot
                 $round = $category->rounds()->where('sequence', $stage['sequence'])->first();
                 $this->setup->check($round !== null, 'شمارهٔ مرحله خارج از برنامهٔ رده است.');
                 $stageHash = $this->fingerprint($stage);
-                $this->setup->check($tournament->courts()->whereKey($stage['court_id'])->exists(), 'زمین مرحله باید متعلق به همین مسابقه باشد.');
-                $this->setup->check(count(array_unique($stage['judge_ids'])) === $category->judge_count && $tournament->users()->wherePivot('role', 'judge')->where('is_active', true)->whereIn('users.id', $stage['judge_ids'])->count() === $category->judge_count, 'پنل داوری مرحله باید متعلق به همین مسابقه باشد.');
+                $courtPanels = $this->schedule->courtPanels($tournament, $category, $stage);
                 $pairs = [];
                 foreach ($stage['bouts'] as $pair) {
                     $pairIds = [];
@@ -83,15 +96,15 @@ class ImportManagementSnapshot
                 $this->setup->check($chosenForms === [] || count($chosenForms) === 2, 'قرعهٔ فرم‌ها باید خالی یا شامل دو پومسه باشد.');
                 $this->clearPendingBouts($round);
                 $round->update(['name' => 'مرحله '.$round->sequence, 'status' => 'pending', 'form_sequence' => [], 'forms_drawn_at' => null, 'form_draw_id' => null, 'scheduled_at' => null]);
-                $changes[] = [$round, $stage, $pairs, $stageHash, $chosenForms];
+                $changes[] = [$round, $stage, $pairs, $stageHash, $chosenForms, $courtPanels];
             }
-            foreach ($changes as [$round, $stage, $pairs, $stageHash, $chosenForms]) {
+            foreach ($changes as [$round, $stage, $pairs, $stageHash, $chosenForms, $courtPanels]) {
                 if ($chosenForms !== []) {
                     $this->setup->check(now()->greaterThanOrEqualTo($this->forms->availableAt($tournament, $category)), 'زمان انتشار قرعهٔ فرم‌ها هنوز نرسیده است.');
                     $this->forms->assign($actor, $tournament, $category, $round, $chosenForms, 'management_forms_v1', $data['source'].':'.$data['version']);
                 }
                 if ($pairs !== []) {
-                    $this->schedule->createBouts($actor, $tournament, $category, $round, $pairs, (int) $stage['court_id'], array_map('intval', $stage['judge_ids']), $data['source'].':'.$data['version'], 'management_random_bracket_v1');
+                    $this->schedule->createBouts($actor, $tournament, $category, $round, $pairs, $courtPanels, $data['source'].':'.$data['version'], 'management_random_bracket_v1');
                 }
                 $round->update(['source_version' => $data['version'], 'source_snapshot' => $stage, 'source_hash' => $stageHash]);
             }

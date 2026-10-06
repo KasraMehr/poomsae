@@ -1,11 +1,24 @@
 <script setup>
 import { useForm } from '@inertiajs/vue3';
-import { watch } from 'vue';
+import { computed, watch } from 'vue';
 import FormErrors from './FormErrors.vue';
-const props = defineProps({ tournament: Object, base: String });
+const props = defineProps({ tournament: Object, base: String, ageCategories: Array, ageTableYear: Number });
 const court = useForm({ name: '' });
 const member = useForm({ name: '', email: '', password: '', role: 'judge' });
-const category = useForm({ name: '', discipline: 'recognized', entry_type: 'individual', gender: 'male', minimum_age: 10, maximum_age: 40, format: 'knockout', execution_mode: 'alternating', performance_order: 'consecutive', judge_count: 5, accuracy_max: 400, discard_each_end: 1, rules_acknowledged: false, planned_round_count: 1, allow_form_repetition: true, form_draw_timing: 'morning', form_draw_time: '08:00', draw_method: 'random', form_names: Array(8).fill('') });
+const category = useForm({ name: '', discipline: 'recognized', entry_type: 'individual', gender: 'male', age_category: 'recognized_individual_under_12', format: 'knockout', execution_mode: 'alternating', performance_order: 'consecutive', judge_count: 5, accuracy_max: 400, discard_each_end: 1, rules_acknowledged: false, planned_round_count: 1, allow_form_repetition: true, form_draw_timing: 'morning', form_draw_time: '08:00', draw_method: 'random' });
+const availableAgeCategories = computed(() => props.ageCategories.filter(ageCategory => ageCategory.discipline === category.discipline && ageCategory.entry_type === category.entry_type));
+const selectedAgeCategory = computed(() => availableAgeCategories.value.find(ageCategory => ageCategory.id === category.age_category));
+let suggestedName = '';
+const suggestCategoryName = () => {
+    if (!selectedAgeCategory.value) return;
+    const name = selectedAgeCategory.value.label + ' · ' + (category.gender === 'female' ? 'بانوان' : 'آقایان');
+    if (!category.name || category.name === suggestedName) category.name = name;
+    suggestedName = name;
+};
+watch(availableAgeCategories, ageCategories => {
+    if (!ageCategories.some(ageCategory => ageCategory.id === category.age_category)) category.age_category = ageCategories[0]?.id ?? '';
+}, { immediate: true });
+watch([selectedAgeCategory, () => category.gender], suggestCategoryName, { immediate: true });
 watch(() => category.judge_count, (judgeCount) => {
     if (judgeCount === 3) category.discard_each_end = 0;
     else if (category.discard_each_end === 0 || judgeCount === 5) category.discard_each_end = 1;
@@ -14,11 +27,7 @@ watch(() => category.discipline, discipline => {
     category.entry_type = 'individual';
     category.accuracy_max = discipline === 'freestyle' ? 600 : 400;
 });
-const submitCategory = () => category.transform(data => {
-    const payload = { ...data };
-    if (data.discipline === 'freestyle') delete payload.form_names;
-    return payload;
-}).post(props.base + '/categories', { preserveScroll: true, onSuccess: () => category.reset() });
+const submitCategory = () => category.post(props.base + '/categories', { preserveScroll: true, onSuccess: () => { category.reset(); suggestCategoryName(); } });
 </script>
 <template>
     <div class="setup-grid">
@@ -47,18 +56,17 @@ const submitCategory = () => category.transform(data => {
             <form @submit.prevent="submitCategory" class="tournament-form">
                 <div><label for="category-name">نام رده</label><input id="category-name" v-model="category.name" required maxlength="100" placeholder="انفرادی بزرگسالان"></div>
                 <div><label for="discipline">سبک</label><select id="discipline" v-model="category.discipline"><option value="recognized">استاندارد</option><option value="freestyle">ابداعی</option></select></div>
-                <div><label for="entry-type">نوع شرکت</label><select id="entry-type" v-model="category.entry_type"><option value="individual">انفرادی</option><option v-if="category.discipline === 'recognized'" value="team">تیمی سه‌نفره</option><option v-else value="pair">زوجی دونفره</option></select></div>
+                <div><label for="entry-type">نوع شرکت</label><select id="entry-type" v-model="category.entry_type"><option value="individual">انفرادی</option><option v-if="category.discipline === 'recognized'" value="team">تیمی سه‌نفره</option><option v-else value="pair">تیمی ابداعی دو نفره</option></select></div>
                 <div><label for="gender">جنسیت</label><select id="gender" v-model="category.gender"><option value="female">بانوان</option><option value="male">آقایان</option></select></div>
+                <div><label for="age-category">ردهٔ سنی</label><select id="age-category" v-model="category.age_category" required><option v-for="ageCategory in availableAgeCategories" :key="ageCategory.id" :value="ageCategory.id">{{ ageCategory.label }}</option></select><small>مطابق جدول رده‌های سنی ایران، سال {{ ageTableYear.toLocaleString('fa-IR', { useGrouping: false }) }}</small></div>
+                <div v-if="selectedAgeCategory"><label>تاریخ تولد مجاز (شمسی)</label><p>{{ selectedAgeCategory.birth_date_label }}</p></div>
                 <div><label for="format">مدل برگزاری</label><select id="format" v-model="category.format"><option value="knockout">تک‌حذفی</option><option value="round_robin">دورهای</option></select><small>تعداد شرکت‌کنندگان سقف ندارد.</small></div>
                 <div v-if="category.format === 'knockout'"><label for="execution-mode">شیوهٔ اجرای تک‌حذفی</label><select id="execution-mode" v-model="category.execution_mode"><option value="alternating">سینگل · A۱، B۱، A۲، B۲</option><option value="simultaneous">دوبل · دو ورزشکار همزمان در هر فرم</option></select></div>
                 <div v-else-if="category.discipline === 'recognized'"><label for="performance-order">ترتیب اجرای دورهای</label><select id="performance-order" v-model="category.performance_order"><option value="consecutive">دو فرم هر ورودی پشت‌سرهم</option><option value="phased">فرم اول همه، سپس فرم دوم همه</option></select></div>
-                <div><label for="min-age">حداقل سن در روز شروع</label><input id="min-age" v-model.number="category.minimum_age" type="number" min="1" max="100" required></div>
-                <div><label for="max-age">حداکثر سن در روز شروع</label><input id="max-age" v-model.number="category.maximum_age" type="number" :min="category.minimum_age" max="100" required></div>
                 <div><label for="judges">تعداد داور</label><select id="judges" v-model.number="category.judge_count"><option :value="3">۳ داور</option><option :value="5">۵ داور</option><option :value="7">۷ داور</option></select></div>
                 <div><label for="stage-count">تعداد مراحل</label><input id="stage-count" v-model.number="category.planned_round_count" type="number" min="1" :max="category.discipline === 'recognized' && !category.allow_form_repetition ? 4 : undefined" required><small>نام مراحل خودکار است: مرحله 1، مرحله 2 و ... . تک‌حذفی: ۶۵ تا ۱۲۸ ورودی = ۷ مرحله، ۱۲۹ تا ۲۵۶ = ۸ مرحله.</small></div>
                 <template v-if="category.discipline === 'recognized'">
-                    <div class="wide"><h3>هشت پومسهٔ مجاز ردهٔ سنی</h3><p class="subtle">در هر مرحله دو فرم متفاوت از این فهرست قرعه‌کشی می‌شود.</p></div>
-                    <div v-for="(_, index) in category.form_names" :key="`form-${index}`"><label :for="`pool-form-${index}`">پومسهٔ {{ index + 1 }}</label><input :id="`pool-form-${index}`" v-model="category.form_names[index]" required maxlength="100"></div>
+                    <div v-if="selectedAgeCategory" class="wide"><h3>هشت فرم مجاز ردهٔ سنی</h3><div class="chips"><span v-for="number in selectedAgeCategory.forms" :key="number" class="badge">فرم {{ number.toLocaleString('fa-IR') }}</span></div><p class="subtle">فرم‌ها طبق جدول خودکار تعیین می‌شوند؛ در هر مرحله دو فرم متفاوت از این فهرست قرعه‌کشی می‌شود.</p></div>
                     <div><label for="form-repetition">تکرار بین مراحل</label><select id="form-repetition" v-model="category.allow_form_repetition"><option :value="true">مجاز</option><option :value="false">غیرتکراری · حداکثر چهار مرحله</option></select></div>
                     <div><label for="form-draw-timing">زمان قرعهٔ پومسه‌ها</label><select id="form-draw-timing" v-model="category.form_draw_timing"><option value="day_before">روز قبل مسابقه · تمام مراحل</option><option value="morning">صبح مسابقه · تمام مراحل</option><option value="before_stage">قبل از شروع هر مرحله</option></select></div>
                     <div v-if="category.form_draw_timing !== 'before_stage'"><label for="form-draw-time">ساعت قرعه در منطقهٔ زمانی مسابقه</label><input id="form-draw-time" v-model="category.form_draw_time" type="time" required></div>
@@ -73,11 +81,20 @@ const submitCategory = () => category.transform(data => {
                     </select>
                     <p v-if="category.discipline === 'recognized'">برای دقت و اجرا جداگانه اعمال می‌شود. داور کسرهای دقت و سه مؤلفهٔ اجرا را ثبت می‌کند؛ نتیجهٔ رقابت مجموع دو فرم است.</p>
                     <p v-else>دقت و اجرا جداگانه فیلتر و میانگین‌گیری می‌شوند؛ جمع دو میانگین، نتیجهٔ یک اجرای ابداعی از ۱۰ است.</p>
-                    <p>در تساوی، نمره‌های حذف‌شده برمی‌گردند و میانگین همهٔ داوران معیار دوم است. سن در روز شروع مسابقه سنجیده می‌شود.</p>
+                    <p>در تساوی، نمره‌های حذف‌شده برمی‌گردند و میانگین همهٔ داوران معیار دوم است. پذیرش هر ورزشکار بر اساس بازهٔ تاریخ تولد جدول ردهٔ انتخاب‌شده است.</p>
                     <label class="check"><input v-model="category.rules_acknowledged" type="checkbox" required>این روش محاسبه و شرایط رده را برای این رویداد تأیید می‌کنم.</label>
                 </div>
-                <FormErrors class="wide" :errors="category.errors"/><button class="button" :disabled="category.processing">ساخت رده</button>
+                <FormErrors class="wide" :errors="category.errors"/><button class="button" :disabled="category.processing || !selectedAgeCategory">ساخت رده</button>
             </form>
+            <details class="age-table"><summary>جدول رده‌های سنی و فرم‌های ایران · {{ ageTableYear.toLocaleString('fa-IR', { useGrouping: false }) }}</summary><div class="table-wrap"><table><thead><tr><th>ردیف</th><th>ردهٔ سنی</th><th>تاریخ تولد</th><th>فرم</th></tr></thead><tbody><tr v-for="(ageCategory, index) in ageCategories" :key="ageCategory.id" :class="{ 'selected-age-row': category.age_category === ageCategory.id }"><td>{{ (index + 1).toLocaleString('fa-IR') }}</td><td>{{ ageCategory.label }}</td><td>{{ ageCategory.birth_date_label }}</td><td>{{ ageCategory.forms.length ? ageCategory.forms.map(number => number.toLocaleString('fa-IR')).join('–') : '—' }}</td></tr></tbody></table></div></details>
         </section>
     </div>
 </template>
+<style scoped>
+.chips { flex-wrap: wrap; }
+.age-table { margin-top: 1.5rem; }
+.age-table summary { cursor: pointer; font-weight: 700; margin-bottom: 1rem; }
+.age-table th { background: #f7e75a; color: #181818; }
+.age-table td { white-space: nowrap; }
+.selected-age-row { background: #fef9c3; color: #181818; }
+</style>

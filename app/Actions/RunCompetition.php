@@ -188,7 +188,7 @@ class RunCompetition
     {
         $soloRound = $category->format === 'round_robin' && $bout->entries()->count() === 1;
         $ordered = $soloRound
-            ? $bout->round->bouts()->with('performances')->orderBy('sequence')->get()->flatMap(fn ($roundBout) => $roundBout->performances->map(fn ($item) => ['performance' => $item, 'bout_sequence' => $roundBout->sequence]))
+            ? $bout->round->bouts()->where('court_id', $bout->court_id)->with('performances')->orderBy('sequence')->get()->flatMap(fn ($roundBout) => $roundBout->performances->map(fn ($item) => ['performance' => $item, 'bout_sequence' => $roundBout->sequence]))
             : $bout->performances()->get()->map(fn ($item) => ['performance' => $item, 'bout_sequence' => $bout->sequence]);
         $ordered = $ordered->sortBy(function (array $item) use ($soloRound, $category): string {
             $form = $item['performance']->form_number;
@@ -236,7 +236,8 @@ class RunCompetition
         $totals = $this->totals($bout);
         if ($bout->category->format === 'round_robin' && $bout->entries()->count() === 1 && count($totals) === 1) {
             $bout->update(['status' => 'completed']);
-            $this->completeRound($bout);
+            $this->setup->audit($actor, $tournament, 'bout.completed', 'bout', $bout->id);
+            $this->completeRound($actor, $tournament, $bout);
 
             return;
         }
@@ -253,7 +254,8 @@ class RunCompetition
         arsort($comparison, SORT_NUMERIC);
         $winnerEntryId = array_key_first($comparison);
         $bout->update(['status' => 'completed', 'winner_entry_id' => $winnerEntryId, 'resolved_by' => $actor->id, 'resolution_reason' => $isPrimaryTie ? 'میانگین همهٔ نمره‌های داوران با بازگرداندن کمینه و بیشینه' : 'بالاترین نتیجه']);
-        $this->completeRound($bout);
+        $this->setup->audit($actor, $tournament, 'bout.completed', 'bout', $bout->id, ['winner_entry_id' => $winnerEntryId]);
+        $this->completeRound($actor, $tournament, $bout);
         if ($isPrimaryTie) {
             $this->setup->audit($actor, $tournament, 'bout.tie_break_resolved', 'bout', $bout->id, [
                 'winner_entry_id' => $winnerEntryId,
@@ -263,11 +265,12 @@ class RunCompetition
         }
     }
 
-    private function completeRound(Bout $bout): void
+    private function completeRound(User $actor, Tournament $tournament, Bout $bout): void
     {
         $round = $bout->round()->firstOrFail();
-        if (! $round->bouts()->where('status', '!=', 'completed')->exists()) {
+        if ($round->status !== 'completed' && ! $round->bouts()->where('status', '!=', 'completed')->exists()) {
             $round->update(['status' => 'completed']);
+            $this->setup->audit($actor, $tournament, 'round.completed', 'competition_round', $round->id);
         }
     }
 
@@ -300,7 +303,7 @@ class RunCompetition
                 $this->setup->check(count($restoredMeanTotals) !== 2 || count(array_unique($restoredMeanTotals)) === 1, 'میانگین همهٔ نمره‌های داوران برنده را تعیین می‌کند؛ تصمیم دستی مجاز نیست.');
             }
             $bout->update(['status' => 'completed', 'winner_entry_id' => $data['winner_entry_id'], 'resolved_by' => $actor->id, 'resolution_reason' => $data['reason']]);
-            $this->completeRound($bout);
+            $this->completeRound($actor, $tournament, $bout);
             if (! $walkover) {
                 $this->synchronizeAdvancement($actor, $tournament, $bout, $data['reason']);
             }

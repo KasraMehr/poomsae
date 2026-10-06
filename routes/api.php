@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->group(function () {
     Route::post('/auth/token', [TokenController::class, 'store'])->middleware('throttle:login');
     Route::middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function () {
-        Route::post('/broadcasting/auth', fn (Request $request) => Broadcast::auth($request));
+        Route::post('/broadcasting/auth', fn (Request $request) => Broadcast::auth($request))->middleware('abilities:tournaments:read');
         Route::delete('/auth/token', [TokenController::class, 'destroy']);
         Route::get('/me', fn (Request $request) => ['data' => $request->user()->only('id', 'name', 'email')]);
         Route::middleware('abilities:tournaments:read')->group(function () {

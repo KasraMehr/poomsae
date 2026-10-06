@@ -52,6 +52,12 @@ class SubmitScore
             abort_unless($performance->version === (int) $data['expected_version'], 409, 'وضعیت اجرا تغییر کرده؛ صفحه را تازه کنید.');
             $publishedCorrection = $performance->status === 'approved';
             $this->setup->check(in_array($tournament->status, ['running', 'completed'], true) && in_array($performance->status, ['scoring', 'approved'], true), 'ثبت یا اصلاح نمره فقط پس از پایان اجرا مجاز است.');
+            if ($publishedCorrection) {
+                $laterRoundStarted = $category->rounds()->where('sequence', '>', $bout->round->sequence)
+                    ->where(fn ($query) => $query->whereNotNull('started_at')->orWhereIn('status', ['running', 'completed']))
+                    ->exists();
+                $this->setup->check(! $laterRoundStarted, 'با شروع مرحلهٔ بعد این رده، اصلاح نمرهٔ مرحلهٔ قبل مجاز نیست.');
+            }
             $sheet = ScoreSheet::where('performance_id', $performance->id)->where('judge_assignment_id', $judge->id)->first();
             abort_unless(($sheet?->revision ?? 0) === (int) $data['expected_revision'], 409, 'نمره در دستگاه دیگری تغییر کرده است؛ نسخهٔ تازه را دریافت کنید.');
             $this->setup->check(! $publishedCorrection || $sheet !== null, 'برای اصلاح نتیجهٔ نهایی باید نمرهٔ قبلی همین صندلی موجود باشد.');

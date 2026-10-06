@@ -25,10 +25,7 @@ class ScheduleRound
             $check($category->scoringRuleSet?->approved_at !== null && ($category->scoringRuleSet->definition['algorithm'] ?? null) === 'component_trimmed_mean_v1', 'تنظیمات محاسبهٔ این رده تأیید نشده است.');
             $forms = $category->form_sequence ?? [];
             $check($category->discipline === 'freestyle' || $category->planned_round_count !== null || count($forms) === 2 && $category->forms()->whereIn('poomsae_forms.id', $forms)->count() === 2, 'تعداد فرم‌های رده معتبر نیست.');
-            $check($tournament->courts()->whereKey($data['court_id'])->exists(), 'زمین باید متعلق به همین مسابقه باشد.');
-            $judgeIds = array_map('intval', $data['judge_ids']);
-            $check(count(array_unique($judgeIds)) === $category->judge_count, 'تعداد داورهای متفاوت باید دقیقاً برابر تنظیمات رده باشد.');
-            $check($tournament->users()->wherePivot('role', 'judge')->where('is_active', true)->whereIn('users.id', $judgeIds)->count() === $category->judge_count, 'تمام داورها باید عضو فعال همین مسابقه باشند.');
+            $courtPanels = $this->courtPanels($tournament, $category, $data);
             $previous = $category->rounds()->whereHas('bouts')->orderByDesc('sequence')->first();
             if ($previous) {
                 $check($category->format === 'knockout' || $category->planned_round_count !== null, 'جدول دورهای بدون برنامهٔ مرحله‌ای فقط یک بار ساخته می‌شود.');
@@ -79,25 +76,54 @@ class ScheduleRound
                     $pairs[] = $pair;
                 }
             }
-            $this->createBouts($actor, $tournament, $category, $round, $pairs, (int) $data['court_id'], $judgeIds, $seed, $previous ? 'advance_in_order_v1' : 'sha256_seed_sort_v1');
+            $this->createBouts($actor, $tournament, $category, $round, $pairs, $courtPanels, $seed, $previous ? 'advance_in_order_v1' : 'sha256_seed_sort_v1');
         });
     }
 
-    /** @param array<int, array<int, int>> $pairs
-     * @param  array<int, int>  $judgeIds
+    /**
+     * @param  array{courts?: array<int, array{court_id: int, judge_ids: array<int, int>}>, court_id?: int, judge_ids?: array<int, int>}  $data
+     * @return array<int, array{court_id: int, judge_ids: array<int, int>}>
      */
-    public function createBouts(User $actor, Tournament $tournament, Category $category, CompetitionRound $round, array $pairs, int $courtId, array $judgeIds, string $seed, string $algorithm): void
+    public function courtPanels(Tournament $tournament, Category $category, array $data): array
     {
-        $this->setup->check($tournament->courts()->whereKey($courtId)->exists(), 'زمین باید متعلق به همین مسابقه باشد.');
-        $this->setup->check(count($judgeIds) === $category->judge_count && count(array_unique($judgeIds)) === $category->judge_count && $tournament->users()->wherePivot('role', 'judge')->where('is_active', true)->whereIn('users.id', $judgeIds)->count() === $category->judge_count, 'پنل داوری این مرحله معتبر نیست.');
+        $this->setup->check(! array_key_exists('courts', $data) || (! array_key_exists('court_id', $data) && ! array_key_exists('judge_ids', $data)), 'زمین‌ها را به یک روش مشخص کنید.');
+        $courtPanels = $data['courts'] ?? [['court_id' => $data['court_id'] ?? 0, 'judge_ids' => $data['judge_ids'] ?? []]];
+        $this->setup->check(count($courtPanels) >= 1 && count($courtPanels) <= 4, 'برای هر مرحله بین یک تا چهار زمین انتخاب کنید.');
+        $courtPanels = array_values(array_map(fn (array $panel): array => ['court_id' => (int) $panel['court_id'], 'judge_ids' => array_map('intval', $panel['judge_ids'])], $courtPanels));
+        $courtIds = array_column($courtPanels, 'court_id');
+        $this->setup->check(count(array_unique($courtIds)) === count($courtIds), 'هر زمین فقط یک بار در برنامهٔ مرحله انتخاب شود.');
+        $this->setup->check($tournament->courts()->whereIn('id', $courtIds)->count() === count($courtIds), 'زمین باید متعلق به همین مسابقه باشد.');
+        $allJudgeIds = [];
+        foreach ($courtPanels as $panel) {
+            $judgeIds = $panel['judge_ids'];
+            $this->setup->check(count($judgeIds) === $category->judge_count && count(array_unique($judgeIds)) === $category->judge_count, 'تعداد داورهای متفاوت هر زمین باید دقیقاً برابر تنظیمات رده باشد.');
+            $this->setup->check($tournament->users()->wherePivot('role', 'judge')->where('is_active', true)->whereIn('users.id', $judgeIds)->count() === $category->judge_count, 'تمام داورها باید عضو فعال همین مسابقه باشند.');
+            $this->setup->check(array_intersect($allJudgeIds, $judgeIds) === [], 'زمین‌های همزمان باید پنل داوری مستقل داشته باشند.');
+            $allJudgeIds = [...$allJudgeIds, ...$judgeIds];
+        }
+
+        return $courtPanels;
+    }
+
+    /**
+     * @param  array<int, array<int, int>>  $pairs
+     * @param  array<int, array{court_id: int, judge_ids: array<int, int>}>  $courtPanels
+     */
+    public function createBouts(User $actor, Tournament $tournament, Category $category, CompetitionRound $round, array $pairs, array $courtPanels, string $seed, string $algorithm): void
+    {
+        $courtPanels = $this->courtPanels($tournament, $category, ['courts' => $courtPanels]);
+        $this->setup->check($pairs !== [], 'حداقل یک رقابت برای برنامهٔ مرحله لازم است.');
+        $activeCourtCount = min(count($courtPanels), count($pairs));
         $forms = $category->discipline === 'freestyle' ? [null] : (($round->form_sequence ?: $category->form_sequence) ?: [null, null]);
         $ids = array_merge(...$pairs);
         $this->setup->check(count($ids) === count(array_unique($ids)) && $category->entries()->whereIn('id', $ids)->where('status', 'checked_in')->count() === count($ids), 'هر ورودی حاضر فقط یک بار در مرحله قرار می‌گیرد.');
-        $draw = Draw::create(['category_id' => $category->id, 'competition_round_id' => $round->id, 'created_by' => $actor->id, 'kind' => 'bracket', 'algorithm_version' => $algorithm, 'random_seed' => $seed, 'input_snapshot' => ['entries' => $ids, 'form_ids' => $round->form_sequence ?? [], 'judge_ids' => $judgeIds], 'output_snapshot' => ['pairs' => $pairs]]);
+        $courtAssignments = array_map(fn (int $index): int => $courtPanels[intdiv($index * $activeCourtCount, count($pairs))]['court_id'], array_keys($pairs));
+        $draw = Draw::create(['category_id' => $category->id, 'competition_round_id' => $round->id, 'created_by' => $actor->id, 'kind' => 'bracket', 'algorithm_version' => $algorithm, 'random_seed' => $seed, 'input_snapshot' => ['entries' => $ids, 'form_ids' => $round->form_sequence ?? [], 'judge_ids' => $courtPanels[0]['judge_ids'], 'courts' => $courtPanels], 'output_snapshot' => ['pairs' => $pairs, 'court_ids' => $courtAssignments]]);
         $musicPaths = $category->discipline === 'freestyle' ? $category->entries()->whereIn('id', $ids)->pluck('music_path', 'id') : collect();
         foreach ($pairs as $index => $pair) {
+            $panel = $courtPanels[intdiv($index * $activeCourtCount, count($pairs))];
             $bye = $category->format === 'knockout' && count($pair) === 1;
-            $bout = $round->bouts()->create(['category_id' => $category->id, 'court_id' => $courtId, 'sequence' => $index + 1, 'status' => $bye ? 'completed' : 'pending', 'winner_entry_id' => $bye ? $pair[0] : null, 'resolved_by' => $bye ? $actor->id : null, 'resolution_reason' => $bye ? 'استراحت در قرعه (bye)' : null]);
+            $bout = $round->bouts()->create(['category_id' => $category->id, 'court_id' => $panel['court_id'], 'sequence' => $index + 1, 'status' => $bye ? 'completed' : 'pending', 'winner_entry_id' => $bye ? $pair[0] : null, 'resolved_by' => $bye ? $actor->id : null, 'resolution_reason' => $bye ? 'استراحت در قرعه (bye)' : null]);
             foreach ($pair as $side => $entryId) {
                 $bout->entries()->attach($entryId, ['category_id' => $category->id, 'side' => $side === 0 ? 'chung' : 'hong']);
                 if (! $bye) {
@@ -106,7 +132,7 @@ class ScheduleRound
                     }
                 }
             }
-            foreach ($judgeIds as $seat => $judgeId) {
+            foreach ($panel['judge_ids'] as $seat => $judgeId) {
                 $bout->judges()->create(['user_id' => $judgeId, 'seat' => $seat + 1]);
             }
         }
