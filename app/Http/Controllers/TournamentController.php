@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Actions\CompetitionConsole;
 use App\Actions\CompetitionView;
 use App\Actions\CreateTournament;
+use App\Actions\UpdateCompetitionSettings;
 use App\Http\Requests\StoreTournamentRequest;
+use App\Http\Requests\UpdateCompetitionSettingsRequest;
 use App\Models\Tournament;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -61,6 +63,13 @@ class TournamentController extends Controller
         ]);
     }
 
+    public function update(UpdateCompetitionSettingsRequest $request, Tournament $tournament, UpdateCompetitionSettings $settings): RedirectResponse
+    {
+        $settings->tournament($request->user(), $tournament, $request->validated());
+
+        return back()->with('success', 'اطلاعات مسابقه ویرایش شد.');
+    }
+
     /** @return array<string, bool> */
     private function permissions(Request $request, Tournament $tournament): array
     {
@@ -81,6 +90,8 @@ class TournamentController extends Controller
             'scoreboard' => route('scoreboard.show', $tournament),
             'rtds' => route('scoreboard.rtds', $tournament),
             'export' => route('scoreboard.export', $tournament),
+            'results' => route('scoreboard.results', $tournament),
+            'excel' => route('scoreboard.excel', $tournament),
         ];
     }
 }

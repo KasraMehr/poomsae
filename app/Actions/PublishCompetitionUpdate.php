@@ -34,8 +34,10 @@ class PublishCompetitionUpdate
     {
         return match (true) {
             $action === 'court.created' => ['courts', 'console'],
+            $action === 'court.updated' => ['courts', 'console', 'judging', 'scoreboard'],
             $action === 'member.added' => ['members', 'judging', 'console'],
-            $action === 'category.saved' => ['athletes', 'draw', 'results'],
+            $action === 'category.saved' => ['athletes', 'draw', 'results', 'console', 'judging', 'scoreboard'],
+            $action === 'entry.updated' => ['athletes', 'draw', 'results', 'console', 'judging', 'scoreboard'],
             str_starts_with($action, 'entry.') => ['athletes', 'draw'],
             $action === 'round.forms_drawn' => ['draw', 'judging', 'console', 'scoreboard'],
             $action === 'round.scheduled' => ['draw', 'courts', 'judging', 'console', 'scoreboard', 'results'],

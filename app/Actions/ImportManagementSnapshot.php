@@ -55,7 +55,7 @@ class ImportManagementSnapshot
                 $category->update($categoryFields);
                 if (isset($data['category']['form_names'])) {
                     $formIds = array_map(fn (string $name): int => PoomsaeForm::firstOrCreate(['code' => 'local-'.substr(hash('sha256', trim($name)), 0, 24)], ['name' => trim($name)])->id, $data['category']['form_names']);
-                    $this->setup->check(count(array_unique($formIds)) === 8, 'فهرست هشت پومسه باید بدون تکرار باشد.');
+                    $this->setup->check(count(array_unique($formIds)) >= 2, 'فهرست فرم‌ها باید حداقل دو فرم متفاوت داشته باشد.');
                     $category->forms()->sync($formIds);
                 }
                 $this->setup->check($category->minimum_age === null || $category->maximum_age === null || $category->minimum_age <= $category->maximum_age, 'بازهٔ سن رده معتبر نیست.');

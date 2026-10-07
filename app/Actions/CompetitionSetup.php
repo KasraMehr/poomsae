@@ -5,6 +5,7 @@ namespace App\Actions;
 use App\Models\Athlete;
 use App\Models\AuditLog;
 use App\Models\Category;
+use App\Models\Draw;
 use App\Models\Entry;
 use App\Models\PoomsaeForm;
 use App\Models\ScoringRuleSet;
@@ -42,6 +43,30 @@ class CompetitionSetup
         $this->check(! $category->rounds()->whereHas('bouts')->exists(), 'بعد از قرعه، تغییر رده یا فهرست ورزشکاران مجاز نیست.');
     }
 
+    public function prepareKnockoutStages(User $actor, Tournament $tournament, Category $category): void
+    {
+        if ($category->format !== 'knockout' || $category->management_source !== null || $category->planned_round_count === null || $category->rounds()->whereHas('bouts')->exists()) {
+            return;
+        }
+        $this->check(! $category->entries()->where('status', 'registered')->exists(), 'حضور یا انصراف تمام ورزشکاران ثبت‌نام‌شده را مشخص کنید.');
+        $entryCount = $category->entries()->where('status', 'checked_in')->count();
+        $this->check($entryCount >= 2, 'حداقل دو ورودی حاضر لازم است.');
+        $requiredStages = (int) ceil(log($entryCount, 2));
+        $this->check($category->discipline === 'freestyle' || $category->allow_form_repetition || $requiredStages <= 4, 'این تعداد ورودی به بیش از چهار مرحله نیاز دارد؛ برای هشت پومسه، تکرار فرم بین مراحل باید مجاز باشد.');
+        if ($category->planned_round_count === $requiredStages && $category->rounds()->count() === $requiredStages) {
+            return;
+        }
+        $before = ['planned_round_count' => $category->planned_round_count];
+        $removedRoundIds = $category->rounds()->where('sequence', '>', $requiredStages)->pluck('id');
+        Draw::whereIn('competition_round_id', $removedRoundIds)->update(['competition_round_id' => null]);
+        $category->rounds()->whereIn('id', $removedRoundIds)->delete();
+        for ($sequence = 1; $sequence <= $requiredStages; $sequence++) {
+            $category->rounds()->firstOrCreate(['sequence' => $sequence], ['name' => 'مرحله '.$sequence, 'status' => 'pending', 'form_sequence' => []]);
+        }
+        $category->update(['planned_round_count' => $requiredStages]);
+        $this->audit($actor, $tournament, 'category.stages_calculated', 'category', $category->id, ['planned_round_count' => $requiredStages, 'checked_in_count' => $entryCount], $before);
+    }
+
     public function audit(User $actor, Tournament $tournament, string $action, string $type, int $id, array $after = [], ?array $before = null): void
     {
         $audit = AuditLog::create(['tournament_id' => $tournament->id, 'user_id' => $actor->id, 'action' => $action, 'subject_type' => $type, 'subject_id' => $id, 'before' => $before, 'after' => $after]);
@@ -74,6 +99,7 @@ class CompetitionSetup
     {
         return $this->locked($actor, $tournament, function (Tournament $tournament) use ($actor, $data, $category): Category {
             if ($category) {
+                $category = Category::lockForUpdate()->findOrFail($category->id);
                 abort_unless($category->tournament_id === $tournament->id, 404);
                 $this->check($category->management_source === null, 'تنظیمات این رده از سیستم مدیریت مسابقات دریافت می‌شود.');
                 $this->editable($category);
@@ -94,13 +120,16 @@ class CompetitionSetup
                 $ageCategory = ['id' => $data['age_category'], 'year' => config('poomsae.age_table_year'), ...$ageCategory];
                 $data['minimum_age'] = $ageCategory['minimum_age'];
                 $data['maximum_age'] = $ageCategory['maximum_age'];
-                $data['form_names'] = array_map(fn (int $number): string => 'فرم '.$number, $ageCategory['forms']);
+                $selectedFormNumbers = array_map('intval', $data['selected_form_numbers'] ?? $ageCategory['forms']);
+                $this->check($discipline === 'freestyle' || count($selectedFormNumbers) >= 2, 'حداقل دو فرم از فهرست مجاز رده انتخاب کنید.');
+                $this->check($discipline === 'freestyle' || count($selectedFormNumbers) === count(array_unique($selectedFormNumbers)), 'فرم‌های انتخابی نباید تکراری باشند.');
+                $this->check($discipline === 'freestyle' || array_diff($selectedFormNumbers, $ageCategory['forms']) === [], 'فرم انتخابی در فهرست مجاز این رده نیست.');
+                $data['form_names'] = array_map(fn (int $number): string => 'فرم '.$number, $selectedFormNumbers);
                 $data['planned_round_count'] ??= 1;
             }
             $plannedRoundCount = isset($data['planned_round_count']) ? (int) $data['planned_round_count'] : null;
             $allowRepetition = (bool) ($data['allow_form_repetition'] ?? true);
             $this->check($plannedRoundCount === null || $plannedRoundCount >= 1, 'تعداد مراحل باید حداقل ۱ باشد.');
-            $this->check($discipline === 'freestyle' || $allowRepetition || $plannedRoundCount <= 4, 'با هشت پومسه و دو فرم در هر مرحله، حالت غیرتکراری حداکثر چهار مرحله دارد.');
             $this->check($discipline === 'freestyle' ? in_array($entryType, ['individual', 'pair'], true) : in_array($entryType, ['individual', 'team'], true), 'نوع شرکت در این سبک معتبر نیست.');
             $this->check((int) ($data['accuracy_max'] ?? ($discipline === 'freestyle' ? 600 : 400)) === ($discipline === 'freestyle' ? 600 : 400), 'سقف نمرهٔ رده معتبر نیست.');
             $definition = $discipline === 'freestyle'
@@ -111,32 +140,43 @@ class CompetitionSetup
                 $definition['age_category'] = $ageCategory;
             }
             $rule = ScoringRuleSet::create([
-                'name' => 'تنظیمات برگزارکننده '.Str::uuid(), 'version' => 1, 'discipline' => $discipline,
+                'name' => $category?->scoringRuleSet?->name ?? 'تنظیمات برگزارکننده '.Str::uuid(), 'version' => ($category?->scoringRuleSet?->version ?? 0) + 1, 'discipline' => $discipline,
                 'definition' => $definition,
                 'approved_by' => $actor->id, 'approved_at' => now(),
             ]);
             $formIds = collect($data['form_names'] ?? [])->map(function (string $name): int {
                 return PoomsaeForm::firstOrCreate(['code' => 'local-'.substr(hash('sha256', trim($name)), 0, 24)], ['name' => trim($name)])->id;
             })->all();
-            $this->check($discipline === 'freestyle' || count(array_unique($formIds)) === ($plannedRoundCount === null ? 2 : 8), $plannedRoundCount === null ? 'دو فرم متفاوت وارد کنید.' : 'هشت پومسهٔ متفاوت برای این ردهٔ سنی وارد کنید.');
+            $expectedFormCount = $discipline === 'freestyle' ? 0 : ($ageCategory !== null ? count($data['form_names']) : ($plannedRoundCount === null ? 2 : 8));
+            $this->check($discipline === 'freestyle' || count(array_unique($formIds)) === $expectedFormCount, $ageCategory !== null ? 'فهرست فرم‌های انتخابی معتبر نیست.' : ($plannedRoundCount === null ? 'دو فرم متفاوت وارد کنید.' : 'هشت پومسهٔ متفاوت برای این ردهٔ سنی وارد کنید.'));
+            $this->check($discipline === 'freestyle' || $allowRepetition || $plannedRoundCount === null || $plannedRoundCount <= intdiv(count($formIds), 2), 'با حالت غیرتکراری، برای هر مرحله دو فرم جدا لازم است؛ تعداد مراحل را با فهرست فرم‌های انتخابی هماهنگ کنید.');
             $fields = [
                 'name' => $data['name'], 'gender' => $data['gender'], 'minimum_age' => $data['minimum_age'] ?? null, 'maximum_age' => $data['maximum_age'] ?? null,
                 'format' => $data['format'], 'judge_count' => (string) $data['judge_count'],
-                'discipline' => $discipline, 'entry_type' => $entryType, 'execution_mode' => $data['format'] === 'knockout' ? ($data['execution_mode'] ?? 'alternating') : 'alternating',
-                'performance_order' => $data['format'] === 'round_robin' ? ($data['performance_order'] ?? 'consecutive') : 'consecutive',
+                'discipline' => $discipline, 'entry_type' => $entryType, 'execution_mode' => $discipline === 'recognized' && $data['format'] === 'knockout' ? ($data['execution_mode'] ?? 'alternating') : 'alternating',
+                'performance_order' => $discipline === 'recognized' && $data['format'] === 'round_robin' ? ($data['performance_order'] ?? 'consecutive') : 'consecutive',
                 'forms_per_round' => $discipline === 'freestyle' ? 1 : 2, 'draw_timing' => 'day_start', 'scoring_rule_set_id' => $rule->id, 'form_sequence' => $plannedRoundCount === null ? $formIds : [],
                 'planned_round_count' => $plannedRoundCount, 'allow_form_repetition' => $allowRepetition,
                 'form_draw_timing' => $data['form_draw_timing'] ?? 'morning', 'form_draw_time' => $data['form_draw_time'] ?? '08:00',
             ];
             $before = $category?->toArray();
             if ($category) {
-                $this->check(! $category->entries()->exists(), 'برای تغییر قوانین رده باید رده بدون ورزشکار باشد.');
                 $this->check(! $category->rounds()->whereNotNull('forms_drawn_at')->exists(), 'بعد از قرعهٔ فرم‌ها، تنظیم مراحل قابل تغییر نیست.');
+                if ($category->entries()->exists()) {
+                    $this->check($category->discipline === $discipline && $category->entry_type === $entryType, 'پس از ثبت ورزشکار، سبک و نوع شرکت رده قابل تغییر نیست.');
+                    $candidate = clone $category;
+                    $candidate->fill($fields)->setRelation('scoringRuleSet', $rule);
+                    foreach ($category->entries()->with('athletes')->get() as $entry) {
+                        $members = $entry->athletes->map(fn ($athlete): array => [...$athlete->only(['first_name', 'last_name', 'gender', 'club']), 'birth_date' => $athlete->birth_date?->format('Y-m-d')])->all();
+                        $this->validateMembers($tournament, $candidate, $members, $entry->id);
+                    }
+                }
                 $category->rounds()->delete();
                 $category->update($fields);
             } else {
                 $category = $tournament->categories()->create($fields);
             }
+            $category->setRelation('scoringRuleSet', $rule);
             $category->forms()->sync($formIds);
             for ($sequence = 1; $sequence <= ($plannedRoundCount ?? 0); $sequence++) {
                 $category->rounds()->create(['name' => 'مرحله '.$sequence, 'sequence' => $sequence, 'status' => 'pending', 'form_sequence' => []]);

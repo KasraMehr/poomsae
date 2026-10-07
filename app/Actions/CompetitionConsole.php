@@ -91,6 +91,11 @@ class CompetitionConsole
     /** @param Collection<int, array<string, mixed>> $courtPerformances */
     private function isReadyForCourt(array $performance, Collection $courtPerformances): bool
     {
+        $runningKnockout = $courtPerformances->first(fn (array $candidate): bool => $candidate['format'] === 'knockout' && $candidate['bout_status'] === 'running');
+        if ($runningKnockout !== null && $performance['bout_id'] !== $runningKnockout['bout_id']) {
+            return false;
+        }
+
         $scope = $courtPerformances->filter(fn (array $candidate) => $performance['score_based']
             ? $candidate['round_id'] === $performance['round_id']
             : $candidate['bout_id'] === $performance['bout_id']);

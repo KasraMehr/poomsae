@@ -6,12 +6,16 @@ use App\Actions\CompetitionSetup;
 use App\Actions\DrawRoundForms;
 use App\Actions\RunCompetition;
 use App\Actions\ScheduleRound;
+use App\Actions\UpdateCompetitionSettings;
+use App\Http\Requests\AssignRoundFormsRequest;
 use App\Http\Requests\CompetitionSetupRequest;
 use App\Http\Requests\PerformanceCommandRequest;
 use App\Http\Requests\ResolveBoutRequest;
 use App\Http\Requests\ScheduleRoundRequest;
+use App\Http\Requests\UpdateCompetitionSettingsRequest;
 use App\Models\Bout;
 use App\Models\Category;
+use App\Models\Court;
 use App\Models\Entry;
 use App\Models\Performance;
 use App\Models\Tournament;
@@ -23,6 +27,20 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class OperationsController extends Controller
 {
+    public function updateCourt(UpdateCompetitionSettingsRequest $request, Tournament $tournament, Court $court, UpdateCompetitionSettings $settings): RedirectResponse
+    {
+        $settings->court($request->user(), $tournament, $court, $request->validated());
+
+        return back()->with('success', 'نام زمین ویرایش شد.');
+    }
+
+    public function updateEntry(UpdateCompetitionSettingsRequest $request, Tournament $tournament, Entry $entry, UpdateCompetitionSettings $settings): RedirectResponse
+    {
+        $settings->entry($request->user(), $tournament, $entry, $request->validated());
+
+        return back()->with('success', 'اطلاعات ورزشکار ویرایش شد.');
+    }
+
     public function court(CompetitionSetupRequest $request, Tournament $tournament, CompetitionSetup $setup): RedirectResponse
     {
         $setup->court($request->user(), $tournament, $request->validated());
@@ -71,6 +89,14 @@ class OperationsController extends Controller
         $draw->handle($request->user(), $tournament, $category, isset($data['round_id']) ? (int) $data['round_id'] : null);
 
         return back()->with('success', 'قرعهٔ پومسه‌های مرحله ثبت شد.');
+    }
+
+    public function assignForms(AssignRoundFormsRequest $request, Tournament $tournament, Category $category, DrawRoundForms $draw): RedirectResponse
+    {
+        $round = $category->rounds()->findOrFail($request->validated('round_id'));
+        $draw->assign($request->user(), $tournament, $category, $round, array_map('intval', $request->validated('form_ids')), 'manual_forms_v1', 'manual-'.now()->timestamp);
+
+        return back()->with('success', 'فرم‌های انتخابی مرحله ثبت شد.');
     }
 
     public function command(PerformanceCommandRequest $request, Tournament $tournament, Performance $performance, RunCompetition $run): RedirectResponse

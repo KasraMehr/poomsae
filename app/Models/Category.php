@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,6 +18,20 @@ class Category extends Model
     protected function casts(): array
     {
         return ['judge_count' => 'integer', 'forms_per_round' => 'integer', 'form_sequence' => 'array', 'planned_round_count' => 'integer', 'allow_form_repetition' => 'boolean', 'management_version' => 'integer', 'management_snapshot' => 'array', 'synced_at' => 'datetime'];
+    }
+
+    protected function executionMode(): Attribute
+    {
+        return Attribute::make(
+            get: fn (?string $value, array $attributes): string => ($attributes['discipline'] ?? null) === 'freestyle' ? 'alternating' : ($value ?? 'alternating'),
+        );
+    }
+
+    protected function performanceOrder(): Attribute
+    {
+        return Attribute::make(
+            get: fn (?string $value, array $attributes): string => ($attributes['discipline'] ?? null) === 'freestyle' ? 'consecutive' : ($value ?? 'consecutive'),
+        );
     }
 
     public function tournament(): BelongsTo

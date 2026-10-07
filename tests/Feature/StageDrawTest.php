@@ -6,6 +6,7 @@ use App\Actions\CompetitionView;
 use App\Actions\DrawRoundForms;
 use App\Actions\RunCompetition;
 use App\Models\Draw;
+use App\Models\PoomsaeForm;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\CreatesCompetition;
 use Tests\TestCase;
@@ -84,6 +85,39 @@ class StageDrawTest extends TestCase
         $this->post($base.'/complete')->assertSessionHasNoErrors();
     }
 
+    public function test_manager_can_replace_an_automatic_stage_form_draw_with_two_allowed_forms(): void
+    {
+        $this->travelTo(now()->setDate(2026, 10, 6)->setTime(12, 0));
+        $fixture = $this->competition(5, 2, 'knockout', 1, 1);
+        app(DrawRoundForms::class)->handle($fixture['admin'], $fixture['tournament'], $fixture['category']);
+        $this->schedule($fixture);
+        $round = $fixture['category']->rounds()->firstOrFail();
+        $selected = $fixture['category']->forms()->orderBy('poomsae_forms.id')->skip(1)->limit(2)->pluck('poomsae_forms.id')->all();
+
+        $this->actingAs($fixture['admin'])->post('/tournaments/'.$fixture['tournament']->id.'/categories/'.$fixture['category']->id.'/forms/assign', [
+            'round_id' => $round->id, 'form_ids' => $selected,
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame($selected, $round->fresh()->form_sequence);
+        $this->assertTrue($round->bouts()->with('performances')->get()->flatMap(fn ($bout) => $bout->performances)->every(fn ($performance) => in_array($performance->poomsae_form_id, $selected, true)));
+        $this->assertDatabaseHas('draws', ['algorithm_version' => 'manual_forms_v1', 'competition_round_id' => $round->id]);
+    }
+
+    public function test_manual_stage_form_selection_rejects_forms_outside_the_category_pool(): void
+    {
+        $this->travelTo(now()->setDate(2026, 10, 6)->setTime(12, 0));
+        $fixture = $this->competition(5, 2, 'knockout', 1, 1);
+        app(DrawRoundForms::class)->handle($fixture['admin'], $fixture['tournament'], $fixture['category']);
+        $round = $fixture['category']->rounds()->firstOrFail();
+        $outside = PoomsaeForm::firstOrCreate(['code' => 'outside-form'], ['name' => 'فرم خارج از رده'])->id;
+
+        $this->actingAs($fixture['admin'])->post('/tournaments/'.$fixture['tournament']->id.'/categories/'.$fixture['category']->id.'/forms/assign', [
+            'round_id' => $round->id, 'form_ids' => [$outside, $fixture['category']->forms()->firstOrFail()->id],
+        ])->assertSessionHasErrors('operation');
+
+        $this->assertNotSame([$outside, $fixture['category']->forms()->firstOrFail()->id], $round->fresh()->form_sequence);
+    }
+
     public function test_more_than_four_nonrepeating_stages_are_rejected(): void
     {
         $fixture = $this->competition();
@@ -105,14 +139,16 @@ class StageDrawTest extends TestCase
         $this->assertTrue($rounds->every(fn ($round) => count(array_unique($round->form_sequence)) === 2));
     }
 
-    public function test_knockout_stage_count_must_match_checked_in_entries(): void
+    public function test_knockout_stage_count_is_corrected_to_match_checked_in_entries(): void
     {
         $fixture = $this->competition(5, 2, 'knockout', 1, 2);
         $this->actingAs($fixture['admin'])->post('/tournaments/'.$fixture['tournament']->id.'/categories/'.$fixture['category']->id.'/rounds', [
             'court_id' => $fixture['tournament']->courts()->firstOrFail()->id,
             'judge_ids' => $fixture['judges']->pluck('id')->all(),
-        ])->assertSessionHasErrors('operation');
-        $this->assertDatabaseCount('bouts', 0);
+        ])->assertSessionHasNoErrors();
+        $this->assertSame(1, $fixture['category']->fresh()->planned_round_count);
+        $this->assertDatabaseCount('competition_rounds', 1);
+        $this->assertDatabaseCount('bouts', 1);
     }
 
     public function test_draw_requires_manager_and_rejects_a_round_from_another_category(): void

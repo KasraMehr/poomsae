@@ -34,25 +34,27 @@ const confirmProxyScore = (performance, score) => {
             <audio v-if="court.active.music_url" :src="court.active.music_url" controls preload="none">پخش موسیقی پشتیبانی نمی‌شود.</audio>
 
             <div v-if="court.active.status === 'scoring'" class="judge-readiness">
-                <div class="readiness-title"><b>{{ court.active.submitted_count }} از {{ court.active.judge_count }}</b><span>نمره دریافت شده</span></div>
+                <div class="readiness-title"><b>{{ court.active.submitted_count }} از {{ court.active.judge_count }}</b><span>نمرهٔ تأییدشده</span></div>
                 <div class="seat-grid">
                     <span v-for="judge in court.active.judges" :key="judge.id" :title="`${judge.name} · ${onlineJudgeIds.includes(judge.user_id) ? 'متصل' : 'بدون اتصال زنده'}`" :class="{ received: court.active.submitted_seats.includes(judge.seat), online: onlineJudgeIds.includes(judge.user_id) }">{{ judge.seat }}<i></i></span>
                 </div>
                 <small v-if="court.active.missing_seats.length">در انتظار صندلی‌های {{ court.active.missing_seats.join('، ') }}</small>
-                <small v-if="court.active.pending_review_seats.length">نمرهٔ جایگزین صندلی‌های {{ court.active.pending_review_seats.join('، ') }} در انتظار تأیید اپراتور است.</small>
+                <small v-if="court.active.pending_review_seats.length">نمرهٔ جایگزین صندلی‌های {{ court.active.pending_review_seats.join('، ') }} ثبت شده و در انتظار تأیید مدیر یا اپراتور است.</small>
             </div>
 
             <div v-if="court.active.pending_review_seats.length" class="proxy-score">
                 <h3>تأیید نمرهٔ جایگزین</h3>
+                <p>ابتدا نمرهٔ هر صندلی را بررسی و با دکمهٔ «تأیید نمرهٔ دستی» تأیید کنید. سپس انتشار نتیجه فعال می‌شود.</p>
                 <div v-for="score in court.active.scores.filter(score => score.submission_mode === 'operator_proxy' && score.status === 'draft')" :key="score.id" class="judge-score-row">
                     <span>صندلی {{ score.seat }} · {{ (score.values.accuracy / 100).toFixed(2) }}<template v-if="rules.input_method !== 'single_score_v1'"> + {{ (score.values.presentation / 100).toFixed(2) }}</template></span>
-                    <button type="button" class="button secondary small" :disabled="confirmation.processing" @click="confirmProxyScore(court.active, score)">تأیید نمرهٔ دستی</button>
+                    <button type="button" class="button secondary small" :disabled="confirmation.processing" :aria-busy="confirmation.processing" @click="confirmProxyScore(court.active, score)">{{ confirmation.processing ? 'در حال تأیید…' : 'تأیید نمرهٔ دستی' }}</button>
                 </div>
                 <FormErrors :errors="confirmation.errors" />
             </div>
 
             <button v-if="court.active.status === 'running'" class="button primary-action" :disabled="action.processing" @click="command(court.active, 'finish')">{{ commandLabel.running }}</button>
-            <button v-if="court.active.status === 'scoring'" class="button primary-action" :disabled="action.processing || court.active.submitted_count !== court.active.judge_count" @click="command(court.active, 'approve')">{{ commandLabel.scoring }}</button>
+            <button v-if="court.active.status === 'scoring'" class="button primary-action" :disabled="action.processing || confirmation.processing || court.active.submitted_count !== court.active.judge_count" :aria-busy="action.processing" @click="command(court.active, 'approve')">{{ action.processing ? 'در حال انتشار نتیجه…' : commandLabel.scoring }}</button>
+            <p v-if="court.active.status === 'scoring' && court.active.submitted_count !== court.active.judge_count" class="subtle" role="status">انتشار نتیجه غیرفعال است؛ نمرهٔ تأییدشدهٔ تمام {{ court.active.judge_count }} داور لازم است.</p>
             <ProxyScoreForm v-if="court.active.status === 'scoring'" :performance="court.active" :rules="rules" :endpoint="`${base}/performances/${court.active.id}/proxy-scores`" />
             <FormErrors :errors="action.errors" />
         </section>

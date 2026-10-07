@@ -39,21 +39,23 @@ class CompetitionSetupRequest extends FormRequest
                 'minimum_age' => [$this->filled('age_category') ? 'exclude' : 'nullable', 'integer', 'min:1', 'max:100'],
                 'maximum_age' => [$this->filled('age_category') ? 'exclude' : 'nullable', 'integer', 'min:1', 'max:100', 'gte:minimum_age'],
                 'format' => ['required', Rule::in(['knockout', 'round_robin'])],
-                'execution_mode' => ['sometimes', Rule::in(['alternating', 'simultaneous'])],
-                'performance_order' => ['sometimes', Rule::in(['consecutive', 'phased'])],
+                'execution_mode' => ['sometimes', Rule::in($discipline === 'freestyle' ? ['alternating'] : ['alternating', 'simultaneous'])],
+                'performance_order' => ['sometimes', Rule::in($discipline === 'freestyle' ? ['consecutive'] : ['consecutive', 'phased'])],
                 'judge_count' => ['required', 'integer', Rule::in([3, 5, 7])],
                 'accuracy_max' => ['sometimes', 'integer', Rule::in($discipline === 'freestyle' ? [600] : [400])],
                 'discard_each_end' => ['required', 'integer', Rule::in(match ($this->integer('judge_count')) {
                     3 => [0], 7 => [1, 2], default => [1],
                 })],
                 'rules_acknowledged' => ['accepted'],
-                'planned_round_count' => [$this->filled('age_category') ? 'required' : 'sometimes', 'integer', 'min:1'],
+                'planned_round_count' => [$this->filled('age_category') && $this->input('format') !== 'knockout' ? 'required' : 'sometimes', 'integer', 'min:1'],
                 'allow_form_repetition' => ['sometimes', 'boolean'],
                 'form_draw_timing' => ['sometimes', Rule::in(['day_before', 'morning', 'before_stage'])],
                 'form_draw_time' => ['sometimes', 'date_format:H:i'],
                 'draw_method' => ['sometimes', Rule::in(['random'])],
                 'form_names' => [$this->filled('age_category') ? 'exclude' : ($discipline === 'recognized' ? 'required' : 'prohibited'), 'array', 'size:'.($this->has('planned_round_count') ? 8 : 2)],
                 'form_names.*' => ['required', 'string', 'max:100', 'distinct'],
+                'selected_form_numbers' => [$this->filled('age_category') && $discipline === 'recognized' ? 'sometimes' : 'prohibited', 'array', 'list', 'min:2', 'distinct'],
+                'selected_form_numbers.*' => ['required', 'integer', 'min:1', 'max:16'],
             ],
             'entry' => [
                 'first_name' => [$memberCount === 1 ? 'required' : 'prohibited', 'string', 'max:100'],
@@ -72,5 +74,13 @@ class CompetitionSetupRequest extends FormRequest
             'entryStatus' => ['status' => ['required', Rule::in(['registered', 'checked_in', 'withdrawn'])]],
             default => [],
         };
+    }
+
+    public function messages(): array
+    {
+        return $this->input('discipline', 'recognized') === 'freestyle' ? [
+            'execution_mode.in' => 'اجراهای ابداعی فقط نوبتی برگزار می‌شوند؛ اجرای همزمان دو حریف مجاز نیست.',
+            'performance_order.in' => 'در ابداعی هر ورودی در هر مرحله یک اجرا دارد و ورودی‌ها به‌ترتیب اجرا می‌کنند.',
+        ] : [];
     }
 }

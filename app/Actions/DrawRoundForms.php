@@ -28,6 +28,7 @@ class DrawRoundForms
             $this->setup->check($category->management_source === null, 'قرعهٔ این رده از سیستم مدیریت مسابقات دریافت می‌شود.');
             $this->setup->check($category->discipline === 'recognized' && $category->planned_round_count !== null, 'قرعهٔ مرحله‌ای فقط برای ردهٔ استاندارد با مراحل مشخص است.');
             $this->setup->check(now()->greaterThanOrEqualTo($this->availableAt($tournament, $category)), 'زمان قرعهٔ پومسه‌های این رده هنوز نرسیده است.');
+            $this->setup->prepareKnockoutStages($actor, $tournament, $category);
             $rounds = $category->rounds()->whereNull('forms_drawn_at')->orderBy('sequence');
             if ($category->form_draw_timing === 'before_stage') {
                 $round = $roundId ? $category->rounds()->findOrFail($roundId) : $rounds->first();
@@ -41,7 +42,7 @@ class DrawRoundForms
                 $used = $category->allow_form_repetition ? [] : $category->rounds()->where('id', '!=', $round->id)->get()->flatMap(fn ($item) => $item->form_sequence ?? [])->all();
                 $pool = $category->forms()->pluck('poomsae_forms.id')->map(fn ($id) => (int) $id)->all();
                 $available = array_values(array_diff($pool, $used));
-                $this->setup->check(count($pool) === 8 && count($available) >= 2, 'پومسهٔ کافی برای قرعهٔ غیرتکراری باقی نمانده است.');
+                $this->setup->check(count($pool) >= 2 && count($available) >= 2, 'پومسهٔ کافی برای قرعهٔ غیرتکراری باقی نمانده است.');
                 $seed = bin2hex(random_bytes(16));
                 usort($available, fn ($left, $right) => strcmp(hash('sha256', $seed.':'.$left), hash('sha256', $seed.':'.$right)));
                 $this->assign($actor, $tournament, $category, $round, array_slice($available, 0, 2), 'sha256_form_pool_v1', $seed);

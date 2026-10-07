@@ -75,7 +75,19 @@ class CompetitionWorkflowTest extends TestCase
         $this->post('/tournaments/'.$f['tournament']->id.'/complete')->assertSessionHasNoErrors()->assertRedirect();
         $this->assertSame('completed', $f['tournament']->fresh()->status);
         $this->get('/tournaments/'.$f['tournament']->id)->assertOk();
-        $this->get('/tournaments/'.$f['tournament']->id.'/results.csv')->assertOk()->assertDownload();
+        $response = $this->get('/tournaments/'.$f['tournament']->id.'/results.csv')->assertOk()->assertDownload('tournament-'.$f['tournament']->id.'-results.csv');
+        $lines = collect(preg_split('/\R/u', $response->streamedContent()))->filter()->values();
+        $this->assertStringStartsWith("\xEF\xBB\xBFردیف,", $lines[0]);
+        $this->assertSame([
+            'ردیف', 'رده', 'شیوه برگزاری', 'مرحله', 'شماره رقابت', 'زمین', 'ورزشکار / تیم', 'باشگاه',
+            'فرم اول', 'نمره فرم اول', 'فرم دوم', 'نمره فرم دوم', 'امتیاز نهایی', 'رتبه', 'وضعیت نتیجه', 'دلیل تعیین نتیجه',
+        ], str_getcsv(substr($lines[0], 3), ',', '"', ''));
+        $this->assertCount(3, $lines);
+        $rows = $lines->slice(1)->map(fn (string $line): array => str_getcsv($line, ',', '"', ''))->keyBy(6);
+        $winnerName = $bout->entries()->findOrFail($winner)->display_name;
+        $this->assertSame(['فرم اول', '8.500000', 'فرم دوم', '8.500000', '17.000000'], array_slice($rows[$winnerName], 8, 5));
+        $this->assertSame('برنده', $rows[$winnerName][14]);
+        $this->assertSame('بازنده', $rows->first(fn (array $row): bool => $row[6] !== $winnerName)[14]);
         $this->assertDatabaseCount('results', 4);
         $this->assertDatabaseCount('score_revisions', 20);
     }

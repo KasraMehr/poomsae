@@ -26,6 +26,7 @@ class ScheduleRound
             $forms = $category->form_sequence ?? [];
             $check($category->discipline === 'freestyle' || $category->planned_round_count !== null || count($forms) === 2 && $category->forms()->whereIn('poomsae_forms.id', $forms)->count() === 2, 'تعداد فرم‌های رده معتبر نیست.');
             $courtPanels = $this->courtPanels($tournament, $category, $data);
+            $this->setup->prepareKnockoutStages($actor, $tournament, $category);
             $previous = $category->rounds()->whereHas('bouts')->orderByDesc('sequence')->first();
             if ($previous) {
                 $check($category->format === 'knockout' || $category->planned_round_count !== null, 'جدول دورهای بدون برنامهٔ مرحله‌ای فقط یک بار ساخته می‌شود.');
@@ -48,10 +49,6 @@ class ScheduleRound
                 }
                 $seed = bin2hex(random_bytes(16));
                 usort($ids, fn ($a, $b) => strcmp(hash('sha256', $seed.':'.$a), hash('sha256', $seed.':'.$b)));
-                if ($category->planned_round_count !== null && $category->format === 'knockout') {
-                    $requiredRounds = (int) ceil(log(count($ids), 2));
-                    $check($category->planned_round_count === $requiredRounds, 'تعداد مراحل تک‌حذفی باید با تعداد ورودی‌های حاضر سازگار باشد: '.$requiredRounds.' مرحله.');
-                }
             }
             $sequence = ($previous?->sequence ?? 0) + 1;
             $check($category->planned_round_count === null || $sequence <= $category->planned_round_count, 'تمام مراحل برنامه‌ریزی‌شده ساخته شده‌اند.');

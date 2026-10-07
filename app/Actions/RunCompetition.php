@@ -203,7 +203,7 @@ class RunCompetition
         $next = $ordered->first(fn (array $item) => $item['performance']->status !== 'approved');
         $simultaneous = $category->format === 'knockout' && $category->execution_mode === 'simultaneous';
         $inNextGroup = $simultaneous && $next && $next['performance']->form_number === $performance->form_number;
-        $this->setup->check($next && ($next['performance']->id === $performance->id || $inNextGroup), 'ترتیب اجرای فرم‌ها رعایت نشده است؛ ابتدا نتیجهٔ اجرای قبلی را تأیید کنید.');
+        $this->setup->check($next && ($next['performance']->id === $performance->id || $inNextGroup), $category->discipline === 'freestyle' ? 'نوبت اجرای ابداعی رعایت نشده است؛ ابتدا نتیجهٔ اجرای قبلی را تأیید کنید.' : 'ترتیب اجرای فرم‌ها رعایت نشده است؛ ابتدا نتیجهٔ اجرای قبلی را تأیید کنید.');
     }
 
     private function restoredMeanTotals(Bout $bout): array

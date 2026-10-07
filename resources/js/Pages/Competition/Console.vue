@@ -23,7 +23,7 @@ usePoll(2000, { only: ['console', 'can'] });
         <Head :title="`میز اجرا · ${tournament.name}`" />
         <section class="page-heading console-heading">
             <div><div class="arena-kicker"><span>COURT CONTROL</span><span>LIVE OPERATIONS</span></div><h1>{{ tournament.name }}</h1><p class="subtle">{{ tournament.venue || 'محل تعیین نشده' }} · مرکز فرمان اجرای زنده</p></div>
-            <div class="row-actions"><a :href="competitionUrls.export" class="button secondary">دریافت نتایج CSV</a></div>
+            <div class="row-actions"><a :href="competitionUrls.excel" class="button">دریافت Excel (.xlsx)</a><a :href="competitionUrls.results" class="button secondary">جدول نتایج و دریافت فایل</a></div>
         </section>
 
         <section class="console-stats">

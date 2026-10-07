@@ -38,7 +38,7 @@ class ManagementSnapshotRequest extends FormRequest
             'category.name' => ['sometimes', 'string', 'max:100', Rule::unique('categories', 'name')->where('tournament_id', $this->route('tournament')->id)->ignore($category->id)],
             'category.minimum_age' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:100'],
             'category.maximum_age' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:100'],
-            'category.form_names' => [$category->discipline === 'freestyle' ? 'prohibited' : 'sometimes', 'array', 'list', 'size:8'],
+            'category.form_names' => [$category->discipline === 'freestyle' ? 'prohibited' : 'sometimes', 'array', 'list', 'min:2', 'max:16'],
             'category.form_names.*' => ['required', 'string', 'max:100', 'distinct'],
             'entries' => ['required', 'array', 'list', 'min:2'],
             'entries.*' => ['array:external_id,local_entry_id,status,members'],

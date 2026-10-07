@@ -111,6 +111,30 @@ class CompetitionDisplayTest extends TestCase
         $this->assertFalse($court['upcoming'][0]['ready']);
     }
 
+    public function test_rtds_phased_queue_keeps_other_first_forms_before_the_started_athletes_second_form(): void
+    {
+        $fixture = $this->competition(5, 3, 'round_robin');
+        $fixture['category']->update(['performance_order' => 'phased']);
+        $this->schedule($fixture);
+        $bouts = $fixture['category']->rounds()->firstOrFail()->bouts()->with('performances')->orderBy('sequence')->get();
+        $firstForm = $bouts[0]->performances->firstWhere('form_number', 1);
+        $this->startScoring($fixture, $firstForm);
+        $this->scoreAll($fixture, $firstForm);
+        app(RunCompetition::class)->command($fixture['admin'], $fixture['tournament'], $firstForm, [
+            'command' => 'approve', 'expected_version' => $firstForm->fresh()->version,
+        ]);
+
+        $court = app(CompetitionDisplay::class)->snapshot($fixture['tournament'], $fixture['admin'])['courts'][0];
+        $this->assertNull($court['current']);
+        $this->assertSame([
+            $bouts[1]->performances->firstWhere('form_number', 1)->id,
+            $bouts[2]->performances->firstWhere('form_number', 1)->id,
+            $bouts[0]->performances->firstWhere('form_number', 2)->id,
+            $bouts[1]->performances->firstWhere('form_number', 2)->id,
+            $bouts[2]->performances->firstWhere('form_number', 2)->id,
+        ], array_column($court['upcoming'], 'id'));
+    }
+
     public function test_display_keeps_stage_draw_waiting_and_does_not_queue_byes(): void
     {
         $fixture = $this->competition(5, 3, 'knockout', 1, 2, true, 'before_stage');

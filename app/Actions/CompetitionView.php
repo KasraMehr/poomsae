@@ -22,7 +22,9 @@ class CompetitionView
             ->whereIn('score_sheet_id', $sheetIds)
             ->select('score_revisions.*', 'users.name as changed_by_name')
             ->orderBy('score_revisions.revision')->get()->groupBy('score_sheet_id') : collect();
-        $categories = $tournament->categories->map(function ($category) use ($actor, $display, $operate, $components, $revisions, $tournament) {
+        $categories = $tournament->categories->map(function ($category) use ($actor, $display, $operate, $manage, $components, $revisions, $tournament) {
+            $checkedInCount = $category->entries->where('status', 'checked_in')->count();
+            $automaticStageCount = $category->format === 'knockout' && $category->management_source === null;
             $standingsRoundId = $category->rounds->filter(fn ($round) => $round->bouts->isNotEmpty())->sortBy('sequence')->last()?->id;
             $lastStartedSequence = $category->rounds->filter(fn ($round) => $round->started_at !== null || in_array($round->status, ['running', 'completed'], true))->max('sequence') ?? 0;
             $wins = [];
@@ -163,12 +165,16 @@ class CompetitionView
             return [
                 'id' => $category->id, 'name' => $category->name, 'gender' => $category->gender, 'minimum_age' => $category->minimum_age, 'maximum_age' => $category->maximum_age,
                 'format' => $category->format, 'discipline' => $category->discipline, 'entry_type' => $category->entry_type, 'forms_per_round' => $category->forms_per_round, 'execution_mode' => $category->execution_mode, 'performance_order' => $category->performance_order, 'score_based' => $scoreBased, 'judge_count' => $category->judge_count, 'rules' => $category->scoringRuleSet?->definition, 'form_names' => $category->form_sequence ? collect($category->form_sequence)->map(fn ($id) => $category->forms->firstWhere('id', $id)?->name)->all() : [],
-                'entries' => $category->entries->map(fn ($e) => ['id' => $e->id, 'name' => $e->display_name, 'status' => $e->status, 'club' => $e->athletes->first()?->club, 'members' => $e->athletes->sortBy('pivot.position')->map(fn ($athlete) => ['name' => $athlete->first_name.' '.$athlete->last_name, 'gender' => $athlete->gender])->values()])->values(),
+                'entries' => $category->entries->map(fn ($e) => ['id' => $e->id, 'name' => $e->display_name, 'status' => $e->status, 'club' => $e->athletes->first()?->club, 'members' => $e->athletes->sortBy('pivot.position')->map(fn ($athlete) => ['name' => $athlete->first_name.' '.$athlete->last_name, 'gender' => $athlete->gender, ...($manage ? ['id' => $athlete->id, 'first_name' => $athlete->first_name, 'last_name' => $athlete->last_name, 'birth_date' => $athlete->birth_date?->format('Y-m-d'), 'club' => $athlete->club] : [])])->values()])->values(),
                 'rounds' => $rounds, 'completed' => $completed, 'champion_id' => $completed && $category->format === 'knockout' ? $last['bouts'][0]['winner_entry_id'] : null,
                 'planned_round_count' => $category->planned_round_count, 'allow_form_repetition' => $category->allow_form_repetition, 'form_draw_timing' => $category->form_draw_timing, 'form_draw_time' => $category->form_draw_time,
+                'round_count_automatic' => $automaticStageCount,
+                'required_round_count' => $automaticStageCount && $checkedInCount >= 2 ? (int) ceil(log($checkedInCount, 2)) : null,
                 'form_pool' => $category->forms->map(fn ($form) => ['id' => $form->id, 'name' => $form->name])->values(),
                 'draw_available_at' => app(DrawRoundForms::class)->availableAt($tournament, $category)->toISOString(),
                 'registration_locked' => $category->rounds->contains(fn ($round) => $round->bouts->isNotEmpty()),
+                'settings_editable' => $manage && ! in_array($tournament->status, ['completed', 'archived'], true) && $category->management_source === null && ! $category->rounds->contains(fn ($round) => $round->bouts->isNotEmpty() || $round->forms_drawn_at !== null),
+                'rule_version' => $category->scoringRuleSet?->version,
                 'management_source' => $category->management_source, 'management_version' => $category->management_version, 'synced_at' => $category->synced_at?->toISOString(), 'standings_round_id' => $standingsRoundId,
                 'standings' => $category->format === 'round_robin' ? $standings : [],
             ];
@@ -176,7 +182,8 @@ class CompetitionView
 
         return [
             'revision' => (int) AuditLog::where('tournament_id', $tournament->id)->max('id'),
-            'id' => $tournament->id, 'name' => $tournament->name, 'venue' => $tournament->venue, 'starts_on' => $tournament->starts_on->format('Y-m-d'), 'timezone' => $tournament->timezone, 'status' => $tournament->status,
+            'id' => $tournament->id, 'name' => $tournament->name, 'venue' => $tournament->venue, 'starts_on' => $tournament->starts_on->format('Y-m-d'), 'ends_on' => $tournament->ends_on?->format('Y-m-d'), 'timezone' => $tournament->timezone, 'status' => $tournament->status,
+            'dates_editable' => ! $tournament->categories->contains(fn ($category) => $category->rounds->contains(fn ($round) => $round->bouts->isNotEmpty() || $round->forms_drawn_at !== null)),
             'courts' => $tournament->courts->map(fn ($c) => ['id' => $c->id, 'name' => $c->name])->values(),
             'members' => $manage ? $tournament->users()->get(['users.id', 'users.name', 'users.email', 'users.is_active'])->map(fn ($u) => ['id' => $u->id, 'name' => $u->name, 'email' => $u->email, 'role' => $u->pivot->role, 'is_active' => $u->is_active])->values() : [],
             'categories' => $categories,

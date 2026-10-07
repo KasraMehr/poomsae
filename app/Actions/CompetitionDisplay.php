@@ -62,7 +62,7 @@ class CompetitionDisplay
                 $courtItems = collect($items)->where('court_id', $court['id']);
                 $current = $courtItems->first(fn (array $item) => in_array($item['status'], ['running', 'scoring'], true))
                     ?? collect($decisions)->firstWhere('court_id', $court['id']);
-                $upcoming = $courtItems->where('status', 'pending')->sortBy(fn (array $item) => sprintf('%d-%010d-%02d-%s', $item['bout_status'] === 'running' ? 0 : 1, $item['category_id'], $item['round_sequence'], $item['order']))->take(5)->values()->map(function (array $item) use ($current): array {
+                $upcoming = $courtItems->where('status', 'pending')->sortBy(fn (array $item) => sprintf('%d-%010d-%02d-%s', $item['format'] === 'knockout' && $item['bout_status'] === 'running' ? 0 : 1, $item['category_id'], $item['round_sequence'], $item['order']))->take(5)->values()->map(function (array $item) use ($current): array {
                     unset($item['order']);
 
                     return [...$item, 'ready' => $item['ready'] && $current === null];

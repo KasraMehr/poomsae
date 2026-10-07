@@ -84,6 +84,43 @@ class AgeCategoryTest extends TestCase
         $this->assertDatabaseHas('audit_logs', ['action' => 'category.saved', 'subject_id' => $category->id]);
     }
 
+    public function test_category_creation_allows_a_custom_subset_of_the_age_table_forms(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $tournament = Tournament::factory()->create(['created_by' => $admin->id]);
+
+        $this->actingAs($admin)->post('/tournaments/'.$tournament->id.'/categories', [
+            ...$this->categoryData('recognized_individual_12_14'), 'selected_form_numbers' => [4, 7, 11],
+        ])->assertSessionHasNoErrors();
+
+        $category = $tournament->categories()->firstOrFail();
+        $this->assertSame(['فرم 4', 'فرم 7', 'فرم 11'], $category->forms()->orderBy('poomsae_forms.id')->pluck('name')->all());
+    }
+
+    public function test_category_creation_rejects_a_form_outside_the_age_table(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $tournament = Tournament::factory()->create(['created_by' => $admin->id]);
+
+        $this->actingAs($admin)->post('/tournaments/'.$tournament->id.'/categories', [
+            ...$this->categoryData('recognized_individual_12_14'), 'selected_form_numbers' => [3, 4],
+        ])->assertSessionHasErrors(['operation' => 'فرم انتخابی در فهرست مجاز این رده نیست.']);
+
+        $this->assertDatabaseCount('categories', 0);
+    }
+
+    public function test_category_creation_requires_two_selected_forms(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $tournament = Tournament::factory()->create(['created_by' => $admin->id]);
+
+        $this->actingAs($admin)->post('/tournaments/'.$tournament->id.'/categories', [
+            ...$this->categoryData('recognized_individual_12_14'), 'selected_form_numbers' => [4],
+        ])->assertSessionHasErrors('selected_form_numbers');
+
+        $this->assertDatabaseCount('categories', 0);
+    }
+
     #[TestWith(['recognized_individual_12_14', '2012-01-01'])]
     #[TestWith(['recognized_individual_12_14', '2014-12-31'])]
     #[TestWith(['recognized_individual_15_17', '2008-12-31'])]
