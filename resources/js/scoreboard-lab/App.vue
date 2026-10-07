@@ -7,12 +7,13 @@ import SymbolContainer from "../Components/scoreboard/SymbolContainer.vue";
 import Timer from "../Components/scoreboard/Timer.vue";
 import ScoreCard from "../Components/scoreboard/ScoreCard.vue";
 import ScoreItem from "../Components/scoreboard/ScoreItem.vue";
-import ScoringTableBase from "../Components/scoreboard/tables/ScoringTableBase.vue";
 import SingleScoringTable from "../Components/scoreboard/tables/SingleScoringTable.vue";
 import FreestyleScoringTable from "../Components/scoreboard/tables/FreestyleScoringTable.vue";
 import DoubleScoringTable from "../Components/scoreboard/tables/DoubleScoringTable.vue";
 import RankingTable from "../Components/scoreboard/tables/RankingTable.vue";
 import RankingRow from "../Components/scoreboard/tables/RankingRow.vue";
+import TopFourTable from "../Components/scoreboard/tables/TopFourTable.vue";
+import TopFourRow from "../Components/scoreboard/tables/TopFourRow.vue";
 import {
     headerCases,
     athleteCases,
@@ -24,16 +25,22 @@ import {
     timerCases,
     scoreCardCases,
     singleFive,
+    singleFiveCompact,
     singleSeven,
     singleEmpty,
     freestyleFive,
+    freestyleFiveCompact,
     freestyleSeven,
-    doubleFive,
-    doubleSeven,
-    baseTable,
+    doubleFiveChung,
+    doubleFiveHong,
+    doubleFiveCompact,
+    doubleSevenChung,
+    doubleSevenHong,
     placementsRoundRobin,
     placementsKnockout,
     extraRankingRows,
+    topFourRows,
+    extraTopFourRows,
     contractFields,
 } from "./data.js";
 
@@ -68,11 +75,11 @@ const sections = [
     { id: "symbol-container", label: "SymbolContainer / Medals" },
     { id: "timer", label: "Timer" },
     { id: "score-card", label: "ScoreCard / ScoreItem" },
-    { id: "scoring-table-base", label: "ScoringTableBase" },
     { id: "single-scoring-table", label: "SingleScoringTable" },
     { id: "freestyle-scoring-table", label: "FreestyleScoringTable" },
     { id: "double-scoring-table", label: "DoubleScoringTable" },
     { id: "ranking", label: "RankingTable / RankingRow" },
+    { id: "top-four", label: "TopFourTable / TopFourRow" },
     { id: "contract", label: "فیلدهای Proposed" },
 ];
 
@@ -83,8 +90,7 @@ const toRankingRow = (placement) => ({
     country: placement.country,
     countryCode: placement.country_code,
     flagUrl: placement.flag_url,
-    score: Number(placement.score).toLocaleString("fa-IR"),
-    highlight: false,
+    roundScores: placement.round_scores ?? [],
 });
 
 const roundRobinRows = placementsRoundRobin.map(toRankingRow);
@@ -139,7 +145,7 @@ const knockoutRows = placementsKnockout.map(toRankingRow);
                 <!-- Intro -->
                 <section class="rounded-2xl border border-rtds-border bg-rtds-bg-card p-6 text-sm leading-7 text-rtds-text-secondary">
                     <p>
-                        این صفحه هر ۱۳ کامپوننت <code class="text-rtds-text-light">Components/scoreboard</code>
+                        این صفحه هر ۱۵ کامپوننت <code class="text-rtds-text-light">Components/scoreboard</code>
                         را در همهٔ حالت‌ها رندر می‌کند؛ داده‌ها در
                         <code class="text-rtds-text-light">data.js</code> طبق
                         <code class="text-rtds-text-light">[Proposed Backend Contract]</code>
@@ -364,40 +370,32 @@ const knockoutRows = placementsKnockout.map(toRankingRow);
                     </div>
                 </section>
 
-                <!-- 8. ScoringTableBase -->
-                <section id="scoring-table-base" class="scroll-mt-28 space-y-4">
-                    <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-rtds-border-subtle pb-2">
-                        <h2 class="text-lg font-bold text-rtds-text-light">ScoringTableBase</h2>
-                        <code class="text-xs text-rtds-text-muted">Components/scoreboard/tables/ScoringTableBase.vue</code>
-                    </div>
-                    <div class="min-w-0 rounded-2xl border border-rtds-border bg-rtds-bg p-4">
-                        <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">
-                            ستون‌ها/ردیف‌های دلخواه از بیرون · judgeCount=7 · highlightColumn=total
-                        </p>
-                        <ScoringTableBase v-bind="baseTable" />
-                    </div>
-                </section>
-
-                <!-- 9. SingleScoringTable -->
+                <!-- 8. SingleScoringTable -->
                 <section id="single-scoring-table" class="scroll-mt-28 space-y-4">
                     <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-rtds-border-subtle pb-2">
                         <h2 class="text-lg font-bold text-rtds-text-light">SingleScoringTable</h2>
                         <code class="text-xs text-rtds-text-muted">Components/scoreboard/tables/SingleScoringTable.vue</code>
                     </div>
                     <div class="space-y-4">
-                        <div class="min-w-0 rounded-2xl border border-rtds-border bg-rtds-bg p-4">
+                        <div class="min-w-0 overflow-x-auto rounded-2xl border border-rtds-border bg-rtds-bg p-4">
                             <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">
-                                execution_mode=SINGLE · ۵ قاضی — نگاشت judge_scores[] پیشنهادی به ردیف‌ها
+                                سطر = داور · ۶ ستون · showSubScores=true (داده در ترتیب صندلی J1..J5)
                             </p>
                             <SingleScoringTable v-bind="singleFive" />
                         </div>
-                        <div class="min-w-0 rounded-2xl border border-rtds-border bg-rtds-bg p-4">
+                        <div class="min-w-0 overflow-x-auto rounded-2xl border border-rtds-border bg-rtds-bg p-4">
                             <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">
-                                ۷ قاضی — حالت فشردهٔ ریسپانسیو
+                                showSubScores=false — سه ستون JUDGE/ACCURACY/PRESENTATION؛ عرض ستون‌های باقی ثابت می‌ماند
+                            </p>
+                            <SingleScoringTable v-bind="singleFiveCompact" />
+                        </div>
+                        <div class="min-w-0 overflow-x-auto rounded-2xl border border-rtds-border bg-rtds-bg p-4">
+                            <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">
+                                ۷ داور — ریسپانسیو
                             </p>
                             <SingleScoringTable v-bind="singleSeven" />
                         </div>
-                        <div class="min-w-0 rounded-2xl border border-rtds-border bg-rtds-bg p-4">
+                        <div class="min-w-0 overflow-x-auto rounded-2xl border border-rtds-border bg-rtds-bg p-4">
                             <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">
                                 بدون judge_scores — وضعیت snapshot فعلی (display=true، سلول‌ها «—»)
                             </p>
@@ -406,79 +404,121 @@ const knockoutRows = placementsKnockout.map(toRankingRow);
                     </div>
                 </section>
 
-                <!-- 10. FreestyleScoringTable -->
+                <!-- 9. FreestyleScoringTable -->
                 <section id="freestyle-scoring-table" class="scroll-mt-28 space-y-4">
                     <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-rtds-border-subtle pb-2">
                         <h2 class="text-lg font-bold text-rtds-text-light">FreestyleScoringTable</h2>
                         <code class="text-xs text-rtds-text-muted">Components/scoreboard/tables/FreestyleScoringTable.vue</code>
                     </div>
                     <div class="grid gap-4">
-                        <div class="min-w-0 rounded-2xl border border-rtds-border bg-rtds-bg p-4">
+                        <div class="min-w-0 overflow-x-auto rounded-2xl border border-rtds-border bg-rtds-bg p-4">
                             <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">
-                                SINGLE-FREESTYLE · ۵ قاضی + ستون «اجرا» (ردیف دوم خالی)
+                                showSubScores=true — ۴ زیرستون زیر ACCURACY و ۶ زیرستون زیر PRESENTATION (زیرستون‌ها بدون هدر)
                             </p>
                             <FreestyleScoringTable v-bind="freestyleFive" />
                         </div>
-                        <div class="min-w-0 rounded-2xl border border-rtds-border bg-rtds-bg p-4">
+                        <div class="min-w-0 overflow-x-auto rounded-2xl border border-rtds-border bg-rtds-bg p-4">
                             <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">
-                                SINGLE-FREESTYLE · ۷ قاضی + ستون «اجرا»
+                                showSubScores=false — جدول سه‌ستونه؛ عرض ستون‌ها ثابت
+                            </p>
+                            <FreestyleScoringTable v-bind="freestyleFiveCompact" />
+                        </div>
+                        <div class="min-w-0 overflow-x-auto rounded-2xl border border-rtds-border bg-rtds-bg p-4">
+                            <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">
+                                ۷ داور — ریسپانسیو
                             </p>
                             <FreestyleScoringTable v-bind="freestyleSeven" />
                         </div>
                     </div>
                 </section>
 
-                <!-- 11. DoubleScoringTable -->
+                <!-- 10. DoubleScoringTable -->
                 <section id="double-scoring-table" class="scroll-mt-28 space-y-4">
                     <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-rtds-border-subtle pb-2">
                         <h2 class="text-lg font-bold text-rtds-text-light">DoubleScoringTable</h2>
                         <code class="text-xs text-rtds-text-muted">Components/scoreboard/tables/DoubleScoringTable.vue</code>
                     </div>
-                    <div class="grid gap-4">
-                        <div class="min-w-0 rounded-2xl border border-rtds-border bg-rtds-bg p-4">
+                    <div class="space-y-4">
+                        <div class="min-w-0 overflow-x-auto rounded-2xl border border-rtds-border bg-rtds-bg p-4">
                             <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">
-                                DOUBLE · ۵ قاضی — هدر دوسطحی به ازای هر ورزشکار
+                                دو جدول جدا کنار هم — چپ: side=chung (J1..J5، برچسب چپ، آبی) · راست: side=hong (آینه: J5..J1، برچسب راست، قرمز)
                             </p>
-                            <DoubleScoringTable v-bind="doubleFive" />
+                            <div class="flex gap-[60px]">
+                                <DoubleScoringTable v-bind="doubleFiveChung" />
+                                <DoubleScoringTable v-bind="doubleFiveHong" />
+                            </div>
                         </div>
-                        <div class="min-w-0 rounded-2xl border border-rtds-border bg-rtds-bg p-4">
+                        <div class="min-w-0 overflow-x-auto rounded-2xl border border-rtds-border bg-rtds-bg p-4">
                             <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">
-                                DOUBLE · ۷ قاضی
+                                showSubScores=false — سطرهای ریزنمرات (EOE/S&amp;P/R&amp;P) مخفی می‌شوند
                             </p>
-                            <DoubleScoringTable v-bind="doubleSeven" />
+                            <DoubleScoringTable v-bind="doubleFiveCompact" />
+                        </div>
+                        <div class="min-w-0 overflow-x-auto rounded-2xl border border-rtds-border bg-rtds-bg p-4">
+                            <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">
+                                ۷ داور — ریسپانسیو
+                            </p>
+                            <div class="flex gap-[60px]">
+                                <DoubleScoringTable v-bind="doubleSevenChung" />
+                                <DoubleScoringTable v-bind="doubleSevenHong" />
+                            </div>
                         </div>
                     </div>
                 </section>
 
-                <!-- 12. RankingTable / RankingRow -->
+                <!-- 11. RankingTable / RankingRow -->
                 <section id="ranking" class="scroll-mt-28 space-y-4">
                     <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-rtds-border-subtle pb-2">
                         <h2 class="text-lg font-bold text-rtds-text-light">RankingTable / RankingRow</h2>
                         <code class="text-xs text-rtds-text-muted">Components/scoreboard/tables/RankingTable.vue · RankingRow.vue</code>
                     </div>
-                    <div class="grid gap-4 xl:grid-cols-2">
-                        <div class="min-w-0 rounded-2xl border border-rtds-border bg-rtds-bg p-4">
+                    <div class="space-y-4">
+                        <div class="min-w-0 overflow-x-auto rounded-2xl border border-rtds-border bg-rtds-bg p-4">
                             <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">
-                                format=round_robin — از placements[] پیشنهادی (مدال از rank مشتق می‌شود)
+                                طرح RANKING-TABLE — بدون هدر (هدر متعلق به صفحه است)؛ دو ستون نمرهٔ راند با divider و ارتفاع ردیف‌ها ۱۳۰/۱۱۰/۹۰/۷۵/۷۰ طبق رتبه
                             </p>
                             <RankingTable :rows="roundRobinRows" />
                         </div>
-                        <div class="space-y-4">
-                            <div class="min-w-0 rounded-2xl border border-rtds-border bg-rtds-bg p-4">
-                                <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">
-                                    format=knockout — با همان placements[] یکدست
-                                </p>
-                                <RankingTable :rows="knockoutRows" />
+                        <div class="min-w-0 overflow-x-auto rounded-2xl border border-rtds-border bg-rtds-bg p-4">
+                            <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">
+                                format=knockout — با همان placements[] یکدست (کمتر از ۵ ردیف)
+                            </p>
+                            <RankingTable :rows="knockoutRows" />
+                        </div>
+                        <div class="min-w-0 overflow-x-auto rounded-2xl border border-rtds-border bg-rtds-bg p-4">
+                            <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">حالت‌های تک‌ردیف RankingRow</p>
+                            <div class="space-y-3">
+                                <RankingRow
+                                    v-for="c in extraRankingRows"
+                                    :key="c.title"
+                                    v-bind="c.props"
+                                />
                             </div>
-                            <div class="min-w-0 rounded-2xl border border-rtds-border bg-rtds-bg p-4">
-                                <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">حالت‌های تک‌ردیف RankingRow</p>
-                                <div class="space-y-3">
-                                    <RankingRow
-                                        v-for="c in extraRankingRows"
-                                        :key="c.title"
-                                        v-bind="c.props"
-                                    />
-                                </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 12. TopFourTable / TopFourRow -->
+                <section id="top-four" class="scroll-mt-28 space-y-4">
+                    <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-rtds-border-subtle pb-2">
+                        <h2 class="text-lg font-bold text-rtds-text-light">TopFourTable / TopFourRow</h2>
+                        <code class="text-xs text-rtds-text-muted">Components/scoreboard/tables/TopFourTable.vue · TopFourRow.vue</code>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="min-w-0 overflow-x-auto rounded-2xl border border-rtds-border bg-rtds-bg p-4">
+                            <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">
+                                طرح TOP-4-TABLE — نفر اول بزرگ‌تر و بقیه به ترتیب کوچک‌تر؛ نمرهٔ نهایی داخل بلاک رنگی هر ردیف
+                            </p>
+                            <TopFourTable :rows="topFourRows" />
+                        </div>
+                        <div class="min-w-0 overflow-x-auto rounded-2xl border border-rtds-border bg-rtds-bg p-4">
+                            <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">حالت‌های تک‌ردیف TopFourRow</p>
+                            <div class="space-y-3">
+                                <TopFourRow
+                                    v-for="c in extraTopFourRows"
+                                    :key="c.title"
+                                    v-bind="c.props"
+                                />
                             </div>
                         </div>
                     </div>

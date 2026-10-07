@@ -37,8 +37,8 @@ const categories = computed(() =>
         rows: (category.standings ?? []).map((row) => ({
             rank: row.rank,
             name: row.name,
-            score: `${row.wins} برد از ${row.played}`,
-            highlight: row.rank === 1,
+            // [Proposed] placements[].round_scores — تا رسیدن بک‌اند نمرهٔ راند‌ها خالی است («—»)
+            roundScores: [],
         })),
         champion:
             category.champion_id != null
@@ -52,8 +52,9 @@ const categories = computed(() =>
 /*
  * TODO / Proposed Contract (مرحلهٔ بعد):
  * - placements[] برای قالب knockout (الان فقط round_robin standings داریم)
- * - country / country_code / flag هر ورزشکار → RankingRow
- * - score عددی نهایی (الان wins/played را متنی نشان می‌دهیم)
+ * - placements[].round_scores [R-1, R-2] → ستون‌های نمرهٔ جدول
+ * - country / country_code / flag هر ورزشکار → بلوک کشور ردیف
+ * - هدر (stage/دسته/برچسب R-1|R-2) متعلق به صفحه است — برچسب ستون‌ها را صفحه رندر می‌کند
  * - logoUrl هدر
  */
 </script>

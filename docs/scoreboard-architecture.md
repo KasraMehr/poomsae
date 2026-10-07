@@ -330,12 +330,13 @@ resources/js/
 │       ├── ScoreCard.vue
 │       ├── ScoreItem.vue
 │       └── tables/
-│           ├── ScoringTableBase.vue
 │           ├── SingleScoringTable.vue
 │           ├── FreestyleScoringTable.vue
 │           ├── DoubleScoringTable.vue
 │           ├── RankingTable.vue
-│           └── RankingRow.vue
+│           ├── RankingRow.vue
+│           ├── TopFourTable.vue
+│           └── TopFourRow.vue
 │
 └── Shared/
     ├── Layouts/
@@ -351,7 +352,9 @@ resources/js/
         └── symbols.js   # نگاشت کلید دامنه (form_number / rank) به مسیر asset در public/
 ```
 
-> ۱۳ کامپوننت بالا پیاده‌سازی شده‌اند؛ هرکدام در جدول `docs/scoreboard-contract.md` معرفی شده‌اند.
+> ۱۵ کامپوننت بالا پیاده‌سازی شده‌اند؛ هرکدام در جدول `docs/scoreboard-contract.md` معرفی شده‌اند.
+> جدول‌های `Single`/`Double`/`Freestyle` **مستقل** هستند (اسکلت مشترک `ScoringTableBase` حذف شد)؛
+> هرکدام هدر ثابت انگلیسی داخل خودش، پراپ `showSubScores` و دادهٔ `judges` در ترتیب صندلی دارد.
 > سمبل فرم‌ها و مدال‌ها asset های ثابت داخل مخزن‌اند و در `Shared/Services/symbols.js` به کلید (`form_number` / `rank`) نگاشت شده‌اند؛ قرارداد داده URL تصویر نمی‌دهد.
 
 ### مسئولیت Pageها
@@ -801,7 +804,7 @@ Pageهای جدید `Pages/Scoreboard/*` در این فاز از Backend render 
 | 4 | `forms_per_round`      | `int`، پیش‌فرض `2`                           | Scoring, Result        | تعداد فرم هر اجرا                   |
 | 5 | ~~`photo_url`~~        | **حذف موقت** (عکس ورزشکار نمایش داده نمی‌شود) | —                 | تا اطلاع بعدی                         |
 | 6 | `entry_members[]`      | `[{name, club, position}]` روی entry         | Standby, Scoring, Draw | نمایش اعضای DOUBLE                  |
-| 7 | `placements[]`         | `[{rank, entry_id, name, country, country_code, flag_url}]` | TopFour, Ranking | رتبه‌های نهایی؛ مدال از `rank`     |
+| 7 | `placements[]`         | `[{rank, entry_id, name, score, round_scores, country, country_code, flag_url}]` | TopFour, Ranking | رتبه‌های نهایی؛ مدال/نشان از `rank`؛ `round_scores=[R-1,R-2]` ستون‌های نمرهٔ Ranking |
 | 8 | `Draw.output_snapshot` | خروجی قرعه، ترتیب اجرا و slot زمانی          | Draw                   | اطلاعات Draw فعلاً در snapshot نیست |
 
 ### موارد ثانویه
@@ -966,7 +969,7 @@ Layout خودش وضعیت اتصال را تولید نمی‌کند.
 | ----- | ------------------------------------------------------------ | ---------------- |
 | PR-A  | `docs/scoreboard-architecture.md`                            | انجام شد         |
 | PR-B  | `Shared/Layouts/ScoreboardLayout.vue` (+ `slot#header`)      | انجام شد         |
-| ۱     | ساخت ۱۳ کامپوننت در `Components/scoreboard/` + توکن‌های پالت | انجام شد         |
+| ۱     | ساخت ۱۵ کامپوننت در `Components/scoreboard/` + توکن‌های پالت | انجام شد         |
 | ۲     | اتصال ۶ صفحه به کامپوننت‌ها + ساخت `LiveBoard`               | انجام شد         |
 | ۳     | گزارش و `docs/scoreboard-contract.md` برای Backend          | در جریان         |
 | ۴     | پیاده‌سازی Backend بر اساس Contract + وصل صفحات             | منتظر Backend    |

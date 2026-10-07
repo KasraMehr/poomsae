@@ -3,9 +3,7 @@ import { computed } from "vue";
 import { Head } from "@inertiajs/vue3";
 import ScoreboardLayout from "../../Shared/Layouts/ScoreboardLayout.vue";
 import ScoreboardHeader from "../../Components/scoreboard/ScoreboardHeader.vue";
-import AthleteInfo from "../../Components/scoreboard/AthleteInfo.vue";
-import SymbolContainer from "../../Components/scoreboard/SymbolContainer.vue";
-import { medalSymbol } from "../../Shared/Services/symbols";
+import TopFourTable from "../../Components/scoreboard/tables/TopFourTable.vue";
 
 /**
  * صفحهٔ skeleton — pending backend contract.
@@ -36,6 +34,18 @@ const topFour = computed(() => {
     return rows.slice(0, 4);
 });
 
+/**
+ * props جدید TopFourTable — تا رسیدن placements[] فقط rank/name از standings
+ * می‌آید و score فعلاً همان تعداد برد است (عددی نهایی با placements[].score جایگزین می‌شود).
+ */
+const topFourRows = computed(() =>
+    topFour.value.map((row) => ({
+        rank: row.rank,
+        name: row.name,
+        score: row.wins ?? null,
+    })),
+);
+
 /*
  * TODO / Proposed Contract (مرحلهٔ بعد):
  * - placements[] (مخصوص knockout — الان فقط round_robin پوشش داده می‌شود)
@@ -53,31 +63,10 @@ const topFour = computed(() => {
         </template>
 
         <section
-            v-if="topFour.length"
-            class="flex flex-1 flex-col justify-center gap-6"
+            v-if="topFourRows.length"
+            class="flex flex-1 flex-col justify-center"
         >
-            <div
-                v-for="(row, index) in topFour"
-                :key="row.id"
-                class="flex items-center gap-5 rounded-2xl border border-rtds-border bg-rtds-bg-card p-6"
-            >
-                <SymbolContainer
-                    :src="medalSymbol(index + 1)"
-                    :label="`رتبهٔ ${index + 1}`"
-                    size="lg"
-                />
-                <AthleteInfo
-                    layout="horizontal"
-                    size="lg"
-                    :name="row.name"
-                    :number="row.rank"
-                />
-                <b
-                    class="mr-auto text-2xl tabular-nums text-rtds-text-secondary"
-                >
-                    {{ row.wins }} برد
-                </b>
-            </div>
+            <TopFourTable :rows="topFourRows" />
         </section>
 
         <section v-else class="flex flex-1 items-center justify-center">

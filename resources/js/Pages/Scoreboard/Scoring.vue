@@ -53,15 +53,6 @@ const score = (value) =>
               maximumFractionDigits: 6,
           });
 
-// ردیف‌های جدول: هر اجرا یک ردیف (نام فرم + نمرهٔ منتشرشده).
-const tableRows = (bout) =>
-    bout.performances.map((performance) => ({
-        key: performance.id,
-        label: performance.form_name ?? `فرم ${performance.form_number}`,
-        scores: [],
-        total: performance.result != null ? score(performance.result) : null,
-    }));
-
 const totalOf = (bout, entryId) => Number(bout.totals?.[entryId]) || 0;
 
 /*
@@ -191,7 +182,6 @@ const totalOf = (bout, entryId) => Number(bout.totals?.[entryId]) || 0;
             <div class="mt-6">
                 <SingleScoringTable
                     :judge-count="bout.judgeCount ?? 5"
-                    :rows="tableRows(bout)"
                 />
             </div>
         </section>
