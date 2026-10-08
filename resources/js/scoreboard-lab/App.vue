@@ -14,6 +14,8 @@ import RankingTable from "../Components/scoreboard/tables/RankingTable.vue";
 import RankingRow from "../Components/scoreboard/tables/RankingRow.vue";
 import TopFourTable from "../Components/scoreboard/tables/TopFourTable.vue";
 import TopFourRow from "../Components/scoreboard/tables/TopFourRow.vue";
+import DrawPage from "../Pages/Scoreboard/Draw.vue";
+import { ref } from "vue";
 import {
     headerCases,
     athleteCases,
@@ -42,6 +44,8 @@ import {
     topFourRows,
     extraTopFourRows,
     contractFields,
+    drawSingle,
+    drawDouble,
 } from "./data.js";
 
 /**
@@ -66,6 +70,8 @@ const facingPair = [
         ],
     },
 ];
+
+const selectedPage = ref("components");
 
 const sections = [
     { id: "scoreboard-header", label: "ScoreboardHeader" },
@@ -121,7 +127,49 @@ const knockoutRows = placementsKnockout.map(toRankingRow);
             </div>
         </header>
 
-        <div class="mx-auto flex max-w-[1500px] gap-6 px-6 py-8">
+        <div class="mx-auto flex max-w-[1500px] gap-6 px-6 py-6">
+            <div class="fixed bottom-5 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-full border border-rtds-border bg-rtds-bg-card/95 p-1.5 shadow-2xl backdrop-blur">
+                <button
+                    type="button"
+                    class="rounded-full px-4 py-2 text-xs transition"
+                    :class="selectedPage === 'components' ? 'bg-rtds-bg-elevated text-rtds-text-light' : 'text-rtds-text-muted hover:text-rtds-text-light'"
+                    @click="selectedPage = 'components'"
+                >
+                    Components
+                </button>
+                <button
+                    type="button"
+                    class="rounded-full px-4 py-2 text-xs transition"
+                    :class="selectedPage === 'draw-single' ? 'bg-rtds-bg-elevated text-rtds-text-light' : 'text-rtds-text-muted hover:text-rtds-text-light'"
+                    @click="selectedPage = 'draw-single'"
+                >
+                    Draw · Single
+                </button>
+                <button
+                    type="button"
+                    class="rounded-full px-4 py-2 text-xs transition"
+                    :class="selectedPage === 'draw-double' ? 'bg-rtds-bg-elevated text-rtds-text-light' : 'text-rtds-text-muted hover:text-rtds-text-light'"
+                    @click="selectedPage = 'draw-double'"
+                >
+                    Draw · Double
+                </button>
+            </div>
+
+            <div v-if="selectedPage !== 'components'" class="min-w-0 flex-1">
+                <section class="space-y-3">
+                    <div class="flex flex-wrap items-baseline justify-between gap-2">
+                        <h2 class="text-lg font-bold text-rtds-text-light">
+                            {{ selectedPage === 'draw-single' ? 'Draw · Single' : 'Draw · Double' }}
+                        </h2>
+                        <code class="text-xs text-rtds-text-muted">Pages/Scoreboard/Draw.vue</code>
+                    </div>
+                    <div class="overflow-hidden rounded-2xl border border-rtds-border bg-rtds-bg">
+                        <DrawPage :draw="selectedPage === 'draw-single' ? drawSingle : drawDouble" />
+                    </div>
+                </section>
+            </div>
+
+            <div v-else class="flex min-w-0 flex-1 gap-6">
             <!-- TOC -->
             <aside class="sticky top-24 hidden h-fit w-56 shrink-0 lg:block">
                 <nav class="rounded-2xl border border-rtds-border bg-rtds-bg-card p-4">
@@ -559,6 +607,7 @@ const knockoutRows = placementsKnockout.map(toRankingRow);
                     </p>
                 </section>
             </main>
+            </div>
         </div>
     </div>
 </template>

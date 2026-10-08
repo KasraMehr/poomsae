@@ -8,14 +8,17 @@
  */
 defineProps({
     src: { type: String, default: "" },
-    label: { type: String, default: "" }, // متن جایگزین تصویر
-    size: { type: String, default: "md" }, // 'sm' | 'md' | 'lg'
+    label: { type: String, default: "" },
+    size: { type: String, default: "md" },
 });
 
 const sizeClasses = {
-    sm: "h-6 w-6", // ۲۴px
-    md: "h-10 w-10", // ۴۰px
-    lg: "h-14 w-14", // ۵۶px
+    sm: "h-6 w-6",
+    md: "h-10 w-10",
+    lg: "h-14 w-14",
+    xl: "h-18 w-18",
+    xxl: "h-24 w-24",
+    xxxl: "h-32 w-32",
 };
 </script>
 

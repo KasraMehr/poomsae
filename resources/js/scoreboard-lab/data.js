@@ -506,6 +506,48 @@ export const extraTopFourRows = [
     },
 ];
 
+
+/* ------------------------------------------------------------------ Draw page */
+
+export const drawSingle = {
+    mode: "single",
+    stage: "SEMI-FINAL",
+    title: "FORM DRAW",
+    category: "MALE - UNDER 30",
+    entries: [
+        {
+            id: 1,
+            number: 1,
+            name: "A.SALMANI",
+            country: "ایران",
+            country_code: "IRI",
+            flag_url: flags.ir,
+            side: "chung",
+        },
+    ],
+    forms: [
+        { round_label: "R - 1", form_number: 1, symbol_key: 5, form_name: "TAEGUK 5" },
+        { round_label: "R - 2", form_number: 2, symbol_key: 9, form_name: "KORYO" },
+    ],
+};
+
+export const drawDouble = {
+    ...drawSingle,
+    mode: "double",
+    entries: [
+        drawSingle.entries[0],
+        {
+            id: 2,
+            number: 2,
+            name: "A.NAJAFABADI",
+            country: "ایران",
+            country_code: "IRI",
+            flag_url: flags.ir,
+            side: "hong",
+        },
+    ],
+};
+
 /* ------------------------------------- خلاصهٔ فیلدهای Proposed Contract */
 
 export const contractFields = [

@@ -1,104 +1,141 @@
 <script setup>
 import { computed } from "vue";
-import { Head } from "@inertiajs/vue3";
 import ScoreboardLayout from "../../Shared/Layouts/ScoreboardLayout.vue";
 import ScoreboardHeader from "../../Components/scoreboard/ScoreboardHeader.vue";
-import FormBadge from "../../Components/scoreboard/FormBadge.vue";
 import AthleteInfo from "../../Components/scoreboard/AthleteInfo.vue";
+import FormBadge from "../../Components/scoreboard/FormBadge.vue";
 
-/**
- * صفحهٔ skeleton — pending backend contract.
- *
- * این Page فعلاً فقط ساختار معماری را مشخص می‌کند.
- *
- * منتظر Contract نهایی:
- * - Draw.output_snapshot
- * - entry_members[]
- * - draw_timing
- */
 const props = defineProps({
+    draw: {
+        type: Object,
+        default: null,
+    },
     tournament: {
         type: Object,
         default: null,
     },
 });
 
-/*
- * فقط داده‌ای که امروز در snapshot هست:
- * - form_names هر دسته (ترتیب فرم‌ها)
- * - entries هر دسته
- * ترتیب واقعی قرعه (جفت‌ها/شمارهٔ اجرا) هنوز در snapshot نیست.
- */
-const categories = computed(() =>
-    (props.tournament?.categories ?? []).map((category) => ({
-        id: category.id,
-        name: category.name,
-        forms: category.form_names ?? [],
+const drawData = computed(() => {
+    if (props.draw) {
+        return props.draw;
+    }
+
+    const category = props.tournament?.categories?.[0] ?? null;
+
+    if (!category) {
+        return null;
+    }
+
+    return {
+        mode: "single",
+        stage: "",
+        title: props.tournament?.name ?? "",
+        category: category.name ?? "",
         entries: category.entries ?? [],
-    })),
+        forms: (category.form_names ?? []).map((name, index) => ({
+            round_label: `R - ${index + 1}`,
+            form_number: index + 1,
+            symbol_key: null,
+            form_name: name,
+        })),
+    };
+});
+
+const mode = computed(() =>
+    drawData.value?.mode === "double" ? "double" : "single",
 );
 
-/*
- * TODO / Proposed Contract (مرحلهٔ بعد):
- * - Draw.output_snapshot → ترتیب واقعی قرعه (شمارهٔ اجرا / جفت‌ها)
- * - entry_members[] → عکس و ملیت هر ورزشکار
- * - draw_timing → زمان قرعه‌کشی
- * - کلید سمبل هر فرم (`form_number` ۱..۱۸)
- * - logoUrl هدر
- */
+const entries = computed(() => drawData.value?.entries ?? []);
+const forms = computed(() => drawData.value?.forms ?? []);
+
+const singleEntry = computed(() => entries.value[0] ?? null);
+const doubleEntries = computed(() => entries.value.slice(0, 2));
+
+const stage = computed(() => drawData.value?.stage ?? "");
+const title = computed(() => drawData.value?.title ?? "");
+const category = computed(() => drawData.value?.category ?? "");
 </script>
 
 <template>
-    <Head title="قرعه‌کشی" />
+    <div dir="ltr">
+        <ScoreboardLayout>
+            <template #header>
+                <ScoreboardHeader
+                    size="lg"
+                    :stage="stage"
+                    :event-title="title"
+                    :category="category"
+                />
+            </template>
 
-    <ScoreboardLayout stage="" :center="tournament?.name ?? ''" category="">
-        <template #header>
-            <ScoreboardHeader :event-title="tournament?.name ?? ''" />
-        </template>
-
-        <section
-            v-if="categories.length"
-            class="flex flex-1 flex-col justify-center gap-8"
-        >
-            <div
-                v-for="category in categories"
-                :key="category.id"
-                class="rounded-2xl border border-rtds-border bg-rtds-bg-card p-6"
-            >
-                <h2 class="mb-4">{{ category.name }}</h2>
-
-                <div
-                    v-if="category.forms.length"
-                    class="mb-6 flex flex-wrap gap-3"
-                >
-                    <FormBadge
-                        v-for="(form, index) in category.forms"
-                        :key="form"
-                        size="md"
-                        :round-label="`فرم ${index + 1}`"
-                        :form-name="form"
-                    />
-                </div>
-
-                <div
-                    v-if="category.entries.length"
-                    class="grid grid-cols-2 gap-4 max-[850px]:grid-cols-1"
+            <main class="flex min-h-0 flex-1 flex-col items-center px-2">
+                <!-- SINGLE -->
+                <section
+                    v-if="mode === 'single' && singleEntry"
+                    class="flex w-full flex-col items-center pt-10"
                 >
                     <AthleteInfo
-                        v-for="entry in category.entries"
-                        :key="entry.id"
                         layout="horizontal"
-                        size="sm"
-                        :name="entry.name"
+                        size="xxl"
+                        :number="singleEntry.number"
+                        :name="singleEntry.name"
+                        :country="singleEntry.country"
+                        :country-code="singleEntry.country_code"
+                        :flag-url="singleEntry.flag_url"
+                        side="chung"
                     />
-                </div>
-            </div>
-        </section>
+                </section>
 
-        <section v-else class="flex flex-1 items-center justify-center">
-            <p class="text-rtds-text-secondary">
-                Draw page is pending backend contract.
-            </p>
-        </section>
-    </ScoreboardLayout>
+                <!-- DOUBLE
+                     آماده برای حالت دو نفرهٔ Chung / Hong.
+                     این حالت pair/team نیست.
+                -->
+                <section
+                    v-else-if="mode === 'double'"
+                    class="grid w-full grid-cols-2 gap-10 pt-10"
+                >
+                    <AthleteInfo
+                        v-for="entry in doubleEntries"
+                        :key="entry.id"
+                        layout="vertical-under"
+                        size="xl"
+                        :number="entry.number"
+                        :name="entry.name"
+                        :country="entry.country"
+                        :country-code="entry.country_code"
+                        :flag-url="entry.flag_url"
+                        :side="entry.side"
+                    />
+                </section>
+
+                <!-- FORM DRAW -->
+                <section
+                    v-if="forms.length"
+                    class="flex w-full flex-1 items-center justify-center"
+                >
+                    <div
+                        class="flex flex-col items-center justify-center gap-12"
+                    >
+                        <FormBadge
+                            v-for="form in forms"
+                            :key="form.round_label"
+                            class="w-full"
+                            size="xxxl"
+                            :round-label="form.round_label"
+                            :form-number="form.form_number"
+                            :symbol-key="form.symbol_key"
+                            :form-name="form.form_name"
+                        />
+                    </div>
+                </section>
+
+                <section v-else class="flex flex-1 items-center justify-center">
+                    <p class="text-lg text-rtds-text-secondary">
+                        No draw data available.
+                    </p>
+                </section>
+            </main>
+        </ScoreboardLayout>
+    </div>
 </template>

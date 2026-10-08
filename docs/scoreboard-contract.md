@@ -106,7 +106,7 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 | دسته | موارد |
 | ---- | ----- |
 | **دادهٔ موجود** | `bout.status=completed`، `winner_entry_id`، `entries[].name/side`، `bout.totals`، `rounds.length` (تشخیص `ONE-ROUND`/`TWO-ROUNDS`) |
-| **`[Proposed]`** | `entry.country/country_code/flag_url`، `form_number` (کلید سمبل فرم)، `logoUrl` |
+| **[Proposed]** | `entry.country/country_code/flag_url`، `form_number` (ترتیب فرم: `1..2`)، `symbol_key` (کلید سمبل فرم: `1..18`)، `logoUrl` |
 
 ### ۳.۵ Ranking
 
@@ -128,7 +128,7 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 | دسته | موارد |
 | ---- | ----- |
 | **دادهٔ موجود** | `category.form_names[]` (ترتیب فرم‌ها)، `category.entries[]` (`name/club`) |
-| **`[Proposed]`** | **`Draw.output_snapshot`** (ترتیب واقعی قرعه: شمارهٔ اجرا/جفت‌ها/slot)، `entry_members[]` (`{name, club, position}`)، `draw_timing` (زمان قرعه)، `form_number`، `logoUrl` |
+| **[Proposed]** | **`Draw.output_snapshot`** (ترتیب واقعی قرعه: شمارهٔ اجرا/جفت‌ها/slot)، `entry.number`, `entry.entry_type`, `entry_members[]` (`{name, club, position}`)، `draw_timing` (زمان قرعه)، `form_number`, `symbol_key`, `logoUrl` |
 
 ---
 
@@ -151,10 +151,11 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 | 11 | `Draw.output_snapshot` | خروجی قرعه (ترتیب اجرا/جفت‌ها) | Draw |
 | 12 | `entry_members[]` | `[{name, club, position}]` روی entry | Draw, Standby, Scoring |
 | 13 | `draw_timing` | `timestamp` | Draw |
-| 14 | `form_number` | `int` ۱..۱۸ روی فرم — کلید سمبل فرم | `FormBadge` در Scoring, Result, Draw, Standby, LiveBoard |
-| 15 | `courtId` (LiveBoard) | query param رسمی | LiveBoard |
-| 16 | `timeline` (LiveBoard) | `previous/current/next` صریح با ترتیب سراسری بین زمین‌ها | LiveBoard |
-| 17 | `judge_sub_scores` | `{ eoe, sp, rp }` روی هر صندلی داور (Single/Double) و `{ accuracy_parts[], presentation_parts[] }` (Freestyle) — برای `showSubScores` | Scoring (ستون/سطر ریزنمرات) |
+| 14 | `form_number` | `int` `1..2` روی performance — ترتیب فرم در اجرای رقابت | Scoring, Result, Draw, Standby, LiveBoard |
+| 15 | `symbol_key` | `int` `1..18` روی فرم — کلید سمبل تصویری فرم | `FormBadge` در Scoring, Result, Draw, Standby, LiveBoard |
+| 16 | `courtId` (LiveBoard) | query param رسمی | LiveBoard |
+| 17 | `timeline` (LiveBoard) | `previous/current/next` صریح با ترتیب سراسری بین زمین‌ها | LiveBoard |
+| 18 | `judge_sub_scores` | `{ eoe, sp, rp }` روی هر صندلی داور (Single/Double) و `{ accuracy_parts[], presentation_parts[] }` (Freestyle) — برای `showSubScores` | Scoring (ستون/سطر ریزنمرات) |
 
 **نکتهٔ `NationalityBadge` (کد کشور و پرچم):**
 
@@ -165,7 +166,8 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 
 **نکتهٔ سمبل فرم و مدال (asset های داخل مخزن):**
 
-- Backend **URL تصویر نمی‌دهد**؛ فقط کلید دامنه: `form_number` (۱..۱۸) برای فرم و `rank` (۱..۵) برای مدال.
+- Backend **URL تصویر نمی‌دهد**؛ فقط کلید دامنه: `symbol_key` (۱..۱۸) برای سمبل فرم و `rank` (۱..۵) برای مدال.
+- `form_number` معنای متفاوتی دارد و فقط ترتیب فرم در اجرای رقابت را مشخص می‌کند (`1..2`).
 - مسیر فایل‌ها در فرانت و در یک جا نگه‌داری می‌شود: `resources/js/Shared/Services/symbols.js` (`FORM_SYMBOLS`، `MEDAL_SYMBOLS`، `formSymbol()`، `medalSymbol()`)، و asset ها در `public/images/symbols/` و `public/images/medals/` قرار دارند.
 - افزودن فرم یا مدال جدید = افزودن فایل + یک خط در map؛ هیچ تغییری در کامپوننت‌ها و قرارداد لازم نیست.
 - مدال‌ها از روی `rank` انتخاب می‌شوند (۱ طلا، ۲ نقره، ۳ برنز، ۴ و ۵ خاکستری) و فیلد جداگانهٔ `medal` در قرارداد وجود ندارد.

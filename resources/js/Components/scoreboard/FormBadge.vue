@@ -4,26 +4,66 @@ import SymbolContainer from "./SymbolContainer.vue";
 import { formSymbol } from "../../Shared/Services/symbols";
 
 /**
- * بج فرم: `[roundLabel] [symbol] [formName]` مطابق طرح.
+ * Form badge: [roundLabel] [symbol] [formName]
  *
- * - ردیف ساده و بدون کادر (برخلاف نسخهٔ قبلی که کارت داشت).
- * - سمبل از `formNumber` (کلید عددی) در map دارایی‌ها resolve می‌شود؛
- *   اگر کلید ناشناخته باشد، فقط متن‌ها می‌مانند و سمبل رندر نمی‌شود.
- * - متن‌ها Oswald 700 سفید و uppercase؛ چیدمان LTR مثل طرح.
+ * Sizes:
+ * sm → md → lg → xl → xxl → xxxl
  */
+
 const props = defineProps({
-    roundLabel: { type: String, default: "" }, // مثل «R - 1» (رشتهٔ آمادهٔ صفحه)
-    formNumber: { type: [String, Number], default: null }, // کلید فرم ۱..۱۸
-    formName: { type: String, default: "" }, // مثل «TAEGUK 5»
-    size: { type: String, default: "md" }, // 'sm' | 'md' | 'lg' — سه سایز مستقل
+    roundLabel: { type: String, default: "" },
+    // ترتیب فرم در مسابقه: 1..2
+    formNumber: { type: [String, Number], default: null },
+    // کلید سمبل فرم: 1..18
+    symbolKey: { type: [String, Number], default: null },
+    formName: { type: String, default: "" },
+    size: { type: String, default: "md" },
 });
 
-const symbol = computed(() => formSymbol(props.formNumber));
+const symbol = computed(() => formSymbol(props.symbolKey ?? props.formNumber));
 
 const sizeClasses = {
-    sm: { root: "gap-2", text: "text-sm", symbol: "sm" },
-    md: { root: "gap-3", text: "text-xl", symbol: "md" },
-    lg: { root: "gap-4", text: "text-4xl", symbol: "lg" },
+    sm: {
+        root: "gap-2",
+        round: "text-sm",
+        form: "text-sm",
+        symbol: "sm",
+    },
+
+    md: {
+        root: "gap-3",
+        round: "text-lg",
+        form: "text-lg",
+        symbol: "md",
+    },
+
+    lg: {
+        root: "gap-4",
+        round: "text-2xl",
+        form: "text-3xl",
+        symbol: "lg",
+    },
+
+    xl: {
+        root: "gap-5",
+        round: "text-3xl",
+        form: "text-4xl",
+        symbol: "xl",
+    },
+
+    xxl: {
+        root: "gap-6",
+        round: "text-4xl",
+        form: "text-5xl",
+        symbol: "xxl",
+    },
+
+    xxxl: {
+        root: "gap-8",
+        round: "text-5xl",
+        form: "text-6xl",
+        symbol: "xxxl",
+    },
 };
 </script>
 
@@ -35,17 +75,23 @@ const sizeClasses = {
     >
         <span
             v-if="roundLabel"
-            class="text-white/85"
-            :class="sizeClasses[size]?.text ?? sizeClasses.md.text"
-            >{{ roundLabel }}</span
+            class="shrink-0 text-white/85"
+            :class="sizeClasses[size]?.round ?? sizeClasses.md.round"
         >
+            {{ roundLabel }}
+        </span>
+
         <SymbolContainer
             :src="symbol"
             :label="formName"
             :size="sizeClasses[size]?.symbol ?? sizeClasses.md.symbol"
         />
-        <span :class="sizeClasses[size]?.text ?? sizeClasses.md.text">{{
-            formName
-        }}</span>
+
+        <span
+            class="shrink-0"
+            :class="sizeClasses[size]?.form ?? sizeClasses.md.form"
+        >
+            {{ formName }}
+        </span>
     </span>
 </template>
