@@ -55,7 +55,7 @@ const topFourRows = computed(() =>
 </script>
 
 <template>
-    <Head title="چهار نفر برتر" />
+    <!-- <Head title="چهار نفر برتر" /> -->
 
     <ScoreboardLayout stage="" :center="tournament?.name ?? ''" category="">
         <template #header>

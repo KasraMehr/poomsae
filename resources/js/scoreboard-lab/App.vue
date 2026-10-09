@@ -15,7 +15,13 @@ import RankingRow from "../Components/scoreboard/tables/RankingRow.vue";
 import TopFourTable from "../Components/scoreboard/tables/TopFourTable.vue";
 import TopFourRow from "../Components/scoreboard/tables/TopFourRow.vue";
 import DrawPage from "../Pages/Scoreboard/Draw.vue";
-import { ref } from "vue";
+import StandbyPage from "../Pages/Scoreboard/Standby.vue";
+import LiveBoardPage from "../Pages/Scoreboard/LiveBoard.vue";
+import ScoringPage from "../Pages/Scoreboard/Scoring.vue";
+import ResultPage from "../Pages/Scoreboard/Result.vue";
+import RankingPage from "../Pages/Scoreboard/Ranking.vue";
+import TopFourPage from "../Pages/Scoreboard/TopFour.vue";
+import { computed, ref } from "vue";
 import {
     headerCases,
     athleteCases,
@@ -73,6 +79,136 @@ const facingPair = [
 
 const selectedPage = ref("components");
 
+const pageTabs = [
+    { id: "components", label: "Components", component: null },
+    { id: "draw-single", label: "Draw · Single", component: DrawPage, draw: drawSingle },
+    { id: "draw-double", label: "Draw · Double", component: DrawPage, draw: drawDouble },
+    { id: "standby", label: "Standby", component: StandbyPage },
+    { id: "live-board", label: "LiveBoard", component: LiveBoardPage },
+    { id: "scoring", label: "Scoring", component: ScoringPage },
+    { id: "result", label: "Result", component: ResultPage },
+    { id: "ranking", label: "Ranking", component: RankingPage },
+    { id: "top-four", label: "TopFour", component: TopFourPage },
+];
+
+/*
+ * آداپتور Lab: از fixtureهای موجود در data.js استفاده می‌کند.
+ * این داده فقط برای پیش‌نمایش صفحه‌ها در Lab است و جایگزین Snapshot بک‌اند نیست.
+ */
+const labEntries = drawDouble.entries.map((entry, index) => {
+    const scoreItems = facingPair[index]?.items ?? [];
+    const valueOf = (label) => scoreItems.find((item) => item.label === label)?.value ?? null;
+
+    return {
+        ...entry,
+        accuracy_score: valueOf("Accuracy"),
+        presentation_score: valueOf("Presentation"),
+    };
+});
+
+const labTotals = Object.fromEntries(
+    labEntries.map((entry, index) => [
+        entry.id,
+        facingPair[index]?.items?.find((item) => item.label === "Total Score")?.value ?? null,
+    ]),
+);
+
+const labStandings = placementsRoundRobin.map((placement) => ({
+    rank: placement.rank,
+    name: placement.name,
+    wins: placement.score,
+}));
+
+const labTournament = {
+    id: 1,
+    name: drawSingle.title,
+    status: "running",
+    execution_duration_seconds: 90,
+    courts: [{ id: 1, name: "Court 1" }],
+    categories: [
+        {
+            id: 1,
+            name: drawSingle.category,
+            judge_count: 5,
+            entries: labEntries,
+            standings: labStandings,
+            champion_id: labEntries[1]?.id ?? null,
+            rounds: [
+                {
+                    id: 1,
+                    name: "R - 1",
+                    bouts: [
+                        {
+                            id: 1,
+                            court_id: 1,
+                            sequence: 1,
+                            status: "completed",
+                            entries: labEntries,
+                            winner_entry_id: labEntries[1]?.id ?? null,
+                            totals: labTotals,
+                            performances: [
+                                {
+                                    id: "lab-completed-performance",
+                                    status: "completed",
+                                    result: labTotals[labEntries[1]?.id] ?? null,
+                                    form_name: drawSingle.forms[0]?.form_name ?? "",
+                                    form_number: drawSingle.forms[0]?.form_number ?? null,
+                                    started_at: null,
+                                    ended_at: null,
+                                },
+                            ],
+                        },
+                        {
+                            id: 2,
+                            court_id: 1,
+                            sequence: 2,
+                            status: "running",
+                            entries: labEntries,
+                            winner_entry_id: null,
+                            totals: labTotals,
+                            performances: [
+                                {
+                                    id: "lab-running-performance",
+                                    status: "running",
+                                    result: null,
+                                    form_name: drawSingle.forms[1]?.form_name ?? drawSingle.forms[0]?.form_name ?? "",
+                                    form_number: drawSingle.forms[1]?.form_number ?? drawSingle.forms[0]?.form_number ?? null,
+                                    started_at: null,
+                                    ended_at: null,
+                                },
+                            ],
+                        },
+                        {
+                            id: 3,
+                            court_id: 1,
+                            sequence: 3,
+                            status: "pending",
+                            entries: labEntries,
+                            winner_entry_id: null,
+                            totals: {},
+                            performances: [
+                                {
+                                    id: "lab-pending-performance",
+                                    status: "pending",
+                                    result: null,
+                                    form_name: drawSingle.forms[0]?.form_name ?? "",
+                                    form_number: drawSingle.forms[0]?.form_number ?? null,
+                                    started_at: null,
+                                    ended_at: null,
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
+    ],
+};
+
+const activePage = computed(() =>
+    pageTabs.find((page) => page.id === selectedPage.value) ?? pageTabs[0],
+);
+
 const sections = [
     { id: "scoreboard-header", label: "ScoreboardHeader" },
     { id: "athlete-info", label: "AthleteInfo" },
@@ -128,43 +264,37 @@ const knockoutRows = placementsKnockout.map(toRankingRow);
         </header>
 
         <div class="mx-auto flex max-w-[1500px] gap-6 px-6 py-6">
-            <div class="fixed bottom-5 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-full border border-rtds-border bg-rtds-bg-card/95 p-1.5 shadow-2xl backdrop-blur">
+            <nav
+                class="fixed bottom-4 left-4 right-4 z-30 flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-rtds-border bg-rtds-bg-card/95 p-3 shadow-2xl backdrop-blur"
+                aria-label="Scoreboard Lab pages"
+            >
                 <button
+                    v-for="page in pageTabs"
+                    :key="page.id"
                     type="button"
-                    class="rounded-full px-4 py-2 text-xs transition"
-                    :class="selectedPage === 'components' ? 'bg-rtds-bg-elevated text-rtds-text-light' : 'text-rtds-text-muted hover:text-rtds-text-light'"
-                    @click="selectedPage = 'components'"
+                    class="shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-xs transition"
+                    :class="selectedPage === page.id ? 'bg-rtds-bg-elevated text-rtds-text-light' : 'text-rtds-text-muted hover:bg-rtds-bg-elevated hover:text-rtds-text-light'"
+                    @click="selectedPage = page.id"
                 >
-                    Components
+                    {{ page.label }}
                 </button>
-                <button
-                    type="button"
-                    class="rounded-full px-4 py-2 text-xs transition"
-                    :class="selectedPage === 'draw-single' ? 'bg-rtds-bg-elevated text-rtds-text-light' : 'text-rtds-text-muted hover:text-rtds-text-light'"
-                    @click="selectedPage = 'draw-single'"
-                >
-                    Draw · Single
-                </button>
-                <button
-                    type="button"
-                    class="rounded-full px-4 py-2 text-xs transition"
-                    :class="selectedPage === 'draw-double' ? 'bg-rtds-bg-elevated text-rtds-text-light' : 'text-rtds-text-muted hover:text-rtds-text-light'"
-                    @click="selectedPage = 'draw-double'"
-                >
-                    Draw · Double
-                </button>
-            </div>
+            </nav>
 
-            <div v-if="selectedPage !== 'components'" class="min-w-0 flex-1">
+            <div v-if="selectedPage !== 'components'" class="min-w-0 flex-1 pb-24">
                 <section class="space-y-3">
                     <div class="flex flex-wrap items-baseline justify-between gap-2">
                         <h2 class="text-lg font-bold text-rtds-text-light">
-                            {{ selectedPage === 'draw-single' ? 'Draw · Single' : 'Draw · Double' }}
+                            {{ activePage.label }}
                         </h2>
-                        <code class="text-xs text-rtds-text-muted">Pages/Scoreboard/Draw.vue</code>
+                        <code class="text-xs text-rtds-text-muted">Pages/Scoreboard/{{ activePage.id.startsWith('draw-') ? 'Draw' : activePage.label }}.vue</code>
                     </div>
-                    <div class="overflow-hidden rounded-2xl border border-rtds-border bg-rtds-bg">
-                        <DrawPage :draw="selectedPage === 'draw-single' ? drawSingle : drawDouble" />
+                    <div class="min-h-[70vh] overflow-hidden rounded-2xl border border-rtds-border bg-rtds-bg">
+                        <component
+                            :is="activePage.component"
+                            :draw="activePage.draw"
+                            :tournament="labTournament"
+                            :court-id="1"
+                        />
                     </div>
                 </section>
             </div>
@@ -189,7 +319,7 @@ const knockoutRows = placementsKnockout.map(toRankingRow);
             </aside>
 
             <!-- Content -->
-            <main class="min-w-0 flex-1 space-y-14 pb-24">
+            <main class="min-w-0 flex-1 space-y-14 pb-40">
                 <!-- Intro -->
                 <section class="rounded-2xl border border-rtds-border bg-rtds-bg-card p-6 text-sm leading-7 text-rtds-text-secondary">
                     <p>

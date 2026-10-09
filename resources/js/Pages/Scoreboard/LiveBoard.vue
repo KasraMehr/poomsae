@@ -176,7 +176,7 @@ const formNamesOf = (bout) =>
 </script>
 
 <template>
-    <Head title="جریان زنده" />
+    <!-- <Head title="جریان زنده" /> -->
     <ScoreboardLayout
         :stage="stage"
         :center="tournament?.name ?? ''"

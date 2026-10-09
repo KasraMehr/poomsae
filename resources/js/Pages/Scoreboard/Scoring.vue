@@ -71,7 +71,7 @@ const totalOf = (bout, entryId) => Number(bout.totals?.[entryId]) || 0;
 </script>
 
 <template>
-    <Head title="نمایش زنده" />
+    <!-- <Head title="نمایش زنده" /> -->
     <ScoreboardLayout
         :stage="stage"
         :center="tournament?.name ?? ''"

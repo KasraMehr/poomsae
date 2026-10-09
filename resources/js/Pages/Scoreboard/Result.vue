@@ -81,7 +81,7 @@ const categories = computed(() =>
 </script>
 
 <template>
-    <Head title="نتایج" />
+    <!-- <Head title="نتایج" /> -->
     <ScoreboardLayout
         :stage="stage"
         :center="tournament?.name ?? ''"

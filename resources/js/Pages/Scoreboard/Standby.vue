@@ -86,7 +86,7 @@ const durationSeconds = computed(
 </script>
 
 <template>
-    <Head title="آمادگی" />
+    <!-- <Head title="آمادگی" /> -->
     <ScoreboardLayout
         :stage="stage"
         :center="tournament?.name ?? ''"

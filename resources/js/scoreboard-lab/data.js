@@ -512,7 +512,7 @@ export const extraTopFourRows = [
 export const drawSingle = {
     mode: "single",
     stage: "SEMI-FINAL",
-    title: "FORM DRAW",
+    title: "Title",
     category: "MALE - UNDER 30",
     entries: [
         {

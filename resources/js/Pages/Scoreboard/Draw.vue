@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from "vue";
+import { Head } from "@inertiajs/vue3";
 import ScoreboardLayout from "../../Shared/Layouts/ScoreboardLayout.vue";
 import ScoreboardHeader from "../../Components/scoreboard/ScoreboardHeader.vue";
 import AthleteInfo from "../../Components/scoreboard/AthleteInfo.vue";
@@ -58,6 +59,7 @@ const category = computed(() => drawData.value?.category ?? "");
 </script>
 
 <template>
+    <!-- <Head title="قرعه کشی"/> -->
     <div dir="ltr">
         <ScoreboardLayout>
             <template #header>
