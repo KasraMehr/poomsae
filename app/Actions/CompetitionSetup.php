@@ -12,6 +12,7 @@ use App\Models\ScoringRuleSet;
 use App\Models\Tournament;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
@@ -198,7 +199,7 @@ class CompetitionSetup
             $this->check($category->management_source === null, 'فهرست این رده از سیستم مدیریت مسابقات دریافت می‌شود.');
             $members = $category->entry_type === 'individual' ? [$data] : $data['members'];
             $this->validateMembers($tournament, $category, $members);
-            $musicPath = $category->discipline === 'freestyle' ? $data['music']->store('competition-music', 'local') : null;
+            $musicPath = $category->discipline === 'freestyle' && ($data['music'] ?? null) instanceof UploadedFile ? $data['music']->store('competition-music', 'local') : null;
             $entry = $category->entries()->create(['display_name' => implode(' / ', array_map(fn (array $member): string => $member['first_name'].' '.$member['last_name'], $members)), 'status' => 'registered', 'music_path' => $musicPath]);
             foreach ($members as $index => $member) {
                 $athlete = Athlete::create($member);

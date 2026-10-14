@@ -127,7 +127,6 @@ class ImportManagementSnapshot
                 $this->setup->check($entry && ($entry->external_id === null || $entry->external_id === $data['external_id']), 'شناسهٔ ورودی محلی متعلق به این رده یا این شرکت‌کننده نیست.');
             }
             $this->setup->validateMembers($tournament, $category, $data['members'], $entry?->id);
-            $this->setup->check($category->discipline !== 'freestyle' || $entry?->music_path !== null, 'برای ابداعی، ابتدا فایل موسیقی را در ثبت‌نام محلی بارگذاری و local_entry_id را ارسال کنید.');
             $fields = ['external_id' => $data['external_id'], 'status' => $data['status'], 'display_name' => implode(' / ', array_map(fn ($member) => $member['first_name'].' '.$member['last_name'], $data['members']))];
             if ($entry) {
                 $entry->update($fields);

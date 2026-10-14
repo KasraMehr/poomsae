@@ -69,7 +69,7 @@ class CompetitionSetupRequest extends FormRequest
                 'members.*.birth_date' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.$tournament->starts_on->format('Y-m-d')],
                 'members.*.gender' => ['required', Rule::in(['male', 'female'])],
                 'members.*.club' => ['nullable', 'string', 'max:100'],
-                'music' => [$category?->discipline === 'freestyle' ? 'required' : 'prohibited', 'file', 'mimes:mp3,wav,m4a', 'max:20480'],
+                'music' => [$category?->discipline === 'freestyle' ? 'nullable' : 'prohibited', 'file', 'mimes:mp3,wav,m4a', 'max:20480'],
             ],
             'entryStatus' => ['status' => ['required', Rule::in(['registered', 'checked_in', 'withdrawn'])]],
             default => [],

@@ -80,7 +80,7 @@ const scheduleRound = () => schedule.post(props.base + '/categories/' + props.ca
                     <div><label :for="`member-gender-${category.id}-${index}`">جنسیت</label><select :id="`member-gender-${category.id}-${index}`" v-model="member.gender"><option value="female">بانوان</option><option value="male">آقایان</option></select></div>
                     <div><label :for="`member-club-${category.id}-${index}`">باشگاه</label><input :id="`member-club-${category.id}-${index}`" v-model="member.club" maxlength="100"></div>
                 </div>
-                <div v-if="category.discipline === 'freestyle'"><label :for="`music-${category.id}`">فایل موسیقی (MP3، WAV یا M4A، حداکثر ۲۰ مگابایت)</label><input :id="`music-${category.id}`" type="file" accept=".mp3,.wav,.m4a,audio/*" required @change="entry.music = $event.target.files[0] || null"></div>
+                <div v-if="category.discipline === 'freestyle'"><label :for="`music-${category.id}`">فایل موسیقی (اختیاری - MP3، WAV یا M4A، حداکثر ۲۰ مگابایت)</label><input :id="`music-${category.id}`" type="file" accept=".mp3,.wav,.m4a,audio/*" @change="entry.music = $event.target.files[0] || null"></div>
                 <div class="align-end"><button class="button" :disabled="entry.processing">ثبت ورزشکار</button></div>
                 <FormErrors class="wide" :errors="entry.errors"/>
             </form>

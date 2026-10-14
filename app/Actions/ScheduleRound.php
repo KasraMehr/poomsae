@@ -47,9 +47,6 @@ class ScheduleRound
                 $check(! $category->entries()->where('status', 'registered')->exists(), 'حضور یا انصراف تمام ورزشکاران ثبت‌نام‌شده را مشخص کنید.');
                 $ids = $category->entries()->where('status', 'checked_in')->orderBy($externalDraw ? 'seed' : 'id')->pluck('id')->all();
                 $check(count($ids) >= ($externalDraw ? 1 : 2), $externalDraw ? 'حداقل یک ورزشکار در قرعهٔ tkdhub لازم است.' : 'حداقل دو ورودی حاضر لازم است.');
-                if ($category->discipline === 'freestyle') {
-                    $check($category->entries()->whereIn('id', $ids)->whereNull('music_path')->doesntExist(), 'فایل موسیقی تمام ورودی‌های حاضر لازم است.');
-                }
                 $seed = $externalDraw ? $category->management_hash : bin2hex(random_bytes(16));
                 if (! $externalDraw) {
                     usort($ids, fn ($a, $b) => strcmp(hash('sha256', $seed.':'.$a), hash('sha256', $seed.':'.$b)));

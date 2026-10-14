@@ -36,7 +36,6 @@ class RunCompetition
             if ($data['command'] === 'start') {
                 $this->setup->check($performance->status === 'pending', 'فقط اجرای در انتظار را می‌توان شروع کرد.');
                 $this->setup->check($category->discipline === 'freestyle' || $performance->poomsae_form_id !== null && ($category->planned_round_count === null || $round->forms_drawn_at !== null && count($round->form_sequence ?? []) === 2), 'در انتظار قرعهٔ پومسه؛ قبل از تعیین فرم‌های مرحله، اجرا شروع نمی‌شود.');
-                $this->setup->check($category->discipline !== 'freestyle' || $performance->music_path !== null, 'فایل موسیقی اجرای ابداعی لازم است.');
                 if ($round->sequence > 1) {
                     $this->setup->check(! CompetitionAppeal::open()->where('category_id', $category->id)->whereHas('performance.bout.round', fn ($query) => $query->where('sequence', '<', $round->sequence))->exists(), 'این رده اعتراض باز دارد؛ شروع مرحلهٔ بعد تا تعیین تکلیف رأی ناظر مجاز نیست.');
                     $previousRound = $category->rounds()->where('sequence', $round->sequence - 1)->first();

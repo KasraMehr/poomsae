@@ -7,6 +7,7 @@ use App\Actions\CompetitionDisplay;
 use App\Actions\CompetitionSetup;
 use App\Actions\RunCompetition;
 use App\Actions\ScheduleRound;
+use App\Models\Performance;
 use App\Models\Tournament;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -119,18 +120,41 @@ class CompetitionTypesTest extends TestCase
         $this->assertDatabaseCount('results', 2);
     }
 
-    public function test_freestyle_individual_requires_music_and_schedules_one_per_entry(): void
+    public function test_freestyle_individual_allows_optional_music_and_schedules_one_per_entry(): void
     {
         Storage::fake('local');
         $fixture = $this->fixture('freestyle', 'individual');
         $url = '/tournaments/'.$fixture['tournament']->id.'/categories/'.$fixture['category']->id.'/entries';
-        $this->post($url, ['first_name' => 'بی', 'last_name' => 'موسیقی', 'birth_date' => '2005-01-01', 'gender' => 'male'])->assertSessionHasErrors('music');
-        $this->register($fixture, 1, 1, true);
+
+        // Entry without music succeeds (null/blank music)
+        $this->post($url, ['first_name' => 'بی', 'last_name' => 'موسیقی', 'birth_date' => '2005-01-01', 'gender' => 'male'])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect();
+
+        // Entry with music also succeeds
         $this->register($fixture, 2, 1, true);
+
+        $entries = $fixture['category']->entries()->orderBy('id')->get();
+        $this->assertCount(2, $entries);
+        $this->assertNull($entries[0]->music_path);
+        $this->assertNotNull($entries[1]->music_path);
+
         $this->schedule($fixture);
 
         $this->assertDatabaseCount('performances', 2);
         $this->assertSame(1, $fixture['category']->fresh()->forms_per_round);
+
+        // Performance without music can start and run without errors
+        $performances = Performance::whereIn('entry_id', $entries->pluck('id'))->orderBy('id')->get();
+        $this->assertCount(2, $performances);
+        $firstPerf = $performances->firstWhere('entry_id', $entries[0]->id);
+        $secondPerf = $performances->firstWhere('entry_id', $entries[1]->id);
+        $this->assertNull($firstPerf->music_path);
+        $this->assertNotNull($secondPerf->music_path);
+
+        $run = app(RunCompetition::class);
+        $run->command($fixture['admin'], $fixture['tournament'], $firstPerf, ['command' => 'start', 'expected_version' => $firstPerf->version]);
+        $this->assertSame('running', $firstPerf->fresh()->status);
     }
 
     public function test_freestyle_round_robin_schedules_one_solo_bout_per_entry(): void
