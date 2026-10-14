@@ -91,6 +91,12 @@ class CompetitionSetup
                 $user = User::create(['name' => $data['name'], 'email' => $data['email'], 'password' => $data['password']]);
             }
             $this->check($user->is_active, 'حساب انتخاب‌شده غیرفعال است.');
+            if ($data['role'] === 'operator') {
+                $this->check(
+                    ! DB::table('tournament_user')->where('tournament_id', $tournament->id)->where('role', 'operator')->exists(),
+                    'هر مسابقه فقط می‌تواند یک اپراتور داشته باشد.'
+                );
+            }
             DB::table('tournament_user')->insertOrIgnore(['tournament_id' => $tournament->id, 'user_id' => $user->id, 'role' => $data['role'], 'created_at' => now(), 'updated_at' => now()]);
             $this->audit($actor, $tournament, 'member.added', 'user', $user->id, ['role' => $data['role']]);
         });
