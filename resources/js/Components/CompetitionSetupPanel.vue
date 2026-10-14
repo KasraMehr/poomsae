@@ -115,7 +115,7 @@ const submitCategory = () => {
                 <p class="subtle wide">اگر حساب وجود دارد، فقط نقش اضافه می‌شود و رمز آن تغییر نمی‌کند.</p>
                 <FormErrors class="wide" :errors="member.errors"/><button class="button" :disabled="member.processing">افزودن عضو</button>
             </form>
-            <div class="member-list"><div v-for="(user,i) in tournament.members" :key="user.id + '-' + i"><span>{{ user.name }} <small dir="ltr">{{ user.email }}</small></span><span class="badge">{{ {judge:'داور',operator:'اپراتور',display:'نمایشگر',manager:'مدیر',supervisor:'ناظر اعتراض‌ها'}[user.role] }}</span></div></div>
+            <div class="member-list"><div v-for="(user,i) in tournament.members" :key="user.id + '-' + i"><span>{{ user.name }} <small dir="ltr">{{ user.email }}</small></span><span class="badge">{{ {judge:'داور',operator:'اپراتور',display:'نمایشگر',manager:'مدیر'}[user.role] || user.role }}</span></div></div>
         </section>
         <section class="panel wide">
             <h2>۳. ردهٔ مسابقه</h2>

@@ -25,7 +25,7 @@ const submit = () => form.transform(data => {
 </script>
 <template>
     <form class="panel" @submit.prevent="submit">
-        <h3>ثبت رأی ناظر</h3>
+        <h3>ثبت رأی اعتراض</h3>
         <label :for="'appeal-decision-' + appeal.id">رأی</label><select :id="'appeal-decision-' + appeal.id" v-model="form.decision"><option value="rejected">رد اعتراض و حفظ نتیجه</option><option value="accepted">پذیرش اعتراض و تأیید اصلاح مشخص نمره</option></select>
         <div v-if="form.decision === 'accepted'">
             <p class="subtle">صندلی‌های نیازمند اصلاح را انتخاب و نمرهٔ صحیح هرکدام را مشخص کنید. رأی، مجوز اعمال همین مقادیر خواهد بود.</p>
@@ -36,6 +36,6 @@ const submit = () => form.transform(data => {
         </div>
         <label :for="'appeal-decision-reason-' + appeal.id">شرح بررسی و دلیل رأی</label><textarea :id="'appeal-decision-reason-' + appeal.id" v-model="form.decision_reason" required minlength="10" maxlength="2000"></textarea>
         <FormErrors :errors="form.errors"/>
-        <button class="button" :disabled="form.processing || !ready">ثبت نهایی رأی ناظر</button>
+        <button class="button" :disabled="form.processing || !ready">ثبت نهایی رأی اعتراض</button>
     </form>
 </template>

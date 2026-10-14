@@ -50,9 +50,6 @@ class TournamentController extends Controller
         Gate::authorize('view', $tournament);
 
         if (! $request->user()->can('operate', $tournament)) {
-            if ($request->user()->can('reviewAppeals', $tournament)) {
-                return redirect()->route('appeals.index', $tournament);
-            }
             if ($request->user()->hasTournamentRole($tournament, ['judge'])) {
                 return redirect()->route('judging.index', $tournament);
             }

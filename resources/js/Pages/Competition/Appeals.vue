@@ -9,7 +9,7 @@ const props = defineProps({ tournament: Object, appeals: Object, candidates: Arr
 const page = usePage();
 useCompetitionUpdates(props.tournament.id, ['appeals', 'candidates', 'canFile', 'canApply']);
 usePoll(5000, { only: ['appeals', 'candidates', 'canFile', 'canApply'] });
-const labels = { submitted: 'ثبت‌شده؛ در انتظار بررسی', reviewing: 'در حال بررسی ناظر', accepted: 'پذیرفته؛ در انتظار اعمال رأی', rejected: 'ردشده؛ نتیجه حفظ شد', applied: 'رأی اعمال و پرونده تکمیل شد' };
+const labels = { submitted: 'ثبت‌شده؛ در انتظار بررسی', reviewing: 'در حال بررسی', accepted: 'پذیرفته؛ در انتظار اعمال رأی', rejected: 'ردشده؛ نتیجه حفظ شد', applied: 'رأی اعمال و پرونده تکمیل شد' };
 const filing = useForm({ performance_id: '', expected_version: 1, representative_name: '', reason: '', evidence: '' });
 const selected = computed(() => props.candidates.find(item => item.id === Number(filing.performance_id)));
 const action = useForm({ expected_version: 1 });
@@ -19,8 +19,8 @@ const date = value => value ? new Date(value).toLocaleString('fa-IR') : '—';
 const score = value => value == null ? '—' : Number(value).toLocaleString('fa-IR', { maximumFractionDigits: 6 });
 </script>
 <template>
-    <AppLayout><Head title="اعتراض‌ها و رأی ناظر"/>
-        <section class="page-heading"><div><span class="eyebrow">{{ tournament.name }}</span><h1>اعتراض‌ها و رأی ناظر</h1><p class="subtle">اعتراض به نتیجهٔ منتشرشده، تا قبل از شروع مرحلهٔ بعدِ همان رده ثبت می‌شود. هر اجرا یک پرونده دارد.</p></div><Link :href="urls.back" class="button secondary">بازگشت</Link></section>
+    <AppLayout><Head title="اعتراض‌ها و بازبینی نتایج"/>
+        <section class="page-heading"><div><span class="eyebrow">{{ tournament.name }}</span><h1>اعتراض‌ها و بازبینی نتایج</h1><p class="subtle">اعتراض به نتیجهٔ منتشرشده، تا قبل از شروع مرحلهٔ بعدِ همان رده ثبت می‌شود. هر اجرا یک پرونده دارد.</p></div><Link :href="urls.back" class="button secondary">بازگشت</Link></section>
         <section v-if="canFile" class="panel"><h2>ثبت اعتراض نمایندهٔ تیم</h2>
             <p v-if="!candidates.length" class="subtle">نتیجهٔ قابل اعتراض وجود ندارد؛ اجرا باید تأیید شده باشد و مرحلهٔ بعد شروع نشده باشد.</p>
             <form v-else class="tournament-form" @submit.prevent="file">
@@ -40,11 +40,11 @@ const score = value => value == null ? '—' : Number(value).toLocaleString('fa-
             <p class="appeal-text">{{ appeal.reason }}</p><details v-if="appeal.evidence"><summary>شواهد ثبت‌شده</summary><p class="appeal-text">{{ appeal.evidence }}</p></details>
             <p>نتیجه هنگام ثبت اعتراض: <b>{{ score(appeal.original_snapshot.result) }}</b> · نتیجهٔ فعلی: <b>{{ score(appeal.current.result) }}</b></p>
             <details><summary>نمره‌های داورها و سابقهٔ نتیجه</summary><table><thead><tr><th>صندلی</th><th>داور</th><th>دقت هنگام اعتراض</th><th>اجرا هنگام اعتراض</th><th>ویرایش اولیه</th></tr></thead><tbody><tr v-for="sheet in appeal.original_snapshot.scores" :key="sheet.id"><td>{{ sheet.seat }}</td><td>{{ sheet.judge_name }}</td><td>{{ (sheet.values.accuracy / 100).toFixed(2) }}</td><td>{{ (sheet.values.presentation / 100).toFixed(2) }}</td><td>{{ sheet.revision }}</td></tr></tbody></table><p v-if="appeal.original_snapshot.calculation?.timing?.penalty_hundredths">جریمهٔ زمان محفوظ: {{ (appeal.original_snapshot.calculation.timing.penalty_hundredths / 100).toFixed(2) }} امتیاز</p></details>
-            <p v-if="appeal.reviewed_by_name">ناظر: {{ appeal.reviewed_by_name }} · شروع بررسی: {{ date(appeal.review_started_at) }}</p>
-            <template v-if="appeal.decision_reason"><h3>رأی و دلیل ناظر</h3><p class="appeal-text">{{ appeal.decision_reason }}</p><p>زمان رأی: {{ date(appeal.decided_at) }}</p></template>
+            <p v-if="appeal.reviewed_by_name">بررسی‌کننده: {{ appeal.reviewed_by_name }} · شروع بررسی: {{ date(appeal.review_started_at) }}</p>
+            <template v-if="appeal.decision_reason"><h3>رأی و شرح تصمیم</h3><p class="appeal-text">{{ appeal.decision_reason }}</p><p>زمان رأی: {{ date(appeal.decided_at) }}</p></template>
             <template v-if="appeal.corrections?.length"><h3>اصلاح‌های تأییدشده</h3><ul><li v-for="correction in appeal.corrections" :key="correction.judge_assignment_id">صندلی {{ appeal.current.scores.find(sheet => sheet.judge_assignment_id === correction.judge_assignment_id)?.seat }} · {{ correction.score ? 'نمره: ' + correction.score : 'دقت: ' + correction.accuracy + ' · اجرا: ' + correction.presentation }}</li></ul><p>نتیجهٔ مصوب پس از اصلاح و جریمه‌ها: <b>{{ score(appeal.decision_snapshot.proposed_result.score) }}</b></p></template>
             <p v-if="appeal.applied_by_name">اعمال رأی: {{ appeal.applied_by_name }} · {{ date(appeal.applied_at) }} · نتیجه: {{ score(appeal.applied_snapshot.result) }}</p>
-            <button v-if="appeal.can_review && appeal.status === 'submitted'" class="button" :disabled="action.processing" @click="command(appeal, 'review')">شروع بررسی توسط ناظر</button>
+            <button v-if="appeal.can_review && appeal.status === 'submitted'" class="button" :disabled="action.processing" @click="command(appeal, 'review')">شروع بررسی اعتراض</button>
             <AppealDecisionForm v-if="appeal.can_review && appeal.status === 'reviewing' && appeal.reviewed_by === page.props.auth.user.id" :key="appeal.id + '-' + appeal.version" :appeal="appeal" :endpoint="urls.index + '/' + appeal.id + '/decision'"/>
             <button v-if="canApply && appeal.status === 'accepted'" class="button" :disabled="action.processing" @click="command(appeal, 'apply')">اعمال اصلاح‌های تأییدشده و تکمیل پرونده</button>
         </section>

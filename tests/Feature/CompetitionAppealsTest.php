@@ -41,11 +41,9 @@ class CompetitionAppealsTest extends TestCase
         $this->scoreAll($fixture, $performance);
         $run->command($fixture['admin'], $fixture['tournament'], $performance, ['command' => 'approve', 'expected_version' => $performance->fresh()->version]);
         $operator = User::factory()->create();
-        $supervisor = User::factory()->create();
         $fixture['tournament']->users()->attach($operator, ['role' => 'operator']);
-        $fixture['tournament']->users()->attach($supervisor, ['role' => 'supervisor']);
 
-        return [...$fixture, ...compact('performance', 'operator', 'supervisor')];
+        return [...$fixture, ...compact('performance', 'operator')];
     }
 
     private function fileAppeal(array $fixture): CompetitionAppeal
@@ -62,7 +60,7 @@ class CompetitionAppealsTest extends TestCase
 
     private function review(array $fixture, CompetitionAppeal $appeal): void
     {
-        $this->actingAs($fixture['supervisor'])->post(route('appeals.review', [$fixture['tournament'], $appeal]), ['expected_version' => $appeal->fresh()->version])->assertSessionHasNoErrors();
+        $this->actingAs($fixture['operator'])->post(route('appeals.review', [$fixture['tournament'], $appeal]), ['expected_version' => $appeal->fresh()->version])->assertSessionHasNoErrors();
     }
 
     private function acceptedPayload(array $fixture, CompetitionAppeal $appeal): array
@@ -91,7 +89,7 @@ class CompetitionAppealsTest extends TestCase
         $this->get(route('appeals.index', $fixture['tournament']))->assertInertia(fn (AssertableInertia $page) => $page->component('Competition/Appeals')->has('appeals.data', 1)->where('appeals.data.0.status', 'submitted')->where('canFile', true));
     }
 
-    public function test_supervisor_accepts_specific_corrections_and_operator_applies_all_of_them_once(): void
+    public function test_operator_reviews_and_accepts_corrections_and_applies_them(): void
     {
         $fixture = $this->publishedFixture(penalty: true);
         $appeal = $this->fileAppeal($fixture);
@@ -186,23 +184,22 @@ class CompetitionAppealsTest extends TestCase
         $fixture = $this->publishedFixture();
         $appeal = $this->fileAppeal($fixture);
         $this->post(route('appeals.store', $fixture['tournament']), ['performance_id' => $fixture['performance']->id, 'expected_version' => $fixture['performance']->fresh()->version, 'representative_name' => 'نماینده', 'reason' => 'اعتراض تکراری به همین نتیجه'])->assertSessionHasErrors('operation');
-        $this->actingAs($fixture['supervisor'])->post(route('appeals.review', [$fixture['tournament'], $appeal]), ['expected_version' => 8])->assertStatus(409);
+        $this->actingAs($fixture['operator'])->post(route('appeals.review', [$fixture['tournament'], $appeal]), ['expected_version' => 8])->assertStatus(409);
         $this->post(route('appeals.decide', [$fixture['tournament'], $appeal]), ['expected_version' => 1, 'decision' => 'rejected', 'decision_reason' => 'بررسی هنوز شروع نشده است'])->assertSessionHasErrors('operation');
         $this->review($fixture, $appeal);
         $this->post(route('appeals.review', [$fixture['tournament'], $appeal]), ['expected_version' => 2])->assertSessionHasErrors('operation');
         $this->post(route('appeals.decide', [$fixture['tournament'], $appeal]), ['expected_version' => 2, 'decision' => 'accepted', 'decision_reason' => 'پذیرش بدون اصلاح مشخص نمره'])->assertSessionHasErrors('corrections');
     }
 
-    public function test_another_supervisor_cannot_take_over_an_active_review_or_apply_scores(): void
+    public function test_another_operator_cannot_take_over_an_active_review(): void
     {
         $fixture = $this->publishedFixture();
         $appeal = $this->fileAppeal($fixture);
         $this->review($fixture, $appeal);
         $other = User::factory()->create();
-        $fixture['tournament']->users()->attach($other, ['role' => 'supervisor']);
-        $this->actingAs($other)->post(route('appeals.decide', [$fixture['tournament'], $appeal]), ['expected_version' => 2, 'decision' => 'rejected', 'decision_reason' => 'بررسی به ناظر دیگری سپرده شده'])->assertSessionHasErrors('operation');
-        $this->post(route('appeals.apply', [$fixture['tournament'], $appeal]), ['expected_version' => 2])->assertForbidden();
-        $this->get(route('tournaments.show', $fixture['tournament']))->assertRedirect(route('appeals.index', $fixture['tournament']));
+        $fixture['tournament']->users()->attach($other, ['role' => 'operator']);
+        $this->actingAs($other)->post(route('appeals.decide', [$fixture['tournament'], $appeal]), ['expected_version' => 2, 'decision' => 'rejected', 'decision_reason' => 'بررسی به اپراتور دیگری سپرده شده'])->assertSessionHasErrors('operation');
+        $this->get(route('tournaments.show', $fixture['tournament']))->assertOk();
     }
 
     public function test_foreign_tournament_performance_and_appeal_cannot_be_modified(): void
@@ -211,7 +208,7 @@ class CompetitionAppealsTest extends TestCase
         $other = $this->publishedFixture();
         $appeal = $this->fileAppeal($fixture);
         $this->actingAs($other['operator'])->post(route('appeals.store', $other['tournament']), ['performance_id' => $fixture['performance']->id, 'expected_version' => $fixture['performance']->fresh()->version, 'representative_name' => 'نماینده', 'reason' => 'اعتراض به نتیجهٔ مسابقهٔ دیگر'])->assertNotFound();
-        $this->actingAs($other['supervisor'])->post(route('appeals.review', [$other['tournament'], $appeal]), ['expected_version' => 1])->assertNotFound();
+        $this->actingAs($other['operator'])->post(route('appeals.review', [$other['tournament'], $appeal]), ['expected_version' => 1])->assertNotFound();
         $this->actingAs($other['operator'])->post(route('appeals.apply', [$other['tournament'], $appeal]), ['expected_version' => 1])->assertNotFound();
         $this->assertSame('submitted', $appeal->fresh()->status);
     }
@@ -319,27 +316,23 @@ class CompetitionAppealsTest extends TestCase
 
     #[TestWith(['judge'])]
     #[TestWith(['display'])]
-    #[TestWith(['supervisor'])]
-    public function test_score_only_and_supervisor_roles_cannot_file_appeals(string $role): void
+    public function test_score_only_and_display_roles_cannot_file_or_view_appeals(string $role): void
     {
         $fixture = $this->publishedFixture();
         $user = User::factory()->create();
         $fixture['tournament']->users()->attach($user, ['role' => $role]);
         $this->actingAs($user)->post(route('appeals.store', $fixture['tournament']), ['performance_id' => $fixture['performance']->id, 'expected_version' => $fixture['performance']->fresh()->version, 'representative_name' => 'نماینده', 'reason' => 'ثبت اعتراض نیاز به دسترسی اپراتور دارد'])->assertForbidden();
-        if ($role !== 'supervisor') {
-            $this->get(route('appeals.index', $fixture['tournament']))->assertForbidden();
-        }
+        $this->get(route('appeals.index', $fixture['tournament']))->assertForbidden();
     }
 
-    public function test_manager_can_assign_supervisor_without_granting_operation_or_setup_permissions(): void
+    public function test_supervisor_role_is_not_assignable_and_operator_has_appeal_permissions(): void
     {
         $fixture = $this->publishedFixture();
         $user = User::factory()->create();
-        $this->actingAs($fixture['admin'])->post(route('operations.member', $fixture['tournament']), ['name' => $user->name, 'email' => $user->email, 'role' => 'supervisor'])->assertSessionHasNoErrors();
-        $this->assertDatabaseHas('tournament_user', ['tournament_id' => $fixture['tournament']->id, 'user_id' => $user->id, 'role' => 'supervisor']);
-        $this->assertTrue($user->can('reviewAppeals', $fixture['tournament']));
-        $this->assertFalse($user->can('operate', $fixture['tournament']));
-        $this->assertFalse($user->can('update', $fixture['tournament']));
+        $this->actingAs($fixture['admin'])->post(route('operations.member', $fixture['tournament']), ['name' => $user->name, 'email' => $user->email, 'role' => 'supervisor'])->assertSessionHasErrors('role');
+        $this->assertTrue($fixture['operator']->can('viewAppeals', $fixture['tournament']));
+        $this->assertTrue($fixture['operator']->can('reviewAppeals', $fixture['tournament']));
+        $this->assertTrue($fixture['operator']->can('operate', $fixture['tournament']));
     }
 
     public function test_appeal_events_update_affected_views_without_broadcasting_private_reasons(): void
