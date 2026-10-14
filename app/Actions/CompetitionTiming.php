@@ -37,6 +37,71 @@ class CompetitionTiming
         return $category->only(['minimum_duration_seconds', 'maximum_duration_seconds', 'minimum_rest_seconds', 'time_penalty_hundredths']);
     }
 
+    /**
+     * @return array{
+     *     status: string,
+     *     started_at: ?string,
+     *     duration_seconds: int,
+     *     minimum_duration_seconds: ?int,
+     *     maximum_duration_seconds: ?int,
+     *     target_end_at: ?string,
+     *     elapsed_seconds: int,
+     *     elapsed_formatted: string,
+     *     remaining_seconds: int,
+     *     remaining_formatted: string,
+     *     is_overtime: bool
+     * }
+     */
+    public function liveTimer(Performance $performance, Category $category, ?CarbonImmutable $now = null): array
+    {
+        $now ??= CarbonImmutable::now();
+        $rules = $performance->timing_snapshot ?? $this->rules($category);
+        $maxDuration = $rules['maximum_duration_seconds'] ?? ($category->discipline === 'freestyle' ? 100 : 90);
+        $minDuration = $rules['minimum_duration_seconds'] ?? null;
+        $startedAtMs = $rules['started_at_milliseconds'] ?? $performance->started_at?->getTimestampMs();
+
+        if ($startedAtMs === null) {
+            return [
+                'status' => $performance->status,
+                'started_at' => null,
+                'duration_seconds' => $maxDuration,
+                'minimum_duration_seconds' => $minDuration,
+                'maximum_duration_seconds' => $rules['maximum_duration_seconds'] ?? null,
+                'target_end_at' => null,
+                'elapsed_seconds' => 0,
+                'elapsed_formatted' => '00:00',
+                'remaining_seconds' => $maxDuration,
+                'remaining_formatted' => sprintf('%02d:%02d', intdiv($maxDuration, 60), $maxDuration % 60),
+                'is_overtime' => false,
+            ];
+        }
+
+        $endMs = $performance->status === 'running'
+            ? $now->getTimestampMs()
+            : ($rules['ended_at_milliseconds'] ?? $performance->ended_at?->getTimestampMs() ?? $now->getTimestampMs());
+
+        $elapsedMs = max(0, $endMs - $startedAtMs);
+        $elapsedSeconds = intdiv($elapsedMs, 1000);
+        $remainingSeconds = max(0, $maxDuration - $elapsedSeconds);
+        $isOvertime = $rules['maximum_duration_seconds'] !== null ? $elapsedSeconds > $rules['maximum_duration_seconds'] : false;
+
+        $targetEndAt = CarbonImmutable::createFromTimestampMs($startedAtMs)->addSeconds($maxDuration)->toISOString();
+
+        return [
+            'status' => $performance->status,
+            'started_at' => CarbonImmutable::createFromTimestampMs($startedAtMs)->toISOString(),
+            'duration_seconds' => $maxDuration,
+            'minimum_duration_seconds' => $minDuration,
+            'maximum_duration_seconds' => $rules['maximum_duration_seconds'] ?? null,
+            'target_end_at' => $targetEndAt,
+            'elapsed_seconds' => $elapsedSeconds,
+            'elapsed_formatted' => sprintf('%02d:%02d', intdiv($elapsedSeconds, 60), $elapsedSeconds % 60),
+            'remaining_seconds' => $remainingSeconds,
+            'remaining_formatted' => sprintf('%02d:%02d', intdiv($remainingSeconds, 60), $remainingSeconds % 60),
+            'is_overtime' => $isOvertime,
+        ];
+    }
+
     public function readyAt(Performance $performance, Category $category): ?CarbonImmutable
     {
         $endedAt = Performance::where('entry_id', $performance->entry_id)->whereNotNull('ended_at')->get(['ended_at', 'timing_snapshot'])

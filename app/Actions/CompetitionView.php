@@ -158,11 +158,15 @@ class CompetitionView
                                 ];
                             }
 
+                            $formName = $p->form?->name ?? ($category->discipline === 'freestyle' ? 'اجرای ابداعی' : 'در انتظار قرعهٔ پومسه');
+                            $formBadge = preg_match('/(\d+)/', $p->form?->name ?? '', $matches) ? (int) $matches[1] : $p->form_number;
+
                             return [
-                                'id' => $p->id, 'entry_id' => $p->entry_id, 'form_number' => $p->form_number, 'form_name' => $p->form?->name ?? ($category->discipline === 'freestyle' ? 'اجرای ابداعی' : 'در انتظار قرعهٔ پومسه'), 'music_url' => $p->music_path && $operate ? route('operations.performance.music', [$category->tournament_id, $p->id]) : null, 'status' => $p->status, 'version' => $p->version,
+                                'id' => $p->id, 'entry_id' => $p->entry_id, 'form_number' => $p->form_number, 'form_name' => $formName, 'form_badge' => $formBadge, 'music_url' => $p->music_path && $operate ? route('operations.performance.music', [$category->tournament_id, $p->id]) : null, 'status' => $p->status, 'version' => $p->version,
                                 'started_at' => isset($p->timing_snapshot['started_at_milliseconds']) ? CarbonImmutable::createFromTimestampMs($p->timing_snapshot['started_at_milliseconds'])->toISOString() : $p->started_at?->toISOString(),
                                 'ended_at' => isset($p->timing_snapshot['ended_at_milliseconds']) ? CarbonImmutable::createFromTimestampMs($p->timing_snapshot['ended_at_milliseconds'])->toISOString() : $p->ended_at?->toISOString(),
                                 'timing' => $p->timing_snapshot ?? $this->timing->rules($category),
+                                'live_timing' => $this->timing->liveTimer($p, $category),
                                 'server_now' => now()->toISOString(),
                                 'rest_ready_at' => $p->status === 'pending' && $category->minimum_rest_seconds > 0 ? $lastEnded->get($p->entry_id)?->copy()->addSeconds($category->minimum_rest_seconds)->toISOString() : null,
                                 'result' => $p->result?->published_at ? $p->result->score : null,

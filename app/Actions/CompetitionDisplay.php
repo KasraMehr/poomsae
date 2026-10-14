@@ -69,6 +69,11 @@ class CompetitionDisplay
                 })->all();
                 if ($current) {
                     unset($current['order']);
+                    $runningPerf = collect($current['performances'] ?? [])->firstWhere('status', 'running');
+                    if ($runningPerf) {
+                        $current['live_timing'] = $runningPerf['live_timing'] ?? null;
+                        $current['form_badge'] = $runningPerf['form_badge'] ?? $current['form_number'];
+                    }
                 }
 
                 return [...$court, 'current' => $current, 'upcoming' => $upcoming];

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Actions\CalculateScore;
 use App\Actions\CompetitionConsole;
+use App\Actions\CompetitionDisplay;
 use App\Actions\CompetitionTiming;
 use App\Actions\CompetitionView;
 use App\Actions\RunCompetition;
@@ -226,5 +227,37 @@ class CompetitionTimingTest extends TestCase
             'enabled' => true, 'minimum_duration_seconds' => 0, 'maximum_duration_seconds' => 90, 'minimum_rest_seconds' => 30, 'time_penalty_hundredths' => 30,
         ])->assertNotFound();
         $this->assertNull($second['category']->fresh()->maximum_duration_seconds);
+    }
+
+    public function test_live_timing_provides_countdown_remaining_time_and_elapsed_display(): void
+    {
+        $this->freezeSecond();
+        $fixture = $this->competition();
+        $this->schedule($fixture);
+        $performance = Performance::orderBy('id')->firstOrFail();
+
+        $this->command($fixture, $performance, 'start');
+        $this->travel(1)->seconds();
+
+        $snapshot = app(CompetitionView::class)->snapshot($fixture['tournament']->fresh(), $fixture['admin'], true);
+        $row = $snapshot['categories'][0]['rounds'][0]['bouts'][0]['performances'][0];
+
+        $liveTiming = $row['live_timing'];
+        $this->assertNotNull($liveTiming);
+        $this->assertSame('running', $liveTiming['status']);
+        $this->assertSame(90, $liveTiming['duration_seconds']);
+        $this->assertSame(1, $liveTiming['elapsed_seconds']);
+        $this->assertSame('00:01', $liveTiming['elapsed_formatted']);
+        $this->assertSame(89, $liveTiming['remaining_seconds']);
+        $this->assertSame('01:29', $liveTiming['remaining_formatted']);
+        $this->assertFalse($liveTiming['is_overtime']);
+        $this->assertSame(1, $row['form_badge']);
+
+        $display = app(CompetitionDisplay::class)->snapshot($fixture['tournament']->fresh(), $fixture['admin']);
+        $court = $display['courts'][0];
+        $this->assertSame('running', $court['current']['status']);
+        $this->assertSame('01:29', $court['current']['live_timing']['remaining_formatted']);
+        $this->assertSame(89, $court['current']['live_timing']['remaining_seconds']);
+        $this->assertSame(1, $court['current']['form_badge']);
     }
 }
