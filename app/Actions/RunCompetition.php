@@ -4,18 +4,20 @@ namespace App\Actions;
 
 use App\Models\Bout;
 use App\Models\Category;
+use App\Models\CompetitionAppeal;
 use App\Models\CompetitionRound;
 use App\Models\Performance;
 use App\Models\Result;
 use App\Models\Tournament;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 
 class RunCompetition
 {
-    public function __construct(private CompetitionSetup $setup, private CalculateScore $calculator) {}
+    public function __construct(private CompetitionSetup $setup, private CalculateScore $calculator, private CompetitionTiming $timing) {}
 
     public function command(User $actor, Tournament $tournament, Performance $performance, array $data): void
     {
@@ -36,6 +38,7 @@ class RunCompetition
                 $this->setup->check($category->discipline === 'freestyle' || $performance->poomsae_form_id !== null && ($category->planned_round_count === null || $round->forms_drawn_at !== null && count($round->form_sequence ?? []) === 2), 'در انتظار قرعهٔ پومسه؛ قبل از تعیین فرم‌های مرحله، اجرا شروع نمی‌شود.');
                 $this->setup->check($category->discipline !== 'freestyle' || $performance->music_path !== null, 'فایل موسیقی اجرای ابداعی لازم است.');
                 if ($round->sequence > 1) {
+                    $this->setup->check(! CompetitionAppeal::open()->where('category_id', $category->id)->whereHas('performance.bout.round', fn ($query) => $query->where('sequence', '<', $round->sequence))->exists(), 'این رده اعتراض باز دارد؛ شروع مرحلهٔ بعد تا تعیین تکلیف رأی ناظر مجاز نیست.');
                     $previousRound = $category->rounds()->where('sequence', $round->sequence - 1)->first();
                     $this->setup->check($previousRound && ($previousRound->status === 'completed' || $round->started_at !== null), 'مرحلهٔ قبل باید قبل از شروع این مرحله کامل شود.');
                     if ($category->format === 'knockout') {
@@ -62,8 +65,12 @@ class RunCompetition
                     : collect([$performance]);
                 $this->setup->check($group->count() === ($simultaneous ? 2 : 1) && $group->every(fn ($member) => $member->status === 'pending'), 'هر دو ورزشکار باید برای اجرای همزمان آماده باشند.');
                 foreach ($group as $member) {
+                    $this->timing->checkRest($member, $category);
+                }
+                $startedAt = now();
+                foreach ($group as $member) {
                     $memberBefore = $member->toArray();
-                    $member->update(['status' => 'running', 'started_at' => now(), 'version' => $member->version + 1]);
+                    $member->update(['status' => 'running', 'started_at' => $startedAt, 'timing_snapshot' => [...$this->timing->rules($category), 'started_at_milliseconds' => $startedAt->getTimestampMs()], 'version' => $member->version + 1]);
                     if ($member->id !== $performance->id) {
                         $this->setup->audit($actor, $tournament, 'performance.start', 'performance', $member->id, $member->fresh()->toArray(), $memberBefore);
                     }
@@ -78,9 +85,10 @@ class RunCompetition
                     ? $bout->performances()->where('form_number', $performance->form_number)->lockForUpdate()->get()
                     : collect([$performance]);
                 $this->setup->check($group->count() === ($simultaneous ? 2 : 1) && $group->every(fn ($member) => $member->status === 'running'), 'اجرای همزمان دو ورزشکار باید با هم پایان یابد.');
+                $endedAt = CarbonImmutable::now();
                 foreach ($group as $member) {
                     $memberBefore = $member->toArray();
-                    $member->update(['status' => 'scoring', 'ended_at' => now(), 'version' => $member->version + 1]);
+                    $member->update(['status' => 'scoring', 'ended_at' => $endedAt, 'timing_snapshot' => $this->timing->finish($member, $category, $endedAt), 'version' => $member->version + 1]);
                     if ($member->id !== $performance->id) {
                         $this->setup->audit($actor, $tournament, 'performance.finish', 'performance', $member->id, $member->fresh()->toArray(), $memberBefore);
                     }
@@ -102,6 +110,7 @@ class RunCompetition
         $this->setup->check($sheets->pluck('judge_assignment_id')->sort()->values()->all() === $assigned && count($assigned) === $category->judge_count, 'نمرهٔ تمام داوران تخصیص‌داده‌شده لازم است.');
         $scores = $sheets->map(fn ($sheet) => DB::table('score_components')->where('score_sheet_id', $sheet->id)->pluck('value_hundredths', 'criterion')->map(fn ($value) => (int) $value)->all())->all();
         $calculation = $this->calculator->calculate($scores, $category->scoringRuleSet->definition, $category->judge_count);
+        $calculation = $this->timing->applyPenalty($calculation, $performance);
         $calculation['sheet_revisions'] = $sheets->pluck('revision', 'id')->all();
 
         return Result::updateOrCreate(['performance_id' => $performance->id], ['scoring_rule_set_id' => $category->scoring_rule_set_id, 'score' => $calculation['score'], 'calculation_snapshot' => $calculation, 'published_at' => now()]);
@@ -206,6 +215,24 @@ class RunCompetition
         $this->setup->check($next && ($next['performance']->id === $performance->id || $inNextGroup), $category->discipline === 'freestyle' ? 'نوبت اجرای ابداعی رعایت نشده است؛ ابتدا نتیجهٔ اجرای قبلی را تأیید کنید.' : 'ترتیب اجرای فرم‌ها رعایت نشده است؛ ابتدا نتیجهٔ اجرای قبلی را تأیید کنید.');
     }
 
+    public function presentationTotals(Bout $bout): array
+    {
+        $totals = [];
+        foreach ($bout->performances()->with('result')->get()->groupBy('entry_id') as $entryId => $forms) {
+            if ($forms->count() !== $bout->category->forms_per_round || ! $forms->every(fn ($performance) => $performance->status === 'approved' && $performance->result !== null)) {
+                continue;
+            }
+
+            $presentationMeans = $forms->map(fn ($performance) => $this->calculator->presentationMicros($performance->result->calculation_snapshot));
+            $sum = $presentationMeans->sum();
+            $totals[$entryId] = ($bout->category->scoringRuleSet->definition['aggregation'] ?? 'mean_two_forms') === 'mean_two_forms'
+                ? intdiv($sum + 1, 2)
+                : $sum;
+        }
+
+        return $totals;
+    }
+
     private function restoredMeanTotals(Bout $bout): array
     {
         $totals = [];
@@ -246,21 +273,46 @@ class RunCompetition
         }
 
         $isPrimaryTie = count(array_unique($totals)) === 1;
-        $comparison = $isPrimaryTie ? $this->restoredMeanTotals($bout) : $totals;
+        $comparison = $totals;
+        $resolutionReason = 'بالاترین نتیجه';
+        $tieBreakType = null;
+        $presentationTotals = [];
+        $restoredMeanTotals = [];
+
+        if ($isPrimaryTie) {
+            $presentationTotals = $this->presentationTotals($bout);
+            if (count($presentationTotals) === 2 && count(array_unique($presentationTotals)) > 1) {
+                $comparison = $presentationTotals;
+                $resolutionReason = 'بالاتر بودن نمرهٔ اجرا در شرایط تساوی';
+                $tieBreakType = 'presentation';
+            } else {
+                $restoredMeanTotals = $this->restoredMeanTotals($bout);
+                if (count($restoredMeanTotals) === 2 && count(array_unique($restoredMeanTotals)) > 1) {
+                    $comparison = $restoredMeanTotals;
+                    $resolutionReason = 'میانگین همهٔ نمره‌های داوران با بازگرداندن کمینه و بیشینه';
+                    $tieBreakType = 'restored_mean';
+                } else {
+                    return;
+                }
+            }
+        }
+
         if (count($comparison) !== 2 || count(array_unique($comparison)) === 1) {
             return;
         }
 
         arsort($comparison, SORT_NUMERIC);
         $winnerEntryId = array_key_first($comparison);
-        $bout->update(['status' => 'completed', 'winner_entry_id' => $winnerEntryId, 'resolved_by' => $actor->id, 'resolution_reason' => $isPrimaryTie ? 'میانگین همهٔ نمره‌های داوران با بازگرداندن کمینه و بیشینه' : 'بالاترین نتیجه']);
+        $bout->update(['status' => 'completed', 'winner_entry_id' => $winnerEntryId, 'resolved_by' => $actor->id, 'resolution_reason' => $resolutionReason]);
         $this->setup->audit($actor, $tournament, 'bout.completed', 'bout', $bout->id, ['winner_entry_id' => $winnerEntryId]);
         $this->completeRound($actor, $tournament, $bout);
         if ($isPrimaryTie) {
             $this->setup->audit($actor, $tournament, 'bout.tie_break_resolved', 'bout', $bout->id, [
                 'winner_entry_id' => $winnerEntryId,
+                'tie_break_type' => $tieBreakType,
                 'primary_totals_micros' => $totals,
-                'restored_mean_totals_micros' => $comparison,
+                'presentation_totals_micros' => $presentationTotals,
+                'restored_mean_totals_micros' => $restoredMeanTotals,
             ]);
         }
     }
@@ -281,6 +333,7 @@ class RunCompetition
             $tournament = Tournament::lockForUpdate()->findOrFail($tournament->id);
             $bout = Bout::with('category')->findOrFail($bout->id);
             abort_unless($bout->category->tournament_id === $tournament->id, 404);
+            $this->setup->check(! CompetitionAppeal::open()->whereHas('performance', fn ($query) => $query->where('bout_id', $bout->id))->exists(), 'پیش از تعیین برنده، اعتراض‌های باز این رقابت را تعیین تکلیف کنید.');
             $decisionType = $data['decision_type'] ?? 'tie';
             $this->setup->check(in_array($decisionType, ['tie', 'walkover'], true), 'نوع تصمیم رقابت معتبر نیست.');
             $walkover = $decisionType === 'walkover';
@@ -299,6 +352,8 @@ class RunCompetition
                 $totals = $this->totals($bout);
                 $this->setup->check(count($totals) === 2 && count(array_unique($totals)) === 1, 'فقط تساوی دو نتیجهٔ نهایی با دلیل قابل تعیین برنده است.');
                 $this->setup->check(array_key_exists((int) $data['winner_entry_id'], $totals), 'برنده باید یکی از طرفین همین رقابت باشد.');
+                $presentationTotals = $this->presentationTotals($bout);
+                $this->setup->check(count($presentationTotals) !== 2 || count(array_unique($presentationTotals)) === 1, 'نمرهٔ اجرای بالاتر برنده را تعیین می‌کند؛ تصمیم دستی مجاز نیست.');
                 $restoredMeanTotals = $this->restoredMeanTotals($bout);
                 $this->setup->check(count($restoredMeanTotals) !== 2 || count(array_unique($restoredMeanTotals)) === 1, 'میانگین همهٔ نمره‌های داوران برنده را تعیین می‌کند؛ تصمیم دستی مجاز نیست.');
             }
@@ -318,6 +373,7 @@ class RunCompetition
             $tournament = Tournament::lockForUpdate()->findOrFail($tournament->id);
             $this->setup->check($tournament->status === 'running', 'مسابقه در حال برگزاری نیست.');
             $categories = $tournament->categories()->get();
+            $this->setup->check(! CompetitionAppeal::open()->where('tournament_id', $tournament->id)->exists(), 'پایان مسابقه تا تعیین تکلیف تمام اعتراض‌ها مجاز نیست.');
             $this->setup->check($categories->isNotEmpty(), 'مسابقه رده ندارد.');
             foreach ($categories as $category) {
                 $round = $category->rounds()->orderByDesc('sequence')->first();

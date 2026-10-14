@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Actions\CompetitionSetup;
+use App\Actions\CompetitionTiming;
 use App\Actions\DrawRoundForms;
 use App\Actions\RunCompetition;
 use App\Actions\ScheduleRound;
@@ -13,6 +14,7 @@ use App\Http\Requests\PerformanceCommandRequest;
 use App\Http\Requests\ResolveBoutRequest;
 use App\Http\Requests\ScheduleRoundRequest;
 use App\Http\Requests\UpdateCompetitionSettingsRequest;
+use App\Http\Requests\UpdateCompetitionTimingRequest;
 use App\Models\Bout;
 use App\Models\Category;
 use App\Models\Court;
@@ -27,6 +29,13 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class OperationsController extends Controller
 {
+    public function timing(UpdateCompetitionTimingRequest $request, Tournament $tournament, Category $category, CompetitionTiming $timing): RedirectResponse
+    {
+        $timing->update($request->user(), $tournament, $category, $request->validated());
+
+        return back()->with('success', 'زمان اجرا و استراحت ذخیره شد.');
+    }
+
     public function updateCourt(UpdateCompetitionSettingsRequest $request, Tournament $tournament, Court $court, UpdateCompetitionSettings $settings): RedirectResponse
     {
         $settings->court($request->user(), $tournament, $court, $request->validated());

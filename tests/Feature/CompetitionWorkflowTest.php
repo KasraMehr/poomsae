@@ -319,7 +319,44 @@ class CompetitionWorkflowTest extends TestCase
         $this->assertDatabaseHas('audit_logs', ['action' => 'bout.tie_resolved', 'subject_id' => $bout->id]);
     }
 
-    public function test_restored_judge_mean_breaks_a_tie_without_changing_published_scores(): void
+    public function test_presentation_score_breaks_a_tie_before_restoring_judges_scores(): void
+    {
+        $fixture = $this->competition();
+        $this->schedule($fixture);
+        $bout = Bout::firstOrFail();
+        $favoredEntryId = $bout->entries()->pluck('entries.id')[1];
+
+        // Total score = 7.50 for both athletes
+        // Favored athlete: accuracy = 2.40, presentation = 5.10 => total = 7.50
+        // Other athlete: accuracy = 2.60, presentation = 4.90 => total = 7.50
+        foreach ($bout->performances()->orderBy('form_number')->orderBy('id')->get() as $performance) {
+            $this->startScoring($fixture, $performance);
+            $accuracy = $performance->entry_id === $favoredEntryId ? '2.40' : '2.60';
+            $presentation = $performance->entry_id === $favoredEntryId ? '5.10' : '4.90';
+
+            foreach ($fixture['judges'] as $judge) {
+                app(SubmitScore::class)->handle($judge, $fixture['tournament'], $performance, [
+                    'request_id' => (string) Str::uuid(),
+                    'expected_version' => $performance->fresh()->version,
+                    'expected_revision' => 0,
+                    ...$this->detailedScoreInput($accuracy, $presentation),
+                ]);
+            }
+
+            app(RunCompetition::class)->command($fixture['admin'], $fixture['tournament'], $performance, [
+                'command' => 'approve', 'expected_version' => $performance->fresh()->version,
+            ]);
+        }
+
+        $this->assertSame($favoredEntryId, $bout->fresh()->winner_entry_id);
+        $this->assertSame('completed', $bout->fresh()->status);
+        $this->assertSame('بالاتر بودن نمرهٔ اجرا در شرایط تساوی', $bout->fresh()->resolution_reason);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'bout.tie_break_resolved', 'subject_id' => $bout->id]);
+        $log = AuditLog::where('action', 'bout.tie_break_resolved')->where('subject_id', $bout->id)->firstOrFail();
+        $this->assertSame('presentation', $log->after['tie_break_type']);
+    }
+
+    public function test_restored_judge_mean_breaks_a_tie_when_presentation_scores_are_also_equal(): void
     {
         $fixture = $this->competition();
         $this->schedule($fixture);
@@ -348,10 +385,13 @@ class CompetitionWorkflowTest extends TestCase
 
         $this->assertSame($favoredEntryId, $bout->fresh()->winner_entry_id);
         $this->assertSame('completed', $bout->fresh()->status);
+        $this->assertSame('میانگین همهٔ نمره‌های داوران با بازگرداندن کمینه و بیشینه', $bout->fresh()->resolution_reason);
         $this->assertDatabaseCount('results', 4);
         $this->assertSame(['7.500000'], $bout->performances()->with('result')->get()->pluck('result.score')->unique()->values()->all());
         $this->assertDatabaseHas('audit_logs', ['action' => 'bout.tie_break_resolved', 'subject_id' => $bout->id]);
-        $comparison = AuditLog::where('action', 'bout.tie_break_resolved')->where('subject_id', $bout->id)->firstOrFail()->after['restored_mean_totals_micros'];
+        $log = AuditLog::where('action', 'bout.tie_break_resolved')->where('subject_id', $bout->id)->firstOrFail();
+        $this->assertSame('restored_mean', $log->after['tie_break_type']);
+        $comparison = $log->after['restored_mean_totals_micros'];
         $this->assertSame(15400000, $comparison[$favoredEntryId]);
         $this->assertSame(15000000, $comparison[$bout->entries()->where('entries.id', '!=', $favoredEntryId)->firstOrFail()->id]);
     }

@@ -2,8 +2,11 @@
 import { useForm } from '@inertiajs/vue3';
 import FormErrors from './FormErrors.vue';
 import ProxyScoreForm from './ProxyScoreForm.vue';
+import PerformanceTiming from './PerformanceTiming.vue';
+import { restRemaining, usePerformanceClock } from '../usePerformanceTiming';
 
 const props = defineProps({ court: Object, base: String, rules: Object, onlineJudgeIds: Array });
+const now = usePerformanceClock(() => props.court.active?.server_now || props.court.queue[0]?.server_now);
 const action = useForm({ command: '', expected_version: 1 });
 const confirmation = useForm({ expected_revision: 1 });
 const labels = { pending: 'آمادهٔ فراخوان', running: 'در حال اجرا', scoring: 'منتظر نمره‌ها', approved: 'تأیید شده' };
@@ -32,6 +35,7 @@ const confirmProxyScore = (performance, score) => {
             <h2>{{ court.active.entry_name }}<template v-if="court.active.paired_entry_name && court.active.status === 'running'"> و {{ court.active.paired_entry_name }}</template></h2>
             <p>{{ court.active.form_name }}<span v-if="court.active.forms_per_round > 1"> · فرم {{ court.active.form_number }} از {{ court.active.forms_per_round }}</span></p>
             <audio v-if="court.active.music_url" :src="court.active.music_url" controls preload="none">پخش موسیقی پشتیبانی نمی‌شود.</audio>
+            <PerformanceTiming :performance="court.active"/>
 
             <div v-if="court.active.status === 'scoring'" class="judge-readiness">
                 <div class="readiness-title"><b>{{ court.active.submitted_count }} از {{ court.active.judge_count }}</b><span>نمرهٔ تأییدشده</span></div>
@@ -63,7 +67,8 @@ const confirmProxyScore = (performance, score) => {
             <span class="eyebrow">اجرای بعدی</span>
             <h2>{{ court.queue[0].entry_name }}<template v-if="court.queue[0].paired_entry_name"> و {{ court.queue[0].paired_entry_name }}</template></h2>
             <p>{{ court.queue[0].category_name }} · {{ court.queue[0].form_name }}</p>
-            <button class="button primary-action" :disabled="action.processing" @click="command(court.queue[0], 'start')">فراخوان و شروع اجرا</button>
+            <PerformanceTiming :performance="court.queue[0]"/>
+            <button class="button primary-action" :disabled="action.processing || restRemaining(court.queue[0], now) > 0" @click="command(court.queue[0], 'start')">فراخوان و شروع اجرا</button>
             <FormErrors :errors="action.errors" />
         </section>
 

@@ -87,6 +87,76 @@ class CalculateScore
         ];
     }
 
+    /**
+     * @param  array<int, string>  $accuracyComponents
+     * @param  array<int, string>  $presentationComponents
+     * @param  array<string, mixed>  $rules
+     * @return array{accuracy:int, presentation:int, breakdown:array<string, mixed>}
+     */
+    public function freestyleComponentsInput(array $accuracyComponents, array $presentationComponents, array $rules): array
+    {
+        $method = $rules['input_method'] ?? null;
+        if (! in_array($method, ['freestyle_components_v1', 'components_and_deductions_v1'], true)
+            || (int) ($rules['accuracy_max'] ?? 0) !== 400
+            || (int) ($rules['presentation_max'] ?? 0) !== 600
+            || ! array_is_list($accuracyComponents)
+            || count($accuracyComponents) !== 4
+            || ! array_is_list($presentationComponents)
+            || count($presentationComponents) !== 6) {
+            throw new InvalidArgumentException('Invalid freestyle components scoring rules or fields.');
+        }
+
+        $acc = [];
+        foreach ($accuracyComponents as $component) {
+            if (! is_string($component)) {
+                throw new InvalidArgumentException('Invalid accuracy score component.');
+            }
+            $value = $this->hundredths($component);
+            if ($value > 100 || $value < 0) {
+                throw new InvalidArgumentException('Accuracy score component must be between 0 and 1.00.');
+            }
+            $acc[] = $value;
+        }
+
+        $pres = [];
+        foreach ($presentationComponents as $component) {
+            if (! is_string($component)) {
+                throw new InvalidArgumentException('Invalid presentation score component.');
+            }
+            $value = $this->hundredths($component);
+            if ($value > 100 || $value < 0) {
+                throw new InvalidArgumentException('Presentation score component must be between 0 and 1.00.');
+            }
+            $pres[] = $value;
+        }
+
+        $accuracy = array_sum($acc);
+        $presentation = array_sum($pres);
+
+        return [
+            'accuracy' => $accuracy,
+            'presentation' => $presentation,
+            'breakdown' => [
+                'method' => $method,
+                'accuracy_components_hundredths' => $acc,
+                'presentation_components_hundredths' => $pres,
+                'accuracy_hundredths' => $accuracy,
+                'presentation_hundredths' => $presentation,
+            ],
+        ];
+    }
+
+    /** @param array<string, mixed> $calculationSnapshot */
+    public function presentationMicros(array $calculationSnapshot): int
+    {
+        $mean = $calculationSnapshot['components']['presentation']['mean'] ?? null;
+        if (! is_string($mean)) {
+            throw new InvalidArgumentException('Missing or invalid presentation component in calculation snapshot.');
+        }
+
+        return $this->micros($mean);
+    }
+
     /** @param array<string, mixed> $calculationSnapshot */
     public function restoredMeanMicros(array $calculationSnapshot): ?int
     {
@@ -119,7 +189,7 @@ class CalculateScore
 
         $rules = [...$calculationSnapshot['rules'], 'discard_each_end' => 0];
 
-        return $this->micros($this->calculate($scores, $rules, $judgeCount)['score']);
+        return max(0, $this->micros($this->calculate($scores, $rules, $judgeCount)['score']) - (int) ($calculationSnapshot['timing']['penalty_hundredths'] ?? 0) * 10000);
     }
 
     /** @param array<int,array{accuracy:int,presentation:int}> $scores */

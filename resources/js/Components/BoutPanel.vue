@@ -3,7 +3,11 @@ import { useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import FormErrors from './FormErrors.vue';
 import ScoreCorrectionForm from './ScoreCorrectionForm.vue';
+import PerformanceTiming from './PerformanceTiming.vue';
+import { restRemaining, usePerformanceClock } from '../usePerformanceTiming';
 const props = defineProps({ bout: Object, round: Object, category: Object, tournament: Object, base: String, canOperate: Boolean });
+const now = usePerformanceClock(() => props.bout.performances[0]?.server_now);
+const restFor = performance => Math.max(...props.bout.performances.filter(p => p.id === performance.id || props.category.format === 'knockout' && props.category.execution_mode === 'simultaneous' && p.form_number === performance.form_number).map(p => restRemaining(p, now.value)));
 const action = useForm({ command: '', expected_version: 1 });
 const resolution = useForm({ winner_entry_id: '', reason: '' });
 const walkover = useForm({ winner_entry_id: '', reason: '', decision_type: 'walkover', confirmed: false });
@@ -36,9 +40,11 @@ const nextPerformanceId = computed(() => {
                 <p>{{ p.form_name }} <small v-if="category.forms_per_round > 1">فرم {{ p.form_number }} از {{ category.forms_per_round }}</small></p>
                 <audio v-if="canOperate && p.music_url" :src="p.music_url" controls preload="none">پخش موسیقی پشتیبانی نمی‌شود.</audio>
                 <div class="score-result">{{ fmt(p.result) }}</div>
+                <p v-if="p.appeal_pending" class="notice">نتیجه تحت بررسی اعتراض است؛ اصلاح نمره از مسیر رأی ناظر انجام می‌شود.</p>
+                <PerformanceTiming :performance="p"/>
                 <p v-if="p.status === 'scoring'" class="subtle">{{ p.submitted_count }} از {{ category.judge_count }} داور نمره داده‌اند.</p>
                 <div v-if="canOperate && tournament.status !== 'completed'" class="row-actions">
-                    <button v-if="p.status === 'pending' && p.id === nextPerformanceId" class="button small" :disabled="action.processing || !round.forms_ready || !round.previous_completed" @click="command(p,'start')">{{ category.execution_mode === 'simultaneous' && category.format === 'knockout' ? 'شروع همزمان دو ورودی' : 'شروع اجرا' }}</button>
+                    <button v-if="p.status === 'pending' && p.id === nextPerformanceId" class="button small" :disabled="action.processing || !round.forms_ready || !round.previous_completed || restFor(p) > 0" @click="command(p,'start')">{{ category.execution_mode === 'simultaneous' && category.format === 'knockout' ? 'شروع همزمان دو ورودی' : 'شروع اجرا' }}</button>
                     <button v-if="p.status === 'running'" class="button small" :disabled="action.processing" @click="command(p,'finish')">پایان اجرا و دریافت نمره</button>
                     <button v-if="p.status === 'scoring'" class="button small" :disabled="action.processing || p.submitted_count !== category.judge_count" @click="command(p,'approve')">تأیید نهایی و انتشار</button>
                 </div>
@@ -49,7 +55,7 @@ const nextPerformanceId = computed(() => {
                         <p v-if="score.breakdown?.method === 'deductions_and_components_v1'" class="subtle">کسرهای دقت: {{ score.breakdown.accuracy_penalties_hundredths.length ? score.breakdown.accuracy_penalties_hundredths.map(value => (value / 100).toFixed(2)).join('، ') : 'بدون کسر' }} · مؤلفه‌های اجرا: {{ score.breakdown.presentation_components_hundredths.map(value => (value / 100).toFixed(2)).join(' + ') }}</p>
                         <p v-else-if="score.breakdown?.method === 'components_and_deductions_v1'" class="subtle">مؤلفه‌های دقت: {{ score.breakdown.accuracy_components_hundredths.map(value => (value / 100).toFixed(2)).join(' + ') }} · کسرهای اجرا: {{ score.breakdown.presentation_penalties_hundredths.length ? score.breakdown.presentation_penalties_hundredths.map(value => (value / 100).toFixed(2)).join('، ') : 'بدون کسر' }}</p>
                         <p v-else class="subtle">نمرهٔ ثبت‌شده به روش مستقیم</p>
-                        <ScoreCorrectionForm v-if="['scoring', 'approved'].includes(p.status) && round.score_correction_open" :key="score.id" :performance="p" :score="score" :rules="category.rules" :endpoint="`${base}/performances/${p.id}/proxy-scores`" />
+                        <ScoreCorrectionForm v-if="['scoring', 'approved'].includes(p.status) && round.score_correction_open && !p.appeal_pending" :key="score.id" :performance="p" :score="score" :rules="category.rules" :endpoint="`${base}/performances/${p.id}/proxy-scores`" />
                         <p v-else-if="p.status === 'approved' && !round.score_correction_open" class="subtle">مهلت اصلاح نمرهٔ این مرحله بسته شده است.</p>
                         <details v-if="score.history?.length"><summary>سابقهٔ ثبت و اصلاح</summary><div v-for="revision in score.history" :key="revision.revision" class="judge-score-row"><span>ویرایش {{ revision.revision }} · {{ revision.changed_by_name }} · {{ new Date(revision.created_at).toLocaleString('fa-IR') }}<small v-if="revision.reason"> · {{ revision.reason }}</small></span><b>{{ rawScore(revision.snapshot, revision.snapshot.breakdown?.method) }}</b></div></details>
                     </div>

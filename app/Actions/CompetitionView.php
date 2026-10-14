@@ -3,13 +3,15 @@
 namespace App\Actions;
 
 use App\Models\AuditLog;
+use App\Models\CompetitionAppeal;
 use App\Models\Tournament;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
 class CompetitionView
 {
-    public function __construct(private CalculateScore $calculator) {}
+    public function __construct(private CalculateScore $calculator, private CompetitionTiming $timing) {}
 
     public function snapshot(Tournament $tournament, User $actor, bool $display = false): array
     {
@@ -22,7 +24,10 @@ class CompetitionView
             ->whereIn('score_sheet_id', $sheetIds)
             ->select('score_revisions.*', 'users.name as changed_by_name')
             ->orderBy('score_revisions.revision')->get()->groupBy('score_sheet_id') : collect();
-        $categories = $tournament->categories->map(function ($category) use ($actor, $display, $operate, $manage, $components, $revisions, $tournament) {
+        $lastEnded = $tournament->categories->flatMap(fn ($c) => $c->rounds)->flatMap(fn ($r) => $r->bouts)->flatMap(fn ($b) => $b->performances)
+            ->whereNotNull('ended_at')->groupBy('entry_id')->map(fn ($items) => CarbonImmutable::createFromTimestampMs($items->max(fn ($p) => $p->timing_snapshot['ended_at_milliseconds'] ?? $p->ended_at->getTimestampMs())));
+        $appeals = CompetitionAppeal::where('tournament_id', $tournament->id)->get(['id', 'category_id', 'performance_id', 'status'])->keyBy('performance_id');
+        $categories = $tournament->categories->map(function ($category) use ($actor, $display, $operate, $manage, $components, $revisions, $tournament, $lastEnded, $appeals) {
             $checkedInCount = $category->entries->where('status', 'checked_in')->count();
             $automaticStageCount = $category->format === 'knockout' && $category->management_source === null;
             $standingsRoundId = $category->rounds->filter(fn ($round) => $round->bouts->isNotEmpty())->sortBy('sequence')->last()?->id;
@@ -30,18 +35,22 @@ class CompetitionView
             $wins = [];
             $played = [];
             $scores = [];
+            $presentationScores = [];
             $restoredScores = [];
             $scoreBased = $category->format === 'round_robin' && $category->rounds->flatMap(fn ($round) => $round->bouts)->every(fn ($bout) => $bout->entries->count() === 1);
-            $rounds = $category->rounds->sortBy('sequence')->map(function ($round) use ($actor, $display, $operate, $components, $revisions, &$wins, &$played, &$scores, &$restoredScores, $scoreBased, $category, $standingsRoundId, $lastStartedSequence, $tournament) {
-                $bouts = $round->bouts->sortBy('sequence')->map(function ($bout) use ($actor, $display, $operate, $components, $revisions, &$wins, &$played, &$scores, &$restoredScores, $scoreBased, $category, $round, $standingsRoundId) {
+            $rounds = $category->rounds->sortBy('sequence')->map(function ($round) use ($actor, $display, $operate, $components, $revisions, &$wins, &$played, &$scores, &$presentationScores, &$restoredScores, $scoreBased, $category, $standingsRoundId, $lastStartedSequence, $tournament, $lastEnded, $appeals) {
+                $bouts = $round->bouts->sortBy('sequence')->map(function ($bout) use ($actor, $display, $operate, $components, $revisions, &$wins, &$played, &$scores, &$presentationScores, &$restoredScores, $scoreBased, $category, $round, $standingsRoundId, $lastEnded, $appeals) {
                     $ownJudge = $bout->judges->firstWhere('user_id', $actor->id);
                     $totals = [];
+                    $presentationTotals = [];
                     $restoredTotals = [];
                     foreach ($bout->performances->groupBy('entry_id') as $entryId => $forms) {
                         if ($forms->count() === $category->forms_per_round && $forms->every(fn ($p) => $p->status === 'approved' && $p->result?->published_at)) {
                             $aggregation = $category->scoringRuleSet->definition['aggregation'] ?? 'mean_two_forms';
                             $sum = $forms->sum(fn ($p) => $this->calculator->micros($p->result->score));
                             $totals[$entryId] = $this->calculator->format($aggregation === 'mean_two_forms' ? intdiv($sum + 1, 2) : $sum);
+                            $presentationSum = $forms->sum(fn ($p) => $this->calculator->presentationMicros($p->result->calculation_snapshot));
+                            $presentationTotals[$entryId] = $aggregation === 'mean_two_forms' ? intdiv($presentationSum + 1, 2) : $presentationSum;
                             $restoredFormScores = $forms->map(fn ($p) => $this->calculator->restoredMeanMicros($p->result->calculation_snapshot));
                             if (! $restoredFormScores->containsStrict(null)) {
                                 $restoredSum = $restoredFormScores->sum();
@@ -53,6 +62,7 @@ class CompetitionView
                         if ($scoreBased && $round->id === $standingsRoundId && count($totals) === 1) {
                             $entryId = array_key_first($totals);
                             $scores[$entryId] = $this->calculator->micros($totals[$entryId]);
+                            $presentationScores[$entryId] = $presentationTotals[$entryId] ?? null;
                             $restoredScores[$entryId] = $restoredTotals[$entryId] ?? null;
                         }
                         if ($bout->winner_entry_id) {
@@ -68,23 +78,98 @@ class CompetitionView
                         'entries' => $bout->entries->map(fn ($entry) => ['id' => $entry->id, 'name' => $entry->display_name, 'side' => $entry->pivot->side])->values(),
                         'judges' => $operate ? $bout->judges->map(fn ($j) => ['id' => $j->id, 'user_id' => $j->user_id, 'name' => $j->user->name, 'seat' => $j->seat])->values() : [],
                         'totals' => $totals,
-                        'performances' => $bout->performances->sortBy('id')->map(function ($p) use ($bout, $display, $operate, $ownJudge, $components, $revisions, $category) {
+                        'performances' => $bout->performances->sortBy('id')->map(function ($p) use ($bout, $display, $operate, $ownJudge, $components, $revisions, $category, $lastEnded, $appeals) {
                             $own = ! $display && $ownJudge ? $p->scoreSheets->firstWhere('judge_assignment_id', $ownJudge->id) : null;
                             $ownValues = $own ? ($components->get($own->id, collect())->pluck('value_hundredths', 'criterion')->all()) : null;
                             $previewResult = null;
+                            $previewCalc = null;
                             $submitted = $p->scoreSheets->where('status', 'submitted');
-                            if ($display && $p->status === 'scoring'
+                            if ($p->status === 'scoring'
                                 && $bout->judges->count() === $category->judge_count
                                 && $submitted->pluck('judge_assignment_id')->sort()->values()->all() === $bout->judges->pluck('id')->sort()->values()->all()) {
                                 $values = $submitted->map(fn ($sheet) => $components->get($sheet->id, collect())->pluck('value_hundredths', 'criterion')->map(fn ($value) => (int) $value)->all())->values()->all();
-                                $previewResult = $this->calculator->calculate($values, $category->scoringRuleSet->definition, $category->judge_count)['score'];
+                                $previewCalc = $this->timing->applyPenalty($this->calculator->calculate($values, $category->scoringRuleSet->definition, $category->judge_count), $p);
+                                if ($display) {
+                                    $previewResult = $previewCalc['score'];
+                                }
+                            }
+
+                            $calculationSnapshot = $p->result?->published_at ? $p->result->calculation_snapshot : $previewCalc;
+                            $detailedScores = null;
+                            if ($calculationSnapshot !== null) {
+                                $judges = $bout->judges->sortBy('seat')->map(function ($judge) use ($submitted, $components) {
+                                    $sheet = $submitted->firstWhere('judge_assignment_id', $judge->id);
+                                    if (! $sheet) {
+                                        return null;
+                                    }
+                                    $comp = $components->get($sheet->id, collect())->pluck('value_hundredths', 'criterion')->all();
+                                    $breakdown = $sheet->breakdown ?? [];
+
+                                    $accuracyComponents = isset($breakdown['accuracy_components_hundredths'])
+                                        ? array_map(fn ($v) => number_format($v / 100, 2, '.', ''), $breakdown['accuracy_components_hundredths'])
+                                        : [];
+                                    $presentationComponents = isset($breakdown['presentation_components_hundredths'])
+                                        ? array_map(fn ($v) => number_format($v / 100, 2, '.', ''), $breakdown['presentation_components_hundredths'])
+                                        : [];
+
+                                    $accuracyPenalties = isset($breakdown['accuracy_penalties_hundredths'])
+                                        ? array_map(fn ($v) => number_format($v / 100, 2, '.', ''), $breakdown['accuracy_penalties_hundredths'])
+                                        : [];
+                                    $presentationPenalties = isset($breakdown['presentation_penalties_hundredths'])
+                                        ? array_map(fn ($v) => number_format($v / 100, 2, '.', ''), $breakdown['presentation_penalties_hundredths'])
+                                        : [];
+
+                                    $accuracyHundredths = (int) ($comp['accuracy'] ?? ($breakdown['accuracy_hundredths'] ?? 0));
+                                    $presentationHundredths = (int) ($comp['presentation'] ?? ($breakdown['presentation_hundredths'] ?? 0));
+
+                                    return [
+                                        'judge_id' => $judge->id,
+                                        'seat' => $judge->seat,
+                                        'label' => 'J'.$judge->seat,
+                                        'name' => $judge->user?->name,
+                                        'accuracy' => number_format($accuracyHundredths / 100, 2, '.', ''),
+                                        'presentation' => number_format($presentationHundredths / 100, 2, '.', ''),
+                                        'total' => number_format(($accuracyHundredths + $presentationHundredths) / 100, 2, '.', ''),
+                                        'accuracy_components' => $accuracyComponents,
+                                        'presentation_components' => $presentationComponents,
+                                        'accuracy_penalties' => $accuracyPenalties,
+                                        'presentation_penalties' => $presentationPenalties,
+                                    ];
+                                })->filter()->values()->all();
+
+                                $accuracyMean = $calculationSnapshot['components']['accuracy']['mean'] ?? null;
+                                $presentationMean = $calculationSnapshot['components']['presentation']['mean'] ?? null;
+                                $totalScore = $calculationSnapshot['score'] ?? null;
+
+                                $ruleDef = $category->scoringRuleSet->definition ?? [];
+                                $accuracyMax = ($ruleDef['accuracy_max'] ?? 400) / 100;
+                                $presentationMax = ($ruleDef['presentation_max'] ?? 600) / 100;
+
+                                $detailedScores = [
+                                    'discipline' => $category->discipline,
+                                    'method' => $ruleDef['input_method'] ?? null,
+                                    'judges' => $judges,
+                                    'accuracy' => $accuracyMean !== null ? number_format((float) $accuracyMean, 2, '.', '') : null,
+                                    'accuracy_max' => number_format($accuracyMax, 1, '.', ''),
+                                    'presentation' => $presentationMean !== null ? number_format((float) $presentationMean, 2, '.', '') : null,
+                                    'presentation_max' => number_format($presentationMax, 1, '.', ''),
+                                    'total' => $totalScore !== null ? number_format((float) $totalScore, 2, '.', '') : null,
+                                    'total_max' => number_format($accuracyMax + $presentationMax, 1, '.', ''),
+                                ];
                             }
 
                             return [
                                 'id' => $p->id, 'entry_id' => $p->entry_id, 'form_number' => $p->form_number, 'form_name' => $p->form?->name ?? ($category->discipline === 'freestyle' ? 'اجرای ابداعی' : 'در انتظار قرعهٔ پومسه'), 'music_url' => $p->music_path && $operate ? route('operations.performance.music', [$category->tournament_id, $p->id]) : null, 'status' => $p->status, 'version' => $p->version,
-                                'started_at' => $p->started_at?->toISOString(), 'ended_at' => $p->ended_at?->toISOString(),
+                                'started_at' => isset($p->timing_snapshot['started_at_milliseconds']) ? CarbonImmutable::createFromTimestampMs($p->timing_snapshot['started_at_milliseconds'])->toISOString() : $p->started_at?->toISOString(),
+                                'ended_at' => isset($p->timing_snapshot['ended_at_milliseconds']) ? CarbonImmutable::createFromTimestampMs($p->timing_snapshot['ended_at_milliseconds'])->toISOString() : $p->ended_at?->toISOString(),
+                                'timing' => $p->timing_snapshot ?? $this->timing->rules($category),
+                                'server_now' => now()->toISOString(),
+                                'rest_ready_at' => $p->status === 'pending' && $category->minimum_rest_seconds > 0 ? $lastEnded->get($p->entry_id)?->copy()->addSeconds($category->minimum_rest_seconds)->toISOString() : null,
                                 'result' => $p->result?->published_at ? $p->result->score : null,
+                                'appeal_status' => $appeals->get($p->id)?->status,
+                                'appeal_pending' => in_array($appeals->get($p->id)?->status, CompetitionAppeal::OPEN_STATUSES, true),
                                 'preview_result' => $previewResult,
+                                'detailed_scores' => $detailedScores,
                                 'submitted_count' => $p->scoreSheets->where('status', 'submitted')->count(),
                                 'is_assigned' => ! $display && $ownJudge !== null,
                                 'own_score' => $own ? ['revision' => $own->revision, 'values' => $ownValues, 'breakdown' => $own->breakdown] : null,
@@ -115,7 +200,7 @@ class CompetitionView
                     'scheduled' => $round->scheduled_at !== null || $bouts->isNotEmpty(), 'forms_ready' => $formsReady,
                     'form_ids' => $round->form_sequence ?? [], 'form_names' => collect($round->form_sequence ?? [])->map(fn ($id) => $category->forms->firstWhere('id', $id)?->name)->values(),
                     'forms_drawn_at' => $round->forms_drawn_at?->toISOString(), 'started_at' => $round->started_at?->toISOString(),
-                    'previous_completed' => $round->sequence === 1 || $round->started_at !== null || $previous?->status === 'completed',
+                    'previous_completed' => $round->sequence === 1 || $round->started_at !== null || ($previous?->status === 'completed' && $appeals->where('category_id', $category->id)->whereIn('status', CompetitionAppeal::OPEN_STATUSES)->isEmpty()),
                     'advancement_review_required' => (bool) $advancementReview,
                     'schedule_version' => $round->schedule_version, 'source_version' => $round->source_version,
                 ];
@@ -127,36 +212,42 @@ class CompetitionView
                 'id' => $e->id, 'name' => $e->display_name, 'wins' => $wins[$e->id] ?? 0, 'played' => $played[$e->id] ?? 0,
                 'score' => isset($scores[$e->id]) ? $this->calculator->format($scores[$e->id]) : null,
                 'score_micros' => $scores[$e->id] ?? null,
+                'presentation_score_micros' => $presentationScores[$e->id] ?? null,
                 'restored_score_micros' => $restoredScores[$e->id] ?? null,
             ]);
-            $restoredTieBreakScores = $scoreBased
-                ? $standings->whereNotNull('score_micros')->groupBy('score_micros')->filter(
-                    fn ($rows) => $rows->count() > 1 && $rows->every(fn ($row) => $row['restored_score_micros'] !== null)
-                )->keys()->map(fn ($score) => (int) $score)->all()
+            $tiedScoreGroups = $scoreBased
+                ? $standings->whereNotNull('score_micros')->groupBy('score_micros')->filter(fn ($rows) => $rows->count() > 1)->keys()->map(fn ($score) => (int) $score)->all()
                 : [];
-            $standings = $standings->sort(function ($left, $right) use ($scoreBased, $restoredTieBreakScores): int {
+            $standings = $standings->sort(function ($left, $right) use ($scoreBased, $tiedScoreGroups): int {
                 if (! $scoreBased) {
                     return $right['wins'] <=> $left['wins'];
                 }
                 $primaryComparison = ($right['score_micros'] ?? PHP_INT_MIN) <=> ($left['score_micros'] ?? PHP_INT_MIN);
-                if ($primaryComparison !== 0 || ! in_array($left['score_micros'], $restoredTieBreakScores, true)) {
+                if ($primaryComparison !== 0 || ! in_array($left['score_micros'], $tiedScoreGroups, true)) {
                     return $primaryComparison;
                 }
 
-                return $right['restored_score_micros'] <=> $left['restored_score_micros'];
+                $presentationComparison = ($right['presentation_score_micros'] ?? PHP_INT_MIN) <=> ($left['presentation_score_micros'] ?? PHP_INT_MIN);
+                if ($presentationComparison !== 0) {
+                    return $presentationComparison;
+                }
+
+                return ($right['restored_score_micros'] ?? PHP_INT_MIN) <=> ($left['restored_score_micros'] ?? PHP_INT_MIN);
             })->values();
             $previousValue = null;
             $rank = 0;
-            $standings = $standings->map(function ($row, $index) use (&$previousValue, &$rank, $scoreBased, $restoredTieBreakScores) {
-                $usesRestoredTieBreak = $scoreBased && in_array($row['score_micros'], $restoredTieBreakScores, true);
-                $value = $scoreBased ? [$row['score_micros'], $usesRestoredTieBreak ? $row['restored_score_micros'] : null] : $row['wins'];
+            $standings = $standings->map(function ($row, $index) use (&$previousValue, &$rank, $scoreBased, $tiedScoreGroups) {
+                $isTied = $scoreBased && in_array($row['score_micros'], $tiedScoreGroups, true);
+                $value = $scoreBased ? [$row['score_micros'], $isTied ? $row['presentation_score_micros'] : null, $isTied ? $row['restored_score_micros'] : null] : $row['wins'];
                 if ($previousValue !== $value || $index === 0) {
                     $rank = $index + 1;
                     $previousValue = $value;
                 }
 
-                $row['tie_break_score'] = $usesRestoredTieBreak ? $this->calculator->format($row['restored_score_micros']) : null;
+                $row['presentation_score'] = $isTied && $row['presentation_score_micros'] !== null ? $this->calculator->format($row['presentation_score_micros']) : null;
+                $row['tie_break_score'] = $isTied && $row['restored_score_micros'] !== null ? $this->calculator->format($row['restored_score_micros']) : null;
                 unset($row['score_micros']);
+                unset($row['presentation_score_micros']);
                 unset($row['restored_score_micros']);
 
                 return [...$row, 'rank' => $scoreBased && $value[0] === null ? null : $rank];
@@ -169,6 +260,9 @@ class CompetitionView
                 'rounds' => $rounds, 'completed' => $completed, 'champion_id' => $completed && $category->format === 'knockout' ? $last['bouts'][0]['winner_entry_id'] : null,
                 'planned_round_count' => $category->planned_round_count, 'allow_form_repetition' => $category->allow_form_repetition, 'form_draw_timing' => $category->form_draw_timing, 'form_draw_time' => $category->form_draw_time,
                 'round_count_automatic' => $automaticStageCount,
+                'open_appeal_count' => $appeals->where('category_id', $category->id)->whereIn('status', CompetitionAppeal::OPEN_STATUSES)->count(),
+                'timing' => $this->timing->rules($category),
+                'timing_editable' => $manage && ! in_array($tournament->status, ['completed', 'archived'], true) && ! $category->rounds->flatMap(fn ($r) => $r->bouts)->flatMap(fn ($b) => $b->performances)->contains(fn ($p) => $p->started_at !== null || $p->status !== 'pending'),
                 'required_round_count' => $automaticStageCount && $checkedInCount >= 2 ? (int) ceil(log($checkedInCount, 2)) : null,
                 'form_pool' => $category->forms->map(fn ($form) => ['id' => $form->id, 'name' => $form->name])->values(),
                 'draw_available_at' => app(DrawRoundForms::class)->availableAt($tournament, $category)->toISOString(),

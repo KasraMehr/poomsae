@@ -115,7 +115,7 @@ const submitCategory = () => {
                 <p class="subtle wide">اگر حساب وجود دارد، فقط نقش اضافه می‌شود و رمز آن تغییر نمی‌کند.</p>
                 <FormErrors class="wide" :errors="member.errors"/><button class="button" :disabled="member.processing">افزودن عضو</button>
             </form>
-            <div class="member-list"><div v-for="(user,i) in tournament.members" :key="user.id + '-' + i"><span>{{ user.name }} <small dir="ltr">{{ user.email }}</small></span><span class="badge">{{ {judge:'داور',operator:'اپراتور',display:'نمایشگر',manager:'مدیر'}[user.role] }}</span></div></div>
+            <div class="member-list"><div v-for="(user,i) in tournament.members" :key="user.id + '-' + i"><span>{{ user.name }} <small dir="ltr">{{ user.email }}</small></span><span class="badge">{{ {judge:'داور',operator:'اپراتور',display:'نمایشگر',manager:'مدیر',supervisor:'ناظر اعتراض‌ها'}[user.role] }}</span></div></div>
         </section>
         <section class="panel wide">
             <h2>۳. ردهٔ مسابقه</h2>
@@ -154,7 +154,7 @@ const submitCategory = () => {
                     </select>
                     <p v-if="category.discipline === 'recognized'">برای دقت و اجرا جداگانه اعمال می‌شود. داور کسرهای دقت و سه مؤلفهٔ اجرا را ثبت می‌کند؛ نتیجهٔ رقابت مجموع دو فرم است.</p>
                     <p v-else>دقت و اجرا جداگانه فیلتر و میانگین‌گیری می‌شوند؛ جمع دو میانگین، نتیجهٔ یک اجرای ابداعی از ۱۰ است.</p>
-                    <p>در تساوی، نمره‌های حذف‌شده برمی‌گردند و میانگین همهٔ داوران معیار دوم است. پذیرش هر ورزشکار بر اساس بازهٔ تاریخ تولد جدول ردهٔ انتخاب‌شده است.</p>
+                    <p>در تساوی، ابتدا نمرهٔ اجرا مقایسه می‌شود؛ در صورت برابری نمرهٔ اجرا، نمره‌های حذف‌شده برمی‌گردند و میانگین همهٔ داوران معیار بعدی است. پذیرش هر ورزشکار بر اساس بازهٔ تاریخ تولد جدول ردهٔ انتخاب‌شده است.</p>
                     <label class="check"><input v-model="category.rules_acknowledged" type="checkbox" required>این روش محاسبه و شرایط رده را برای این رویداد تأیید می‌کنم.</label>
                 </div>
                 <FormErrors class="wide" :errors="category.errors"/><div class="row-actions wide"><button class="button" :disabled="category.processing || (!selectedAgeCategory && !editingCategory)">{{ editingCategory ? 'ذخیرهٔ رده و قوانین' : 'ساخت رده' }}</button><button v-if="editingCategory" type="button" class="button secondary" :disabled="category.processing" @click="loadCategory(null)">انصراف از ویرایش</button></div>

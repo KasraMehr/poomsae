@@ -28,7 +28,8 @@ usePoll(2000,{only:['tournament']});
             <p class="subtle">اصلاح نمره فقط تا پیش از شروع مرحلهٔ بعدِ همان رده مجاز است.</p>
             <details v-for="{category,round,bout,performance} in approved" :key="performance.id">
                 <summary>{{ category.name }} · {{ round.name }} · {{ bout.entries.find(entry => entry.id === performance.entry_id)?.name }} · {{ performance.form_name }}</summary>
-                <JudgeScoreForm :performance="performance" :rules="category.rules" :endpoint="base + '/performances/' + performance.id + '/scores'" />
+                <p v-if="performance.appeal_pending" class="notice">اعتراض به این نتیجه در جریان است؛ اصلاح فقط از مسیر رأی ناظر مجاز است.</p>
+                <JudgeScoreForm v-else :performance="performance" :rules="category.rules" :endpoint="base + '/performances/' + performance.id + '/scores'" />
             </details>
         </section>
         <p class="judge-offline-note">در قطع شبکه، پیش‌نویس روی همین دستگاه می‌ماند. فقط پیام موفق سرور به معنی ثبت نمره است.</p>

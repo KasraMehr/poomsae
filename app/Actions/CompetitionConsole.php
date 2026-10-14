@@ -61,6 +61,13 @@ class CompetitionConsole
             )
         )->values();
 
+        $performances = $performances->map(function (array $performance) use ($performances): array {
+            if ($performance['status'] === 'pending' && $performance['format'] === 'knockout' && $performance['execution_mode'] === 'simultaneous') {
+                $performance['rest_ready_at'] = $performances->where('bout_id', $performance['bout_id'])->where('form_number', $performance['form_number'])->max('rest_ready_at');
+            }
+
+            return $performance;
+        });
         $courts = collect($tournamentView['courts'])->map(function (array $court) use ($performances) {
             $courtPerformances = $performances->where('court_id', $court['id'])->values();
 

@@ -32,6 +32,7 @@ class ExportCompetitionResults
                         $secondForm = $performances->get(1);
                         $total = $bout['totals'][$entryId] ?? null;
                         $resultStatus = match (true) {
+                            collect($bout['performances'])->contains(fn (array $performance): bool => $performance['appeal_pending'] ?? false) => 'تحت بررسی اعتراض',
                             $bout['winner_entry_id'] === (int) $entryId => 'برنده',
                             $bout['winner_entry_id'] !== null => 'بازنده',
                             $category['score_based'] && $total !== null => 'ثبت‌شده',

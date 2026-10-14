@@ -1,5 +1,6 @@
 <script setup>
 import { entryTotal, elapsed, formatScore, statusLabels } from '../display';
+import PerformanceTiming from './PerformanceTiming.vue';
 defineProps({ bout: Object, category: Object, round: Object, courtName: String, now: Number });
 const ranks = (category, round, entryId) => category.standings_round_id === round.id ? category.standings.find(entry => entry.id === entryId)?.rank : null;
 </script>
@@ -15,6 +16,8 @@ const ranks = (category, round, entryId) => category.standings_round_id === roun
                     <span>{{ performance.form_name }}</span><strong :class="{ 'temporary-score': performance.result == null && performance.preview_result != null }">{{ formatScore(performance.result ?? performance.preview_result) }}</strong>
                     <small>{{ statusLabels[performance.status] }}<span v-if="performance.status === 'running'"> · {{ elapsed(performance, now) }}</span><span v-if="performance.status === 'scoring'"> · {{ performance.submitted_count }} از {{ category.judge_count }} نمره دریافت شد</span></small>
                     <small v-if="performance.result == null && performance.preview_result != null" class="temporary-score">امتیاز موقت · در انتظار تأیید مسئول</small>
+                    <PerformanceTiming :performance="performance"/>
+                    <small v-if="performance.appeal_pending" class="temporary-score">نتیجه تحت بررسی اعتراض است.</small>
                 </div>
                 <p v-if="!bout.performances.length" class="display-bye">استراحت در جدول · صعود بدون اجرا</p>
                 <div class="display-total"><span>{{ category.forms_per_round === 1 ? 'نمرهٔ اجرا' : category.rules?.aggregation === 'mean_two_forms' ? 'میانگین دو پومسه' : 'مجموع امتیاز' }}<small v-if="entryTotal(bout, category, entry.id).temporary"> · موقت</small></span><b>{{ formatScore(entryTotal(bout, category, entry.id).score) }}</b></div>

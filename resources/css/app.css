@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import './reports.css';
 @source '../**/*.vue';
 @source '../**/*.blade.php';
 

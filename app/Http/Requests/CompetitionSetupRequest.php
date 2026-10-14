@@ -28,7 +28,7 @@ class CompetitionSetupRequest extends FormRequest
             'member' => [
                 'name' => ['required', 'string', 'max:100'], 'email' => ['required', 'email', 'max:255'],
                 'password' => ['nullable', 'string', 'min:12', 'max:255'],
-                'role' => ['required', Rule::in(['judge', 'operator', 'display'])],
+                'role' => ['required', Rule::in(['judge', 'operator', 'display', 'supervisor'])],
             ],
             'category' => [
                 'name' => ['required', 'string', 'max:100', Rule::unique('categories')->where('tournament_id', $tournament->id)->ignore($this->route('category')?->id)],
@@ -42,7 +42,7 @@ class CompetitionSetupRequest extends FormRequest
                 'execution_mode' => ['sometimes', Rule::in($discipline === 'freestyle' ? ['alternating'] : ['alternating', 'simultaneous'])],
                 'performance_order' => ['sometimes', Rule::in($discipline === 'freestyle' ? ['consecutive'] : ['consecutive', 'phased'])],
                 'judge_count' => ['required', 'integer', Rule::in([3, 5, 7])],
-                'accuracy_max' => ['sometimes', 'integer', Rule::in($discipline === 'freestyle' ? [600] : [400])],
+                'accuracy_max' => ['sometimes', 'integer', Rule::in($discipline === 'freestyle' ? [400, 600] : [400])],
                 'discard_each_end' => ['required', 'integer', Rule::in(match ($this->integer('judge_count')) {
                     3 => [0], 7 => [1, 2], default => [1],
                 })],

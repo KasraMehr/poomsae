@@ -37,7 +37,7 @@ const draw = useForm({ round_id: null });
 const manualForms = useForm({ round_id: null, form_ids: [] });
 const scheduledRounds = computed(() => props.category.rounds.filter(round => round.scheduled));
 const nextStage = computed(() => props.category.rounds.find(round => !round.scheduled));
-const canSchedule = computed(() => !props.category.completed && !props.category.management_source && (props.category.planned_round_count ? Boolean(nextStage.value) : !scheduledRounds.value.length || props.category.format === 'knockout'));
+const canSchedule = computed(() => !props.category.completed && (!props.category.management_source || props.category.management_source === 'tkdhub') && (props.category.planned_round_count ? Boolean(nextStage.value) : !scheduledRounds.value.length || props.category.format === 'knockout'));
 const previousComplete = computed(() => !scheduledRounds.value.length || scheduledRounds.value.at(-1).status === 'completed');
 const drawAvailable = computed(() => Date.now() >= Date.parse(props.category.draw_available_at));
 const attendanceReady = computed(() => props.category.entries.filter(entry => entry.status === 'checked_in').length >= 2 && !props.category.entries.some(entry => entry.status === 'registered'));
@@ -59,6 +59,7 @@ const scheduleRound = () => schedule.post(props.base + '/categories/' + props.ca
 </script>
 <template>
     <div>
+        <p v-if="category.open_appeal_count" class="notice">این رده {{ category.open_appeal_count }} اعتراض باز دارد. ساخت و شروع مرحلهٔ بعد پس از تعیین تکلیف رأی ناظر مجاز است.</p>
         <section v-if="category.discipline === 'freestyle'" class="panel"><h2>ترتیب اجرای ابداعی</h2><p>{{ category.format === 'knockout' ? 'هر رقابت: ابتدا A، سپس B؛ یک اجرا با موسیقی برای هر ورودی.' : 'ورودی‌ها به‌ترتیب A، B، C و ... اجرا می‌کنند؛ یک اجرا با موسیقی برای هر ورودی در هر مرحله.' }}</p><p v-if="category.entry_type === 'pair'" class="subtle">اعضای هر زوج با هم یک اجرا انجام می‌دهند؛ هر زوج یک ورودی مسابقه است.</p></section>
         <section v-if="category.management_source" class="panel"><p>اطلاعات از {{ category.management_source }} دریافت شده است · نسخهٔ {{ category.management_version }}</p><p class="subtle">نسخهٔ محلی ذخیره شده است؛ اجرای مرحلهٔ آماده به اتصال سیستم مدیریت وابسته نیست.</p></section>
         <section class="panel" v-if="!category.registration_locked && !category.management_source">
@@ -102,7 +103,7 @@ const scheduleRound = () => schedule.post(props.base + '/categories/' + props.ca
         </section>
         <section class="panel" v-if="canSchedule">
             <h2>{{ nextStage ? `ساخت جدول ${nextStage.name}` : scheduledRounds.length ? 'ساخت دور بعد' : 'ساخت قرعه و برنامهٔ اجرا' }}</h2>
-            <p class="subtle">{{ scheduledRounds.length ? 'پس از پایان مرحلهٔ قبل، برنامهٔ مرحلهٔ بعد ساخته می‌شود.' : 'ورودی‌های حاضر با قرعهٔ تصادفی در جدول قرار می‌گیرند.' }}</p>
+            <p class="subtle">{{ category.management_source === 'tkdhub' ? 'ترتیب ورزشکاران طبق قرعهٔ tkdhub حفظ می‌شود؛ زمین و پنل داورها را انتخاب کنید.' : scheduledRounds.length ? 'پس از پایان مرحلهٔ قبل، برنامهٔ مرحلهٔ بعد ساخته می‌شود.' : 'ورودی‌های حاضر با قرعهٔ تصادفی در جدول قرار می‌گیرند.' }}</p>
             <form @submit.prevent="scheduleRound">
                 <p class="field-label">زمین‌های اجرای این مرحله · انتخاب یک تا چهار زمین</p>
                 <div class="judge-options"><label v-for="court in tournament.courts" :key="court.id" class="check"><input type="checkbox" :checked="selectedCourtIds.includes(court.id)" :disabled="schedule.processing || (!selectedCourtIds.includes(court.id) && schedule.courts.length === 4)" @change="toggleCourt(court.id)">{{ court.name }}</label></div>

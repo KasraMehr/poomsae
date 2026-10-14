@@ -23,7 +23,7 @@ usePoll(2000, { only: ['console', 'can'] });
         <Head :title="`میز اجرا · ${tournament.name}`" />
         <section class="page-heading console-heading">
             <div><div class="arena-kicker"><span>COURT CONTROL</span><span>LIVE OPERATIONS</span></div><h1>{{ tournament.name }}</h1><p class="subtle">{{ tournament.venue || 'محل تعیین نشده' }} · مرکز فرمان اجرای زنده</p></div>
-            <div class="row-actions"><a :href="competitionUrls.excel" class="button">دریافت Excel (.xlsx)</a><a :href="competitionUrls.results" class="button secondary">جدول نتایج و دریافت فایل</a></div>
+            <div class="row-actions"><Link :href="competitionUrls.appeals" class="button secondary">اعتراض‌ها و رأی ناظر</Link><Link :href="competitionUrls.reports" class="button secondary">گزارش‌ها و آرشیو</Link><a :href="competitionUrls.excel" class="button">دریافت Excel (.xlsx)</a><a :href="competitionUrls.results" class="button secondary">جدول نتایج و دریافت فایل</a></div>
         </section>
 
         <section class="console-stats">
@@ -38,6 +38,7 @@ usePoll(2000, { only: ['console', 'can'] });
 
         <details v-for="category in tournament.categories" :key="category.id" class="panel competition-details">
             <summary>{{ category.name }} · جدول و تصمیم‌های ویژه</summary>
+            <p v-if="category.open_appeal_count" class="notice">{{ category.open_appeal_count }} اعتراض باز در این رده وجود دارد؛ مرحلهٔ بعد پس از تعیین تکلیف اعتراض‌ها اجرا می‌شود.</p>
             <p v-if="!category.rounds.length" class="subtle">هنوز دوری برای این رده ساخته نشده است.</p>
             <section v-for="round in category.rounds" :key="round.id"><div class="section-heading"><h2>{{ round.name }}</h2><span class="subtle">{{ round.bouts.length }} {{ category.score_based ? 'ورزشکار' : 'رقابت' }}</span></div><BoutPanel v-for="bout in round.bouts" :key="bout.id" :bout="bout" :round="round" :category="category" :tournament="tournament" :base="competitionUrls.base" :can-operate="can.operate" /></section>
         </details>

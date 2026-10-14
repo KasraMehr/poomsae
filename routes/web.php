@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CompetitionAppealController;
+use App\Http\Controllers\CompetitionReportController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\JudgingController;
 use App\Http\Controllers\OperationsController;
@@ -19,12 +21,23 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
     Route::resource('tournaments', TournamentController::class)->only(['index', 'store', 'show', 'update']);
     Route::prefix('tournaments/{tournament}')->group(function () {
+        Route::get('/appeals', [CompetitionAppealController::class, 'index'])->name('appeals.index');
+        Route::post('/appeals', [CompetitionAppealController::class, 'store'])->name('appeals.store');
+        Route::post('/appeals/{appeal}/review', [CompetitionAppealController::class, 'review'])->name('appeals.review');
+        Route::post('/appeals/{appeal}/decision', [CompetitionAppealController::class, 'decide'])->name('appeals.decide');
+        Route::post('/appeals/{appeal}/apply', [CompetitionAppealController::class, 'apply'])->name('appeals.apply');
+        Route::get('/reports/judges', [CompetitionReportController::class, 'judges'])->name('reports.judges');
+        Route::get('/reports/audit', [CompetitionReportController::class, 'audit'])->name('reports.audit');
+        Route::get('/reports/medals', [CompetitionReportController::class, 'medals'])->name('reports.medals');
+        Route::post('/archive', [CompetitionReportController::class, 'archive'])->name('tournaments.archive');
+        Route::post('/restore', [CompetitionReportController::class, 'restore'])->name('tournaments.restore');
         Route::get('/setup', [TournamentController::class, 'setup'])->name('tournaments.setup');
         Route::post('/courts', [OperationsController::class, 'court'])->name('operations.court');
         Route::put('/courts/{court}', [OperationsController::class, 'updateCourt'])->name('operations.court.update');
         Route::post('/members', [OperationsController::class, 'member'])->name('operations.member');
         Route::post('/categories', [OperationsController::class, 'category'])->name('operations.category');
         Route::put('/categories/{category}', [OperationsController::class, 'category'])->name('operations.category.update');
+        Route::put('/categories/{category}/timing', [OperationsController::class, 'timing'])->name('operations.category.timing');
         Route::post('/categories/{category}/entries', [OperationsController::class, 'entry'])->name('operations.entry');
         Route::patch('/entries/{entry}/status', [OperationsController::class, 'entryStatus'])->name('operations.entry.status');
         Route::put('/entries/{entry}', [OperationsController::class, 'updateEntry'])->name('operations.entry.update');

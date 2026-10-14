@@ -131,9 +131,12 @@ class CompetitionSetup
             $allowRepetition = (bool) ($data['allow_form_repetition'] ?? true);
             $this->check($plannedRoundCount === null || $plannedRoundCount >= 1, 'تعداد مراحل باید حداقل ۱ باشد.');
             $this->check($discipline === 'freestyle' ? in_array($entryType, ['individual', 'pair'], true) : in_array($entryType, ['individual', 'team'], true), 'نوع شرکت در این سبک معتبر نیست.');
-            $this->check((int) ($data['accuracy_max'] ?? ($discipline === 'freestyle' ? 600 : 400)) === ($discipline === 'freestyle' ? 600 : 400), 'سقف نمرهٔ رده معتبر نیست.');
+            $accuracyMax = (int) ($data['accuracy_max'] ?? 400);
+            $this->check($discipline === 'freestyle' ? in_array($accuracyMax, [400, 600], true) : $accuracyMax === 400, 'سقف نمرهٔ رده معتبر نیست.');
             $definition = $discipline === 'freestyle'
-                ? ['algorithm' => 'component_trimmed_mean_v1', 'accuracy_max' => 600, 'presentation_max' => 400, 'accuracy_component_max' => 200, 'presentation_deduction_options' => [10, 30], 'input_method' => 'components_and_deductions_v1', 'discard_each_end' => $discardEachEnd, 'aggregation' => 'single_performance', 'tie_break' => 'restore_all_judges_mean_then_operator', 'age_basis' => 'birthday_on_start_date']
+                ? ($accuracyMax === 400
+                    ? ['algorithm' => 'component_trimmed_mean_v1', 'accuracy_max' => 400, 'presentation_max' => 600, 'accuracy_component_max' => 100, 'accuracy_component_count' => 4, 'presentation_component_max' => 100, 'presentation_component_count' => 6, 'input_method' => 'freestyle_components_v1', 'discard_each_end' => $discardEachEnd, 'aggregation' => 'single_performance', 'tie_break' => 'restore_all_judges_mean_then_operator', 'age_basis' => 'birthday_on_start_date']
+                    : ['algorithm' => 'component_trimmed_mean_v1', 'accuracy_max' => 600, 'presentation_max' => 400, 'accuracy_component_max' => 200, 'presentation_deduction_options' => [10, 30], 'input_method' => 'components_and_deductions_v1', 'discard_each_end' => $discardEachEnd, 'aggregation' => 'single_performance', 'tie_break' => 'restore_all_judges_mean_then_operator', 'age_basis' => 'birthday_on_start_date'])
                 : ['algorithm' => 'component_trimmed_mean_v1', 'accuracy_max' => 400, 'presentation_max' => 600, 'accuracy_deduction_options' => [10, 30], 'presentation_component_max' => 200, 'input_method' => 'deductions_and_components_v1', 'discard_each_end' => $discardEachEnd, 'aggregation' => 'sum_two_forms', 'tie_break' => 'restore_all_judges_mean_then_operator', 'age_basis' => 'birthday_on_start_date'];
             if ($ageCategory !== null) {
                 $definition['age_basis'] = 'birth_date_range';

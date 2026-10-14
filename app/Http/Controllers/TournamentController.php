@@ -19,8 +19,22 @@ class TournamentController extends Controller
 {
     public function index(Request $request): Response
     {
+        $filters = $request->validate(['status' => ['nullable', 'in:active,archived,all']]);
+        $status = $filters['status'] ?? 'active';
+        $query = Tournament::query()->visibleTo($request->user())->withCount('categories', 'courts')->latest();
+        if ($status === 'archived') {
+            $query->where('status', 'archived');
+        } elseif ($status === 'active') {
+            $query->where('status', '!=', 'archived');
+        }
+
         return Inertia::render('Tournaments/Index', [
-            'tournaments' => Tournament::query()->visibleTo($request->user())->withCount('categories', 'courts')->latest()->paginate(12),
+            'tournaments' => $query->paginate(12)->withQueryString(),
+            'statusFilter' => $status,
+            'listUrls' => [
+                'active' => route('tournaments.index'), 'archived' => route('tournaments.index', ['status' => 'archived']),
+                'all' => route('tournaments.index', ['status' => 'all']),
+            ],
         ]);
     }
 
@@ -36,6 +50,9 @@ class TournamentController extends Controller
         Gate::authorize('view', $tournament);
 
         if (! $request->user()->can('operate', $tournament)) {
+            if ($request->user()->can('reviewAppeals', $tournament)) {
+                return redirect()->route('appeals.index', $tournament);
+            }
             if ($request->user()->hasTournamentRole($tournament, ['judge'])) {
                 return redirect()->route('judging.index', $tournament);
             }
@@ -75,7 +92,7 @@ class TournamentController extends Controller
     {
         return [
             'manage' => $request->user()->can('update', $tournament),
-            'operate' => $request->user()->can('operate', $tournament),
+            'operate' => $tournament->status !== 'archived' && $request->user()->can('operate', $tournament),
             'judge' => $request->user()->hasTournamentRole($tournament, ['judge']),
         ];
     }
@@ -92,6 +109,8 @@ class TournamentController extends Controller
             'export' => route('scoreboard.export', $tournament),
             'results' => route('scoreboard.results', $tournament),
             'excel' => route('scoreboard.excel', $tournament),
+            'reports' => route('reports.judges', $tournament),
+            'appeals' => route('appeals.index', $tournament),
         ];
     }
 }

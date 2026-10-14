@@ -6,6 +6,7 @@ use App\Events\CompetitionDomainUpdated;
 use App\Events\CompetitionUpdated;
 use App\Models\AuditLog;
 use App\Models\Bout;
+use App\Models\CompetitionAppeal;
 use App\Models\CompetitionRound;
 use App\Models\Entry;
 use App\Models\Performance;
@@ -33,15 +34,19 @@ class PublishCompetitionUpdate
     private function domains(string $action): array
     {
         return match (true) {
+            str_starts_with($action, 'appeal.') => ['appeals', 'console', 'judging', 'scoreboard', 'results', 'draw'],
             $action === 'court.created' => ['courts', 'console'],
             $action === 'court.updated' => ['courts', 'console', 'judging', 'scoreboard'],
             $action === 'member.added' => ['members', 'judging', 'console'],
             $action === 'category.saved' => ['athletes', 'draw', 'results', 'console', 'judging', 'scoreboard'],
+            $action === 'category.timing_updated' => ['console', 'judging', 'scoreboard'],
             $action === 'entry.updated' => ['athletes', 'draw', 'results', 'console', 'judging', 'scoreboard'],
             str_starts_with($action, 'entry.') => ['athletes', 'draw'],
             $action === 'round.forms_drawn' => ['draw', 'judging', 'console', 'scoreboard'],
             $action === 'round.scheduled' => ['draw', 'courts', 'judging', 'console', 'scoreboard', 'results'],
             $action === 'management.snapshot_imported' => ['athletes', 'draw', 'courts', 'judging', 'console', 'scoreboard', 'results'],
+            $action === 'tkdhub.division_imported' => ['athletes', 'draw', 'console', 'judging', 'scoreboard', 'results'],
+            $action === 'tkdhub.result_sent' => ['results'],
             str_starts_with($action, 'score.') => ['console', 'judging', 'scoreboard'],
             $action === 'performance.approve' => ['courts', 'console', 'judging', 'scoreboard', 'results'],
             str_starts_with($action, 'performance.') => ['courts', 'console', 'judging', 'scoreboard'],
@@ -69,6 +74,7 @@ class PublishCompetitionUpdate
         }
 
         return match ($audit->subject_type) {
+            'competition_appeal' => $this->appealContext(CompetitionAppeal::findOrFail($id)),
             'bout' => $this->boutContext(Bout::findOrFail($id)),
             'competition_round' => $this->roundContext(CompetitionRound::findOrFail($id)),
             'entry' => ['category_id' => Entry::findOrFail($id)->category_id, 'entry_id' => $id],
@@ -82,6 +88,14 @@ class PublishCompetitionUpdate
     private function boutContext(Bout $bout): array
     {
         return ['category_id' => $bout->category_id, 'round_id' => $bout->competition_round_id, 'bout_id' => $bout->id, 'court_ids' => $bout->court_id === null ? [] : [$bout->court_id]];
+    }
+
+    /** @return array<string, int|array<int,int>> */
+    private function appealContext(CompetitionAppeal $appeal): array
+    {
+        $performance = $appeal->performance()->firstOrFail();
+
+        return [...$this->boutContext($performance->bout()->firstOrFail()), 'appeal_id' => $appeal->id, 'performance_id' => $performance->id, 'entry_id' => $performance->entry_id];
     }
 
     /** @return array{category_id:int, round_id:int, court_ids:array<int, int>} */

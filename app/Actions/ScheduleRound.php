@@ -3,6 +3,7 @@
 namespace App\Actions;
 
 use App\Models\Category;
+use App\Models\CompetitionAppeal;
 use App\Models\CompetitionRound;
 use App\Models\Draw;
 use App\Models\Tournament;
@@ -16,10 +17,11 @@ class ScheduleRound
     public function handle(User $actor, Tournament $tournament, Category $category, array $data): void
     {
         $this->setup->locked($actor, $tournament, function (Tournament $tournament) use ($actor, $category, $data): void {
-            $category = Category::with('scoringRuleSet')->findOrFail($category->id);
+            $category = Category::with('scoringRuleSet')->lockForUpdate()->findOrFail($category->id);
             abort_unless($category->tournament_id === $tournament->id, 404);
             $check = fn (bool $ok, string $message) => $this->setup->check($ok, $message);
-            $check($category->management_source === null, 'برنامهٔ این رده از سیستم مدیریت مسابقات دریافت می‌شود.');
+            $check(in_array($category->management_source, [null, 'tkdhub'], true), 'برنامهٔ این رده از سیستم مدیریت مسابقات دریافت می‌شود.');
+            $externalDraw = $category->management_source === 'tkdhub';
             $check(($category->discipline === 'recognized' && in_array($category->entry_type, ['individual', 'team'], true) || $category->discipline === 'freestyle' && in_array($category->entry_type, ['individual', 'pair'], true)) && in_array($category->execution_mode, ['alternating', 'simultaneous'], true), 'نوع برگزاری این رده معتبر نیست.');
             $check($category->format !== 'round_robin' || $category->execution_mode === 'alternating', 'اجرای همزمان فقط برای تک‌حذفی دوبل است.');
             $check($category->scoringRuleSet?->approved_at !== null && ($category->scoringRuleSet->definition['algorithm'] ?? null) === 'component_trimmed_mean_v1', 'تنظیمات محاسبهٔ این رده تأیید نشده است.');
@@ -29,6 +31,7 @@ class ScheduleRound
             $this->setup->prepareKnockoutStages($actor, $tournament, $category);
             $previous = $category->rounds()->whereHas('bouts')->orderByDesc('sequence')->first();
             if ($previous) {
+                $check(! CompetitionAppeal::open()->where('category_id', $category->id)->exists(), 'پیش از ساخت مرحلهٔ بعد، اعتراض‌های باز این رده را تعیین تکلیف کنید.');
                 $check($category->format === 'knockout' || $category->planned_round_count !== null, 'جدول دورهای بدون برنامهٔ مرحله‌ای فقط یک بار ساخته می‌شود.');
                 $bouts = $previous->bouts()->orderBy('sequence')->get();
                 $check($previous->status === 'completed', 'مرحلهٔ قبل باید کامل شده باشد.');
@@ -42,13 +45,15 @@ class ScheduleRound
                 $seed = 'previous-round-'.$previous->id;
             } else {
                 $check(! $category->entries()->where('status', 'registered')->exists(), 'حضور یا انصراف تمام ورزشکاران ثبت‌نام‌شده را مشخص کنید.');
-                $ids = $category->entries()->where('status', 'checked_in')->orderBy('id')->pluck('id')->all();
-                $check(count($ids) >= 2, 'حداقل دو ورودی حاضر لازم است.');
+                $ids = $category->entries()->where('status', 'checked_in')->orderBy($externalDraw ? 'seed' : 'id')->pluck('id')->all();
+                $check(count($ids) >= ($externalDraw ? 1 : 2), $externalDraw ? 'حداقل یک ورزشکار در قرعهٔ tkdhub لازم است.' : 'حداقل دو ورودی حاضر لازم است.');
                 if ($category->discipline === 'freestyle') {
                     $check($category->entries()->whereIn('id', $ids)->whereNull('music_path')->doesntExist(), 'فایل موسیقی تمام ورودی‌های حاضر لازم است.');
                 }
-                $seed = bin2hex(random_bytes(16));
-                usort($ids, fn ($a, $b) => strcmp(hash('sha256', $seed.':'.$a), hash('sha256', $seed.':'.$b)));
+                $seed = $externalDraw ? $category->management_hash : bin2hex(random_bytes(16));
+                if (! $externalDraw) {
+                    usort($ids, fn ($a, $b) => strcmp(hash('sha256', $seed.':'.$a), hash('sha256', $seed.':'.$b)));
+                }
             }
             $sequence = ($previous?->sequence ?? 0) + 1;
             $check($category->planned_round_count === null || $sequence <= $category->planned_round_count, 'تمام مراحل برنامه‌ریزی‌شده ساخته شده‌اند.');
@@ -73,7 +78,7 @@ class ScheduleRound
                     $pairs[] = $pair;
                 }
             }
-            $this->createBouts($actor, $tournament, $category, $round, $pairs, $courtPanels, $seed, $previous ? 'advance_in_order_v1' : 'sha256_seed_sort_v1');
+            $this->createBouts($actor, $tournament, $category, $round, $pairs, $courtPanels, $seed, $externalDraw ? 'tkdhub_draw_positions_v1' : ($previous ? 'advance_in_order_v1' : 'sha256_seed_sort_v1'));
         });
     }
 

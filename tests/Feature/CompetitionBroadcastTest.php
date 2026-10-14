@@ -357,7 +357,7 @@ class CompetitionBroadcastTest extends TestCase
         Sanctum::actingAs($fixture['admin'], ['tournaments:read']);
         $this->getJson('/api/v1/tournaments/'.$fixture['tournament']->id.'/competition')
             ->assertOk()->assertJsonPath('data.revision', AuditLog::where('tournament_id', $fixture['tournament']->id)->max('id'))
-            ->assertJsonPath('realtime.events', ['scoreboard.updated', 'console.updated', 'judging.updated', 'athletes.updated', 'draw.updated', 'results.updated', 'courts.updated', 'members.updated']);
+            ->assertJsonPath('realtime.events', ['scoreboard.updated', 'console.updated', 'judging.updated', 'athletes.updated', 'draw.updated', 'results.updated', 'courts.updated', 'members.updated', 'appeals.updated']);
     }
 
     private function configureMercure(): void
