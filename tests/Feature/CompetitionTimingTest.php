@@ -8,6 +8,7 @@ use App\Actions\CompetitionDisplay;
 use App\Actions\CompetitionTiming;
 use App\Actions\CompetitionView;
 use App\Actions\RunCompetition;
+use App\Models\Bout;
 use App\Models\Performance;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -259,5 +260,98 @@ class CompetitionTimingTest extends TestCase
         $this->assertSame('01:29', $court['current']['live_timing']['remaining_formatted']);
         $this->assertSame(89, $court['current']['live_timing']['remaining_seconds']);
         $this->assertSame(1, $court['current']['form_badge']);
+    }
+
+    public function test_late_arrival_after_rest_does_not_deduct_points_from_athlete_score(): void
+    {
+        $this->freezeSecond();
+        $fixture = $this->competition(5, 2, 'knockout');
+        $this->schedule($fixture);
+        $this->configure($fixture, [
+            'minimum_rest_seconds' => 30,
+            'minimum_duration_seconds' => 0,
+            'maximum_duration_seconds' => 90,
+            'time_penalty_hundredths' => 30,
+        ]);
+
+        $bout = Bout::with(['performances', 'entries'])->firstOrFail();
+        $firstForms = $bout->performances()->where('form_number', 1)->orderBy('id')->get();
+        foreach ($firstForms as $form) {
+            $this->startScoring($fixture, $form);
+            $this->scoreAll($fixture, $form);
+            $this->command($fixture, $form, 'approve');
+        }
+
+        // Rest period expires (30 seconds), and athlete arrives 10 minutes late (600 seconds later)
+        $this->travel(630)->seconds();
+
+        $secondForms = $bout->performances()->where('form_number', 2)->orderBy('id')->get();
+        $secondFormAthlete1 = $secondForms[0];
+        $this->assertSame('pending', $secondFormAthlete1->status);
+
+        // Operator starts form 2
+        $this->command($fixture, $secondFormAthlete1, 'start');
+        $this->assertSame('running', $secondFormAthlete1->fresh()->status);
+
+        // Athlete executes form 2 in 60 seconds (within 0 - 90s range)
+        $this->travel(60)->seconds();
+        $this->command($fixture, $secondFormAthlete1, 'finish');
+        $this->assertSame('scoring', $secondFormAthlete1->fresh()->status);
+        $this->assertNull($secondFormAthlete1->fresh()->timing_snapshot['violation']);
+        $this->assertSame(0, $secondFormAthlete1->fresh()->timing_snapshot['penalty_hundredths']);
+
+        // Score is submitted and approved
+        $this->scoreAll($fixture, $secondFormAthlete1);
+        $this->command($fixture, $secondFormAthlete1, 'approve');
+
+        $result = $secondFormAthlete1->fresh()->result;
+        $this->assertNotNull($result);
+        $this->assertSame(0, $result->calculation_snapshot['timing']['penalty_hundredths'] ?? 0);
+        $this->assertSame($result->calculation_snapshot['gross_score'], $result->score);
+    }
+
+    public function test_athlete_who_does_not_show_up_after_rest_results_in_opponent_walkover_win(): void
+    {
+        $this->freezeSecond();
+        $fixture = $this->competition(5, 2, 'knockout');
+        $this->schedule($fixture);
+        $this->configure($fixture, [
+            'minimum_rest_seconds' => 30,
+        ]);
+
+        $bout = Bout::with(['performances', 'entries'])->firstOrFail();
+        $entries = $bout->entries;
+        $presentAthlete = $entries[0];
+        $absentAthlete = $entries[1];
+
+        // Athletes complete form 1
+        $firstForms = $bout->performances()->where('form_number', 1)->orderBy('id')->get();
+        foreach ($firstForms as $form) {
+            $this->startScoring($fixture, $form);
+            $this->scoreAll($fixture, $form);
+            $this->command($fixture, $form, 'approve');
+        }
+
+        // Rest time elapses, but absent athlete never shows up for form 2
+        $this->travel(120)->seconds();
+
+        // Operator declares opponent win via walkover
+        app(RunCompetition::class)->resolve($fixture['admin'], $fixture['tournament'], $bout, [
+            'decision_type' => 'walkover',
+            'winner_entry_id' => $presentAthlete->id,
+            'reason' => 'عدم حضور ورزشکار در زمان مقرر پس از استراحت',
+            'confirmed' => true,
+        ]);
+
+        $bout->refresh();
+        $this->assertSame('completed', $bout->status);
+        $this->assertSame($presentAthlete->id, $bout->winner_entry_id);
+        $this->assertStringContainsString('عدم حضور', $bout->resolution_reason);
+
+        // Verify remaining pending performances for form 2 are cancelled
+        $secondForms = $bout->performances()->where('form_number', 2)->get();
+        foreach ($secondForms as $form) {
+            $this->assertSame('cancelled', $form->status);
+        }
     }
 }
