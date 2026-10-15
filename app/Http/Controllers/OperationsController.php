@@ -128,7 +128,7 @@ class OperationsController extends Controller
     {
         $run->resolve($request->user(), $tournament, $bout, $request->validated());
 
-        return back()->with('success', 'تصمیم تساوی ثبت شد.');
+        return back()->with('success', $request->validated('decision_type') === 'walkover' ? 'انصراف ثبت و اجراهای باقی‌مانده لغو شد.' : 'تصمیم تساوی ثبت شد.');
     }
 
     public function complete(Request $request, Tournament $tournament, RunCompetition $run): RedirectResponse

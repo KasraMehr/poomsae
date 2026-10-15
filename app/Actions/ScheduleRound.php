@@ -40,7 +40,7 @@ class ScheduleRound
                     $check($bouts->count() > 1, 'فینال پایان یافته است.');
                     $ids = $bouts->pluck('winner_entry_id')->all();
                 } else {
-                    $ids = $bouts->flatMap(fn ($bout) => $bout->entries()->pluck('entries.id'))->all();
+                    $ids = $bouts->filter(fn ($bout) => $bout->resolution_reason === null || ! str_starts_with($bout->resolution_reason, 'انصراف'))->flatMap(fn ($bout) => $bout->entries()->pluck('entries.id'))->all();
                 }
                 $seed = 'previous-round-'.$previous->id;
             } else {

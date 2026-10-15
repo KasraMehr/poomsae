@@ -115,7 +115,7 @@ class CompetitionConsole
                 ? sprintf('%06d-%02d-%010d', $candidate['bout_sequence'], $candidate['form_number'], $candidate['id'])
                 : sprintf('%02d-%010d', $candidate['form_number'], $candidate['id']);
         });
-        $next = $ordered->first(fn (array $candidate) => $candidate['status'] !== 'approved');
+        $next = $ordered->first(fn (array $candidate) => ! in_array($candidate['status'], ['approved', 'cancelled'], true));
 
         return $next && $next['id'] === $performance['id'];
     }

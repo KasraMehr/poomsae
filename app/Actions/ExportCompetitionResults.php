@@ -23,7 +23,8 @@ class ExportCompetitionResults
                 foreach (collect($round['bouts'])->sortBy('sequence') as $bout) {
                     foreach (collect($bout['performances'])->groupBy('entry_id') as $entryId => $performances) {
                         $performances = $performances->sortBy('form_number')->values();
-                        if ($performances->every(fn (array $performance): bool => $performance['result'] === null)) {
+                        $hasWithdrawal = $bout['resolution_reason'] !== null && str_starts_with($bout['resolution_reason'], 'انصراف');
+                        if ($performances->every(fn (array $performance): bool => $performance['result'] === null) && ! $hasWithdrawal) {
                             continue;
                         }
 
@@ -35,6 +36,7 @@ class ExportCompetitionResults
                             collect($bout['performances'])->contains(fn (array $performance): bool => $performance['appeal_pending'] ?? false) => 'تحت بررسی اعتراض',
                             $bout['winner_entry_id'] === (int) $entryId => 'برنده',
                             $bout['winner_entry_id'] !== null => 'بازنده',
+                            $hasWithdrawal => 'انصراف / عدم حضور',
                             $category['score_based'] && $total !== null => 'ثبت‌شده',
                             $bout['status'] === 'running' && $total !== null => 'در انتظار تعیین برنده',
                             default => 'در حال تکمیل',

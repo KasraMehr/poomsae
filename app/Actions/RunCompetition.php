@@ -208,7 +208,7 @@ class RunCompetition
                     ? sprintf('%06d-%02d-%010d', $boutSequence, $form, $item['performance']->id)
                     : sprintf('%02d-%010d', $form, $item['performance']->id));
         });
-        $next = $ordered->first(fn (array $item) => $item['performance']->status !== 'approved');
+        $next = $ordered->first(fn (array $item) => ! in_array($item['performance']->status, ['approved', 'cancelled'], true));
         $simultaneous = $category->format === 'knockout' && $category->execution_mode === 'simultaneous';
         $inNextGroup = $simultaneous && $next && $next['performance']->form_number === $performance->form_number;
         $this->setup->check($next && ($next['performance']->id === $performance->id || $inNextGroup), $category->discipline === 'freestyle' ? 'نوبت اجرای ابداعی رعایت نشده است؛ ابتدا نتیجهٔ اجرای قبلی را تأیید کنید.' : 'ترتیب اجرای فرم‌ها رعایت نشده است؛ ابتدا نتیجهٔ اجرای قبلی را تأیید کنید.');
@@ -330,38 +330,52 @@ class RunCompetition
         Gate::forUser($actor)->authorize('operate', $tournament);
         DB::transaction(function () use ($actor, $tournament, $bout, $data): void {
             $tournament = Tournament::lockForUpdate()->findOrFail($tournament->id);
-            $bout = Bout::with('category')->findOrFail($bout->id);
+            $bout = Bout::with('category', 'round')->findOrFail($bout->id);
             abort_unless($bout->category->tournament_id === $tournament->id, 404);
             $this->setup->check(! CompetitionAppeal::open()->whereHas('performance', fn ($query) => $query->where('bout_id', $bout->id))->exists(), 'پیش از تعیین برنده، اعتراض‌های باز این رقابت را تعیین تکلیف کنید.');
             $decisionType = $data['decision_type'] ?? 'tie';
             $this->setup->check(in_array($decisionType, ['tie', 'walkover'], true), 'نوع تصمیم رقابت معتبر نیست.');
             $walkover = $decisionType === 'walkover';
-            $this->setup->check($bout->entries()->count() === 2, 'تعیین برنده فقط برای رقابت دو نفره است.');
+            $entryCount = $bout->entries()->count();
+            $this->setup->check($walkover ? in_array($entryCount, [1, 2], true) : $entryCount === 2, $walkover ? 'انصراف فقط برای رقابت یک یا دو نفره است.' : 'تعیین برنده فقط برای رقابت دو نفره است.');
             $this->setup->check(in_array($tournament->status, ['ready', 'running']) && in_array($bout->status, ['pending', 'running']), 'رقابت برای تعیین برنده باز نیست.');
-            $this->setup->check($bout->entries()->where('entries.id', $data['winner_entry_id'])->exists(), 'برنده باید یکی از طرفین همین رقابت باشد.');
+
             if ($walkover) {
                 $this->setup->check(filter_var($data['confirmed'] ?? false, FILTER_VALIDATE_BOOLEAN), 'لغو اجراهای باقی‌مانده را تأیید کنید.');
                 $this->setup->check($bout->performances()->where('status', '!=', 'approved')->exists(), 'برای رقابت با تمام نتایج تأییدشده از تعیین تساوی استفاده کنید.');
+                if ($entryCount === 2) {
+                    $this->setup->check(! empty($data['winner_entry_id']) && $bout->entries()->where('entries.id', $data['winner_entry_id'])->exists(), 'برنده باید یکی از طرفین همین رقابت باشد.');
+                    $winnerEntryId = (int) $data['winner_entry_id'];
+                } else {
+                    $winnerEntryId = null;
+                }
                 foreach ($bout->performances()->where('status', '!=', 'approved')->get() as $performance) {
                     $performance->update(['status' => 'cancelled', 'version' => $performance->version + 1, 'ended_at' => $performance->ended_at ?? now()]);
                 }
-                $data['reason'] = 'انصراف / عدم حضور: '.$data['reason'];
+                $reason = 'انصراف / عدم حضور: '.$data['reason'];
                 $tournament->update(['status' => 'running']);
+                if ($bout->round->started_at === null) {
+                    $bout->round->update(['status' => 'running', 'started_at' => now()]);
+                }
             } else {
+                $this->setup->check(! empty($data['winner_entry_id']) && $bout->entries()->where('entries.id', $data['winner_entry_id'])->exists(), 'برنده باید یکی از طرفین همین رقابت باشد.');
+                $winnerEntryId = (int) $data['winner_entry_id'];
                 $totals = $this->totals($bout);
                 $this->setup->check(count($totals) === 2 && count(array_unique($totals)) === 1, 'فقط تساوی دو نتیجهٔ نهایی با دلیل قابل تعیین برنده است.');
-                $this->setup->check(array_key_exists((int) $data['winner_entry_id'], $totals), 'برنده باید یکی از طرفین همین رقابت باشد.');
+                $this->setup->check(array_key_exists($winnerEntryId, $totals), 'برنده باید یکی از طرفین همین رقابت باشد.');
                 $presentationTotals = $this->presentationTotals($bout);
                 $this->setup->check(count($presentationTotals) !== 2 || count(array_unique($presentationTotals)) === 1, 'نمرهٔ اجرای بالاتر برنده را تعیین می‌کند؛ تصمیم دستی مجاز نیست.');
                 $restoredMeanTotals = $this->restoredMeanTotals($bout);
                 $this->setup->check(count($restoredMeanTotals) !== 2 || count(array_unique($restoredMeanTotals)) === 1, 'میانگین همهٔ نمره‌های داوران برنده را تعیین می‌کند؛ تصمیم دستی مجاز نیست.');
+                $reason = $data['reason'];
             }
-            $bout->update(['status' => 'completed', 'winner_entry_id' => $data['winner_entry_id'], 'resolved_by' => $actor->id, 'resolution_reason' => $data['reason']]);
+
+            $bout->update(['status' => 'completed', 'winner_entry_id' => $winnerEntryId, 'resolved_by' => $actor->id, 'resolution_reason' => $reason]);
             $this->completeRound($actor, $tournament, $bout);
             if (! $walkover) {
-                $this->synchronizeAdvancement($actor, $tournament, $bout, $data['reason']);
+                $this->synchronizeAdvancement($actor, $tournament, $bout, $reason);
             }
-            $this->setup->audit($actor, $tournament, $walkover ? 'bout.walkover' : 'bout.tie_resolved', 'bout', $bout->id, $data);
+            $this->setup->audit($actor, $tournament, $walkover ? 'bout.walkover' : 'bout.tie_resolved', 'bout', $bout->id, [...$data, 'reason' => $reason, 'winner_entry_id' => $winnerEntryId]);
         }, 3);
     }
 

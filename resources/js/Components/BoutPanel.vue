@@ -11,6 +11,13 @@ const restFor = performance => Math.max(...props.bout.performances.filter(p => p
 const action = useForm({ command: '', expected_version: 1 });
 const resolution = useForm({ winner_entry_id: '', reason: '' });
 const walkover = useForm({ winner_entry_id: '', reason: '', decision_type: 'walkover', confirmed: false });
+const submitWalkover = () => {
+    if (props.bout.entries.length === 1) {
+        walkover.winner_entry_id = null;
+    }
+    walkover.decision_type = 'walkover';
+    walkover.post(props.base + '/bouts/' + props.bout.id + '/resolve', { preserveScroll: true });
+};
 const command = (performance,value) => { action.command = value; action.expected_version = performance.version; action.post(props.base + '/performances/' + performance.id + '/command', { preserveScroll: true }); };
 const entryName = (id) => props.bout.entries.find(e => e.id === id)?.name || '—';
 const labels = {pending:'در انتظار',running:'در حال اجرا',scoring:'دریافت نمره',approved:'تأیید و منتشر شده',cancelled:'لغو شده',completed:'پایان‌یافته'};
@@ -26,7 +33,7 @@ const nextPerformanceId = computed(() => {
         : props.category.score_based
             ? a.bout_sequence - b.bout_sequence || a.form_number - b.form_number || a.id - b.id
             : a.form_number - b.form_number || a.id - b.id);
-    return performances.find(p => p.status !== 'approved')?.id;
+    return performances.find(p => !['approved', 'cancelled'].includes(p.status))?.id;
 });
 </script>
 <template>
@@ -34,6 +41,7 @@ const nextPerformanceId = computed(() => {
         <p v-if="round.advancement_review_required && bout.sequence === 1" class="notice">نیاز به بررسی: اصلاح نتیجهٔ مرحلهٔ قبل، برندهٔ راه‌یافته را تغییر داده است. شرکت‌کنندگان و نتایج این مرحله چون شروع شده بود، حفظ شده‌اند.</p>
         <div class="bout-heading"><div><span class="eyebrow">{{ category.score_based ? 'اجرا' : 'رقابت' }} {{ bout.sequence }} · {{ tournament.courts.find(c => c.id === bout.court_id)?.name }}</span><h3><span v-for="(entry,index) in bout.entries" :key="entry.id"><span :class="entry.side">{{ entry.name }}</span><span v-if="index === 0 && bout.entries.length === 2" class="versus"> / </span></span></h3></div><span class="badge" :class="bout.status">{{ labels[bout.status] }}</span></div>
         <div v-if="bout.winner_entry_id" class="winner">برنده: {{ entryName(bout.winner_entry_id) }} <small>{{ bout.resolution_reason }}</small></div>
+        <div v-else-if="bout.resolution_reason" class="winner"><small>{{ bout.resolution_reason }}</small></div>
         <div v-if="bout.performances.length" class="performance-grid">
             <section v-for="p in orderedPerformances" :key="p.id" class="performance" :class="p.status">
                 <div class="card-top"><b>{{ entryName(p.entry_id) }}</b><span class="badge" :class="p.status">{{ labels[p.status] }}</span></div>
@@ -63,13 +71,20 @@ const nextPerformanceId = computed(() => {
             </section>
         </div>
         <FormErrors :errors="action.errors"/>
-        <details v-if="canOperate && !category.score_based && ['pending','running'].includes(bout.status) && bout.performances.some(p=>p.status !== 'approved')" class="walkover">
+        <details v-if="canOperate && ['pending','running'].includes(bout.status) && bout.performances.some(p=>p.status !== 'approved')" class="walkover">
             <summary>انصراف یا عدم حضور</summary>
-            <form @submit.prevent="walkover.post(base + '/bouts/' + bout.id + '/resolve', { preserveScroll: true })">
-                <label :for="'walkover-winner-'+bout.id">ورزشکار برنده</label><select :id="'walkover-winner-'+bout.id" v-model.number="walkover.winner_entry_id" required><option value="" disabled>انتخاب برنده</option><option v-for="entry in bout.entries" :key="entry.id" :value="entry.id">{{ entry.name }}</option></select>
-                <label :for="'walkover-reason-'+bout.id">شرح انصراف یا عدم حضور طرف مقابل</label><textarea :id="'walkover-reason-'+bout.id" v-model="walkover.reason" required minlength="5" maxlength="900"></textarea>
-                <label class="check"><input v-model="walkover.confirmed" type="checkbox" required>تأیید می‌کنم اجراهای تأییدنشدهٔ این رقابت لغو و برنده ثبت شود.</label>
-                <FormErrors :errors="walkover.errors"/><button class="button secondary" :disabled="walkover.processing">ثبت تصمیم و پایان رقابت</button>
+            <form @submit.prevent="submitWalkover">
+                <template v-if="bout.entries.length === 2">
+                    <label :for="'walkover-winner-'+bout.id">ورزشکار برنده</label><select :id="'walkover-winner-'+bout.id" v-model.number="walkover.winner_entry_id" required><option value="" disabled>انتخاب برنده</option><option v-for="entry in bout.entries" :key="entry.id" :value="entry.id">{{ entry.name }}</option></select>
+                    <label :for="'walkover-reason-'+bout.id">شرح انصراف یا عدم حضور طرف مقابل</label><textarea :id="'walkover-reason-'+bout.id" v-model="walkover.reason" required minlength="5" maxlength="900"></textarea>
+                    <label class="check"><input v-model="walkover.confirmed" type="checkbox" required>تأیید می‌کنم اجراهای تأییدنشدهٔ این رقابت لغو و برنده ثبت شود.</label>
+                </template>
+                <template v-else>
+                    <p class="subtle">ورزشکار: <b>{{ bout.entries[0]?.name }}</b></p>
+                    <label :for="'walkover-reason-'+bout.id">شرح انصراف یا عدم حضور ورزشکار</label><textarea :id="'walkover-reason-'+bout.id" v-model="walkover.reason" required minlength="5" maxlength="900"></textarea>
+                    <label class="check"><input v-model="walkover.confirmed" type="checkbox" required>تأیید می‌کنم اجراهای تأییدنشدهٔ این ورزشکار لغو و مرحله ادامه یابد.</label>
+                </template>
+                <FormErrors :errors="walkover.errors"/><button class="button secondary" :disabled="walkover.processing">{{ bout.entries.length === 2 ? 'ثبت تصمیم و پایان رقابت' : 'ثبت انصراف و ادامهٔ مرحله' }}</button>
             </form>
         </details>
         <div v-if="Object.keys(bout.totals).length" class="totals"><span v-for="(score,id) in bout.totals" :key="id">{{ entryName(Number(id)) }} <b>{{ fmt(score) }}</b></span></div>

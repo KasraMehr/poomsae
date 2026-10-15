@@ -37,9 +37,10 @@ class CompetitionView
             $scores = [];
             $presentationScores = [];
             $restoredScores = [];
+            $withdrawn = [];
             $scoreBased = $category->format === 'round_robin' && $category->rounds->flatMap(fn ($round) => $round->bouts)->every(fn ($bout) => $bout->entries->count() === 1);
-            $rounds = $category->rounds->sortBy('sequence')->map(function ($round) use ($actor, $display, $operate, $components, $revisions, &$wins, &$played, &$scores, &$presentationScores, &$restoredScores, $scoreBased, $category, $standingsRoundId, $lastStartedSequence, $tournament, $lastEnded, $appeals) {
-                $bouts = $round->bouts->sortBy('sequence')->map(function ($bout) use ($actor, $display, $operate, $components, $revisions, &$wins, &$played, &$scores, &$presentationScores, &$restoredScores, $scoreBased, $category, $round, $standingsRoundId, $lastEnded, $appeals) {
+            $rounds = $category->rounds->sortBy('sequence')->map(function ($round) use ($actor, $display, $operate, $components, $revisions, &$wins, &$played, &$scores, &$presentationScores, &$restoredScores, &$withdrawn, $scoreBased, $category, $standingsRoundId, $lastStartedSequence, $tournament, $lastEnded, $appeals) {
+                $bouts = $round->bouts->sortBy('sequence')->map(function ($bout) use ($actor, $display, $operate, $components, $revisions, &$wins, &$played, &$scores, &$presentationScores, &$restoredScores, &$withdrawn, $scoreBased, $category, $round, $standingsRoundId, $lastEnded, $appeals) {
                     $ownJudge = $bout->judges->firstWhere('user_id', $actor->id);
                     $totals = [];
                     $presentationTotals = [];
@@ -59,6 +60,11 @@ class CompetitionView
                         }
                     }
                     if ($bout->status === 'completed') {
+                        if ($bout->resolution_reason !== null && str_starts_with($bout->resolution_reason, 'انصراف')) {
+                            foreach ($bout->entries as $entry) {
+                                $withdrawn[$entry->id] = true;
+                            }
+                        }
                         if ($scoreBased && $round->id === $standingsRoundId && count($totals) === 1) {
                             $entryId = array_key_first($totals);
                             $scores[$entryId] = $this->calculator->micros($totals[$entryId]);
@@ -218,6 +224,7 @@ class CompetitionView
                 'score_micros' => $scores[$e->id] ?? null,
                 'presentation_score_micros' => $presentationScores[$e->id] ?? null,
                 'restored_score_micros' => $restoredScores[$e->id] ?? null,
+                'withdrawn' => ! empty($withdrawn[$e->id]),
             ]);
             $tiedScoreGroups = $scoreBased
                 ? $standings->whereNotNull('score_micros')->groupBy('score_micros')->filter(fn ($rows) => $rows->count() > 1)->keys()->map(fn ($score) => (int) $score)->all()
@@ -225,6 +232,9 @@ class CompetitionView
             $standings = $standings->sort(function ($left, $right) use ($scoreBased, $tiedScoreGroups): int {
                 if (! $scoreBased) {
                     return $right['wins'] <=> $left['wins'];
+                }
+                if (($left['withdrawn'] ?? false) !== ($right['withdrawn'] ?? false)) {
+                    return ($left['withdrawn'] ?? false) ? 1 : -1;
                 }
                 $primaryComparison = ($right['score_micros'] ?? PHP_INT_MIN) <=> ($left['score_micros'] ?? PHP_INT_MIN);
                 if ($primaryComparison !== 0 || ! in_array($left['score_micros'], $tiedScoreGroups, true)) {
@@ -254,7 +264,7 @@ class CompetitionView
                 unset($row['presentation_score_micros']);
                 unset($row['restored_score_micros']);
 
-                return [...$row, 'rank' => $scoreBased && $value[0] === null ? null : $rank];
+                return [...$row, 'rank' => ($scoreBased && ($value[0] === null || ! empty($row['withdrawn']))) ? null : $rank];
             });
 
             return [
