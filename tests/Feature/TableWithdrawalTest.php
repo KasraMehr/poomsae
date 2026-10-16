@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Actions\CompetitionSetup;
 use App\Actions\CompetitionView;
 use App\Actions\RunCompetition;
+use App\Actions\UpdateCompetitionSettings;
 use App\Models\Bout;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\CreatesCompetition;
@@ -136,5 +138,89 @@ class TableWithdrawalTest extends TestCase
         $this->assertSame('approved', $forms[0]->fresh()->status);
         $this->assertSame('cancelled', $forms[1]->fresh()->status);
         $this->assertSame('completed', $firstBout->fresh()->status);
+    }
+
+    public function test_tv_scoreboard_data_fields_are_available_in_snapshot(): void
+    {
+        $fixture = $this->competition(5, 2, 'round_robin');
+        $category = $fixture['category'];
+        $category->update([
+            'gender' => 'male',
+            'maximum_age' => 30,
+        ]);
+
+        $this->schedule($fixture);
+
+        $bouts = Bout::orderBy('sequence')->get();
+        $scoredEntry = $bouts[0]->entries()->firstOrFail();
+        $athlete = $scoredEntry->athletes()->firstOrFail();
+        $athlete->update([
+            'first_name' => 'Ali',
+            'last_name' => 'Salmani',
+            'country_code' => 'IRI',
+        ]);
+
+        $forms = $bouts[0]->performances()->orderBy('form_number')->get();
+
+        $run = app(RunCompetition::class);
+        foreach ($forms as $form) {
+            $this->startScoring($fixture, $form);
+            $this->scoreAll($fixture, $form);
+            $run->command($fixture['admin'], $fixture['tournament'], $form, [
+                'command' => 'approve',
+                'expected_version' => $form->fresh()->version,
+            ]);
+        }
+
+        $snapshot = app(CompetitionView::class)->snapshot($fixture['tournament']->fresh(), $fixture['admin'], true);
+        $catData = $snapshot['categories'][0];
+
+        $this->assertSame('MALE-UNDER 30', $catData['display_label']);
+        $this->assertSame('FINAL', $catData['rounds'][0]['stage_label']);
+
+        $standingsRow = collect($catData['standings'])->firstWhere('id', $scoredEntry->id);
+        $this->assertSame('A.SALMANI', $standingsRow['short_name']);
+        $this->assertSame('IRI', $standingsRow['country_code']);
+        $this->assertNotNull($standingsRow['r1']);
+        $this->assertNotNull($standingsRow['r2']);
+        $this->assertCount(2, $standingsRow['form_scores']);
+    }
+
+    public function test_athlete_country_code_and_short_name_handling(): void
+    {
+        $fixture = $this->competition(5, 1, 'round_robin');
+        $setup = app(CompetitionSetup::class);
+
+        $entry = $setup->entry($fixture['admin'], $fixture['tournament'], $fixture['category'], [
+            'first_name' => 'John',
+            'last_name' => 'Doe',
+            'birth_date' => '2000-05-15',
+            'gender' => 'male',
+            'club' => 'USA Team',
+            'country_code' => 'USA',
+        ]);
+
+        $athlete = $entry->athletes()->firstOrFail();
+        $this->assertSame('USA', $athlete->country_code);
+        $this->assertSame('J.DOE', $athlete->short_name);
+
+        $updateAction = app(UpdateCompetitionSettings::class);
+        $updateAction->entry($fixture['admin'], $fixture['tournament'], $entry, [
+            'members' => [
+                [
+                    'id' => $athlete->id,
+                    'first_name' => 'Mehmet',
+                    'last_name' => 'Yilmaz',
+                    'birth_date' => '2000-05-15',
+                    'gender' => 'male',
+                    'club' => 'TUR Club',
+                    'country_code' => 'TUR',
+                ],
+            ],
+        ]);
+
+        $athlete->refresh();
+        $this->assertSame('TUR', $athlete->country_code);
+        $this->assertSame('M.YILMAZ', $athlete->short_name);
     }
 }

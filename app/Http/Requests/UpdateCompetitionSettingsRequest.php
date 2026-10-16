@@ -47,13 +47,14 @@ class UpdateCompetitionSettingsRequest extends FormRequest
             'updateCourt' => ['name' => ['required', 'string', 'max:100', Rule::unique('courts')->where('tournament_id', $tournament->id)->ignore($this->route('court')->id)]],
             'updateEntry' => [
                 'members' => ['required', 'array', 'list', 'size:'.$this->route('entry')->athletes()->count()],
-                'members.*' => ['required', 'array:id,first_name,last_name,birth_date,gender,club'],
+                'members.*' => ['required', 'array:id,first_name,last_name,birth_date,gender,club,country_code'],
                 'members.*.id' => ['required', 'integer', 'distinct'],
                 'members.*.first_name' => ['required', 'string', 'max:100'],
                 'members.*.last_name' => ['required', 'string', 'max:100'],
                 'members.*.birth_date' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.$tournament->starts_on->format('Y-m-d')],
                 'members.*.gender' => ['required', Rule::in(['male', 'female'])],
                 'members.*.club' => ['nullable', 'string', 'max:100'],
+                'members.*.country_code' => ['nullable', 'string', 'max:8'],
             ],
             default => [],
         };

@@ -17,7 +17,7 @@ class CompetitionView
     {
         $manage = ! $display && $actor->can('update', $tournament);
         $operate = ! $display && $actor->can('operate', $tournament);
-        $tournament->load(['courts', 'categories.scoringRuleSet', 'categories.forms', 'categories.entries.athletes', 'categories.rounds.bouts.entries', 'categories.rounds.bouts.judges.user', 'categories.rounds.bouts.performances.form', 'categories.rounds.bouts.performances.result', 'categories.rounds.bouts.performances.scoreSheets']);
+        $tournament->load(['courts', 'categories.scoringRuleSet', 'categories.forms', 'categories.entries.athletes', 'categories.rounds.bouts.entries.athletes', 'categories.rounds.bouts.judges.user', 'categories.rounds.bouts.performances.form', 'categories.rounds.bouts.performances.result', 'categories.rounds.bouts.performances.scoreSheets']);
         $sheetIds = $tournament->categories->flatMap(fn ($c) => $c->rounds)->flatMap(fn ($r) => $r->bouts)->flatMap(fn ($b) => $b->performances)->flatMap(fn ($p) => $p->scoreSheets)->pluck('id');
         $components = DB::table('score_components')->whereIn('score_sheet_id', $sheetIds)->get()->groupBy('score_sheet_id');
         $revisions = $operate ? DB::table('score_revisions')->join('users', 'users.id', '=', 'score_revisions.changed_by')
@@ -38,9 +38,10 @@ class CompetitionView
             $presentationScores = [];
             $restoredScores = [];
             $withdrawn = [];
+            $formScores = [];
             $scoreBased = $category->format === 'round_robin' && $category->rounds->flatMap(fn ($round) => $round->bouts)->every(fn ($bout) => $bout->entries->count() === 1);
-            $rounds = $category->rounds->sortBy('sequence')->map(function ($round) use ($actor, $display, $operate, $components, $revisions, &$wins, &$played, &$scores, &$presentationScores, &$restoredScores, &$withdrawn, $scoreBased, $category, $standingsRoundId, $lastStartedSequence, $tournament, $lastEnded, $appeals) {
-                $bouts = $round->bouts->sortBy('sequence')->map(function ($bout) use ($actor, $display, $operate, $components, $revisions, &$wins, &$played, &$scores, &$presentationScores, &$restoredScores, &$withdrawn, $scoreBased, $category, $round, $standingsRoundId, $lastEnded, $appeals) {
+            $rounds = $category->rounds->sortBy('sequence')->map(function ($round) use ($actor, $display, $operate, $components, $revisions, &$wins, &$played, &$scores, &$presentationScores, &$restoredScores, &$withdrawn, &$formScores, $scoreBased, $category, $standingsRoundId, $lastStartedSequence, $tournament, $lastEnded, $appeals) {
+                $bouts = $round->bouts->sortBy('sequence')->map(function ($bout) use ($actor, $display, $operate, $components, $revisions, &$wins, &$played, &$scores, &$presentationScores, &$restoredScores, &$withdrawn, &$formScores, $scoreBased, $category, $round, $standingsRoundId, $lastEnded, $appeals) {
                     $ownJudge = $bout->judges->firstWhere('user_id', $actor->id);
                     $totals = [];
                     $presentationTotals = [];
@@ -57,6 +58,13 @@ class CompetitionView
                                 $restoredSum = $restoredFormScores->sum();
                                 $restoredTotals[$entryId] = $aggregation === 'mean_two_forms' ? intdiv($restoredSum + 1, 2) : $restoredSum;
                             }
+                        }
+                    }
+                    if ($round->id === $standingsRoundId) {
+                        foreach ($bout->performances->groupBy('entry_id') as $entryId => $forms) {
+                            $formScores[$entryId] = $forms->sortBy('form_number')->map(function ($p) {
+                                return $p->result?->published_at ? $p->result->score : null;
+                            })->values()->all();
                         }
                     }
                     if ($bout->status === 'completed') {
@@ -81,7 +89,19 @@ class CompetitionView
 
                     return [
                         'id' => $bout->id, 'sequence' => $bout->sequence, 'court_id' => $bout->court_id, 'status' => $bout->status, 'winner_entry_id' => $bout->winner_entry_id, 'resolution_reason' => $bout->resolution_reason,
-                        'entries' => $bout->entries->map(fn ($entry) => ['id' => $entry->id, 'name' => $entry->display_name, 'side' => $entry->pivot->side])->values(),
+                        'entries' => $bout->entries->map(function ($entry) {
+                            $firstAthlete = $entry->athletes->first();
+                            $countryCode = $firstAthlete?->country_code ?? ($firstAthlete?->club && strlen(trim($firstAthlete->club)) <= 4 && preg_match('/^[A-Za-z]+$/', trim($firstAthlete->club)) ? strtoupper(trim($firstAthlete->club)) : null);
+                            $shortName = $firstAthlete?->short_name ?? $entry->display_name;
+
+                            return [
+                                'id' => $entry->id,
+                                'name' => $entry->display_name,
+                                'short_name' => $shortName,
+                                'country_code' => $countryCode,
+                                'side' => $entry->pivot->side,
+                            ];
+                        })->values(),
                         'judges' => $operate ? $bout->judges->map(fn ($j) => ['id' => $j->id, 'user_id' => $j->user_id, 'name' => $j->user->name, 'seat' => $j->seat])->values() : [],
                         'totals' => $totals,
                         'performances' => $bout->performances->sortBy('id')->map(function ($p) use ($bout, $display, $operate, $ownJudge, $components, $revisions, $category, $lastEnded, $appeals) {
@@ -204,7 +224,21 @@ class CompetitionView
                 $advancementReview = $category->format === 'knockout' && $round->started_at !== null && $previous
                     && $previous->bouts->pluck('winner_entry_id')->sort()->values()->all() !== $round->bouts->flatMap(fn ($bout) => $bout->entries->pluck('id'))->sort()->values()->all();
 
-                return ['id' => $round->id, 'name' => $round->name, 'sequence' => $round->sequence, 'status' => $round->status, 'bouts' => $bouts,
+                $totalStages = $category->planned_round_count ?? $category->rounds->count();
+                $stageLabel = match (true) {
+                    str_contains(mb_strtolower($round->name), 'نیمه') || str_contains(strtolower($round->name), 'semi') => 'SEMI-FINAL',
+                    str_contains(mb_strtolower($round->name), 'مقدماتی') || str_contains(strtolower($round->name), 'prelim') => 'PRELIMINARY',
+                    str_contains(mb_strtolower($round->name), 'نهایی') || str_contains(strtolower($round->name), 'final') => 'FINAL',
+                    $totalStages === 3 && $round->sequence === 1 => 'PRELIMINARY',
+                    $totalStages === 3 && $round->sequence === 2 => 'SEMI-FINAL',
+                    $totalStages === 3 && $round->sequence === 3 => 'FINAL',
+                    $totalStages === 2 && $round->sequence === 1 => 'SEMI-FINAL',
+                    $totalStages === 2 && $round->sequence === 2 => 'FINAL',
+                    $totalStages <= 1 => 'FINAL',
+                    default => strtoupper($round->name),
+                };
+
+                return ['id' => $round->id, 'name' => $round->name, 'stage_label' => $stageLabel, 'sequence' => $round->sequence, 'status' => $round->status, 'bouts' => $bouts,
                     'score_correction_open' => in_array($tournament->status, ['running', 'completed'], true) && $round->sequence >= $lastStartedSequence,
                     'court_ids' => $bouts->pluck('court_id')->unique()->values(),
                     'scheduled' => $round->scheduled_at !== null || $bouts->isNotEmpty(), 'forms_ready' => $formsReady,
@@ -218,14 +252,29 @@ class CompetitionView
             $last = $rounds->last();
             $completed = $last && $last['status'] === 'completed' && ($category->format === 'round_robin' || count($last['bouts']) === 1)
                 && ($category->planned_round_count === null || $rounds->every(fn ($round) => $round['status'] === 'completed'));
-            $standings = $category->entries->where('status', 'checked_in')->map(fn ($e) => [
-                'id' => $e->id, 'name' => $e->display_name, 'wins' => $wins[$e->id] ?? 0, 'played' => $played[$e->id] ?? 0,
-                'score' => isset($scores[$e->id]) ? $this->calculator->format($scores[$e->id]) : null,
-                'score_micros' => $scores[$e->id] ?? null,
-                'presentation_score_micros' => $presentationScores[$e->id] ?? null,
-                'restored_score_micros' => $restoredScores[$e->id] ?? null,
-                'withdrawn' => ! empty($withdrawn[$e->id]),
-            ]);
+            $standings = $category->entries->where('status', 'checked_in')->map(function ($e) use ($wins, $played, $scores, $presentationScores, $restoredScores, $withdrawn, $formScores) {
+                $entryForms = $formScores[$e->id] ?? [];
+                $firstAthlete = $e->athletes->first();
+                $countryCode = $firstAthlete?->country_code ?? ($firstAthlete?->club && strlen(trim($firstAthlete->club)) <= 4 && preg_match('/^[A-Za-z]+$/', trim($firstAthlete->club)) ? strtoupper(trim($firstAthlete->club)) : null);
+                $shortName = $firstAthlete?->short_name ?? $e->display_name;
+
+                return [
+                    'id' => $e->id,
+                    'name' => $e->display_name,
+                    'short_name' => $shortName,
+                    'country_code' => $countryCode,
+                    'wins' => $wins[$e->id] ?? 0,
+                    'played' => $played[$e->id] ?? 0,
+                    'score' => isset($scores[$e->id]) ? $this->calculator->format($scores[$e->id]) : null,
+                    'score_micros' => $scores[$e->id] ?? null,
+                    'presentation_score_micros' => $presentationScores[$e->id] ?? null,
+                    'restored_score_micros' => $restoredScores[$e->id] ?? null,
+                    'withdrawn' => ! empty($withdrawn[$e->id]),
+                    'form_scores' => $entryForms,
+                    'r1' => $entryForms[0] ?? null,
+                    'r2' => $entryForms[1] ?? null,
+                ];
+            });
             $tiedScoreGroups = $scoreBased
                 ? $standings->whereNotNull('score_micros')->groupBy('score_micros')->filter(fn ($rows) => $rows->count() > 1)->keys()->map(fn ($score) => (int) $score)->all()
                 : [];
@@ -268,9 +317,32 @@ class CompetitionView
             });
 
             return [
-                'id' => $category->id, 'name' => $category->name, 'gender' => $category->gender, 'minimum_age' => $category->minimum_age, 'maximum_age' => $category->maximum_age,
+                'id' => $category->id, 'name' => $category->name,
+                'display_label' => strtoupper(($category->gender === 'male' ? 'MALE' : ($category->gender === 'female' ? 'FEMALE' : $category->gender)).($category->maximum_age ? '-UNDER '.$category->maximum_age : ($category->minimum_age ? '-OVER '.$category->minimum_age : ''))),
+                'gender' => $category->gender, 'minimum_age' => $category->minimum_age, 'maximum_age' => $category->maximum_age,
                 'format' => $category->format, 'discipline' => $category->discipline, 'entry_type' => $category->entry_type, 'forms_per_round' => $category->forms_per_round, 'execution_mode' => $category->execution_mode, 'performance_order' => $category->performance_order, 'score_based' => $scoreBased, 'judge_count' => $category->judge_count, 'rules' => $category->scoringRuleSet?->definition, 'form_names' => $category->form_sequence ? collect($category->form_sequence)->map(fn ($id) => $category->forms->firstWhere('id', $id)?->name)->all() : [],
-                'entries' => $category->entries->map(fn ($e) => ['id' => $e->id, 'name' => $e->display_name, 'status' => $e->status, 'club' => $e->athletes->first()?->club, 'members' => $e->athletes->sortBy('pivot.position')->map(fn ($athlete) => ['name' => $athlete->first_name.' '.$athlete->last_name, 'gender' => $athlete->gender, ...($manage ? ['id' => $athlete->id, 'first_name' => $athlete->first_name, 'last_name' => $athlete->last_name, 'birth_date' => $athlete->birth_date?->format('Y-m-d'), 'club' => $athlete->club] : [])])->values()])->values(),
+                'entries' => $category->entries->map(fn ($e) => [
+                    'id' => $e->id,
+                    'name' => $e->display_name,
+                    'short_name' => $e->athletes->first()?->short_name ?? $e->display_name,
+                    'country_code' => $e->athletes->first()?->country_code ?? ($e->athletes->first()?->club && strlen(trim($e->athletes->first()->club)) <= 4 && preg_match('/^[A-Za-z]+$/', trim($e->athletes->first()->club)) ? strtoupper(trim($e->athletes->first()->club)) : null),
+                    'status' => $e->status,
+                    'club' => $e->athletes->first()?->club,
+                    'members' => $e->athletes->sortBy('pivot.position')->map(fn ($athlete) => [
+                        'name' => $athlete->first_name.' '.$athlete->last_name,
+                        'short_name' => $athlete->short_name,
+                        'gender' => $athlete->gender,
+                        'country_code' => $athlete->country_code,
+                        ...($manage ? [
+                            'id' => $athlete->id,
+                            'first_name' => $athlete->first_name,
+                            'last_name' => $athlete->last_name,
+                            'birth_date' => $athlete->birth_date?->format('Y-m-d'),
+                            'club' => $athlete->club,
+                            'country_code' => $athlete->country_code,
+                        ] : []),
+                    ])->values(),
+                ])->values(),
                 'rounds' => $rounds, 'completed' => $completed, 'champion_id' => $completed && $category->format === 'knockout' ? $last['bouts'][0]['winner_entry_id'] : null,
                 'planned_round_count' => $category->planned_round_count, 'allow_form_repetition' => $category->allow_form_repetition, 'form_draw_timing' => $category->form_draw_timing, 'form_draw_time' => $category->form_draw_time,
                 'round_count_automatic' => $automaticStageCount,

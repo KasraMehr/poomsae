@@ -83,7 +83,8 @@ class ImportTkdhubDivision
                     'seed' => $athlete['drawPosition'], 'status' => $athlete['status'] === 'active' ? 'checked_in' : 'withdrawn',
                 ]);
                 $attributes = ['first_name' => $athlete['firstName'], 'last_name' => $athlete['lastName'],
-                    'birth_date' => $athlete['birthDate'], 'gender' => $athlete['gender'], 'club' => $athlete['teamName']];
+                    'birth_date' => $athlete['birthDate'], 'gender' => $athlete['gender'], 'club' => $athlete['teamName'],
+                    'country_code' => $athlete['countryCode'] ?? $athlete['country'] ?? null];
                 $member = Athlete::create($attributes);
                 $entry->athletes()->attach($member->id, ['category_id' => $category->id, 'position' => 1]);
             }

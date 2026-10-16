@@ -153,8 +153,9 @@ class CompetitionTypesTest extends TestCase
         $this->assertNotNull($secondPerf->music_path);
 
         $run = app(RunCompetition::class);
-        $run->command($fixture['admin'], $fixture['tournament'], $firstPerf, ['command' => 'start', 'expected_version' => $firstPerf->version]);
-        $this->assertSame('running', $firstPerf->fresh()->status);
+        $scheduledFirst = $performances->first();
+        $run->command($fixture['admin'], $fixture['tournament'], $scheduledFirst, ['command' => 'start', 'expected_version' => $scheduledFirst->version]);
+        $this->assertSame('running', $scheduledFirst->fresh()->status);
     }
 
     public function test_freestyle_round_robin_schedules_one_solo_bout_per_entry(): void

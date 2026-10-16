@@ -177,7 +177,7 @@ class CompetitionSetup
                     $candidate = clone $category;
                     $candidate->fill($fields)->setRelation('scoringRuleSet', $rule);
                     foreach ($category->entries()->with('athletes')->get() as $entry) {
-                        $members = $entry->athletes->map(fn ($athlete): array => [...$athlete->only(['first_name', 'last_name', 'gender', 'club']), 'birth_date' => $athlete->birth_date?->format('Y-m-d')])->all();
+                        $members = $entry->athletes->map(fn ($athlete): array => [...$athlete->only(['first_name', 'last_name', 'gender', 'club', 'country_code']), 'birth_date' => $athlete->birth_date?->format('Y-m-d')])->all();
                         $this->validateMembers($tournament, $candidate, $members, $entry->id);
                     }
                 }

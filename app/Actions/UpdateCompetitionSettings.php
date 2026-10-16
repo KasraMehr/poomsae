@@ -60,14 +60,14 @@ class UpdateCompetitionSettings
             $before = ['display_name' => $entry->display_name, 'members' => []];
             foreach ($athletes as $index => $athlete) {
                 $this->setup->check(! $athlete->entries()->where('entries.id', '!=', $entry->id)->exists(), 'ورزشکار مشترک بین چند ورودی باید از سیستم مدیریت اصلاح شود.');
-                $before['members'][] = [...$athlete->only(['id', 'first_name', 'last_name', 'gender', 'club']), 'birth_date' => $athlete->birth_date?->format('Y-m-d')];
+                $before['members'][] = [...$athlete->only(['id', 'first_name', 'last_name', 'gender', 'club', 'country_code']), 'birth_date' => $athlete->birth_date?->format('Y-m-d')];
                 if ($registrationLocked) {
                     $this->setup->check($members[$index]['birth_date'] === $athlete->birth_date?->format('Y-m-d') && $members[$index]['gender'] === $athlete->gender, 'بعد از قرعه فقط نام و باشگاه ورزشکار قابل اصلاح است.');
                 }
             }
             $this->setup->validateMembers($tournament, $category, $members, $entry->id);
             foreach ($athletes as $index => $athlete) {
-                $athlete->update(collect($members[$index])->only(['first_name', 'last_name', 'birth_date', 'gender', 'club'])->all());
+                $athlete->update(collect($members[$index])->only(['first_name', 'last_name', 'birth_date', 'gender', 'club', 'country_code'])->all());
             }
             $entry->update(['display_name' => implode(' / ', array_map(fn (array $member): string => $member['first_name'].' '.$member['last_name'], $members))]);
             $this->setup->audit($actor, $tournament, 'entry.updated', 'entry', $entry->id, ['display_name' => $entry->display_name, 'members' => $members], $before);
