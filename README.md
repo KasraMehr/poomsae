@@ -251,7 +251,7 @@ php artisan queue:work --tries=3
 
 نمونهٔ event: `tournament.created`، روی `private-tournaments.{id}`، پس از commit.
 payload: `{"schema_version":1,"tournament_id":123}`.
-ماژول resources/js/realtime.js اتصال lazy و اختیاری Echo را فراهم می‌کند. صفحات اجرا، داور و نمایشگر به competition.updated روی کانال خصوصی مسابقه subscribe می‌کنند. payload فقط شناسهٔ مسابقه و revision لاگ است؛ دادهٔ نمره از کانال پخش نمی‌شود و snapshot با مجوز کاربر دوباره دریافت می‌شود. رویداد پس از commit ارسال می‌شود.
+ماژول resources/js/Shared/Services/realtime.js اتصال lazy و اختیاری Echo را فراهم می‌کند. صفحات اجرا، داور و نمایشگر به competition.updated روی کانال خصوصی مسابقه subscribe می‌کنند. payload فقط شناسهٔ مسابقه و revision لاگ است؛ دادهٔ نمره از کانال پخش نمی‌شود و snapshot با مجوز کاربر دوباره دریافت می‌شود. رویداد پس از commit ارسال می‌شود.
 برای Android، اتصال SSE و endpoint احراز batch استفاده می‌شود؛ وب از `/broadcasting/auth` با session/CSRF و موبایل از `/api/v1/broadcasting/auth` با Sanctum استفاده می‌کند.
 
 برای LAN، `APP_URL` و `MERCURE_PUBLIC_URL` باید با IP یا hostname لپ‌تاپ قابل دسترسی باشند. originهای Mercure را دقیقاً به کلاینت‌های لازم محدود و پس از تغییر VITE دوباره build کنید. اجرای نهایی به سرور پایدار PHP، Mercure hub، queue worker، `APP_DEBUG=false` و HTTPS نیاز دارد.

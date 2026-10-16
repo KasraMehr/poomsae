@@ -1,0 +1,743 @@
+<script setup>
+import ScoreboardHeader from "../Components/scoreboard/ScoreboardHeader.vue";
+import AthleteInfo from "../Components/scoreboard/AthleteInfo.vue";
+import NationalityBadge from "../Components/scoreboard/NationalityBadge.vue";
+import FormBadge from "../Components/scoreboard/FormBadge.vue";
+import SymbolContainer from "../Components/scoreboard/SymbolContainer.vue";
+import Timer from "../Components/scoreboard/Timer.vue";
+import ScoreCard from "../Components/scoreboard/ScoreCard.vue";
+import ScoreItem from "../Components/scoreboard/ScoreItem.vue";
+import SingleScoringTable from "../Components/scoreboard/tables/SingleScoringTable.vue";
+import FreestyleScoringTable from "../Components/scoreboard/tables/FreestyleScoringTable.vue";
+import DoubleScoringTable from "../Components/scoreboard/tables/DoubleScoringTable.vue";
+import RankingTable from "../Components/scoreboard/tables/RankingTable.vue";
+import RankingRow from "../Components/scoreboard/tables/RankingRow.vue";
+import TopFourTable from "../Components/scoreboard/tables/TopFourTable.vue";
+import TopFourRow from "../Components/scoreboard/tables/TopFourRow.vue";
+import DrawPage from "../Pages/Scoreboard/Draw.vue";
+import StandbyPage from "../Pages/Scoreboard/Standby.vue";
+import LiveBoardPage from "../Pages/Scoreboard/LiveBoard.vue";
+import ScoringPage from "../Pages/Scoreboard/Scoring.vue";
+import ResultPage from "../Pages/Scoreboard/Result.vue";
+import RankingPage from "../Pages/Scoreboard/Ranking.vue";
+import TopFourPage from "../Pages/Scoreboard/TopFour.vue";
+import { computed, ref } from "vue";
+import {
+    headerCases,
+    athleteCases,
+    nationalityCases,
+    formBadgeCases,
+    symbolCases,
+    medalCases,
+    formSymbolStrip,
+    timerCases,
+    scoreCardCases,
+    singleFive,
+    singleFiveCompact,
+    singleSeven,
+    singleEmpty,
+    freestyleFive,
+    freestyleFiveCompact,
+    freestyleSeven,
+    doubleFiveChung,
+    doubleFiveHong,
+    doubleFiveCompact,
+    doubleSevenChung,
+    doubleSevenHong,
+    placementsRoundRobin,
+    placementsKnockout,
+    extraRankingRows,
+    topFourRows,
+    extraTopFourRows,
+    contractFields,
+    drawSingle,
+    drawDouble,
+} from "./data.js";
+
+/**
+ * جفت رو‌به‌رو برای نمایش صفحهٔ Result: آبی سمت چپ، قرمز سمت راست (قرمز برنده است).
+ * مقادیر از همان دادهٔ صفحهٔ Result گرفته شده‌اند تا با تصویر طرح مطابق باشد.
+ */
+const facingPair = [
+    {
+        card: { side: "chung", winner: false, size: "lg" },
+        items: [
+            { variant: "sub", label: "Accuracy", value: 3.46, max: 4 },
+            { variant: "sub", label: "Presentation", value: 5.0, max: 6 },
+            { variant: "total", label: "Total Score", value: 8.46, max: 10 },
+        ],
+    },
+    {
+        card: { side: "hong", winner: true, size: "lg" },
+        items: [
+            { variant: "sub", label: "Accuracy", value: 3.52, max: 4 },
+            { variant: "sub", label: "Presentation", value: 5.2, max: 6 },
+            { variant: "total", label: "Total Score", value: 8.72, max: 10 },
+        ],
+    },
+];
+
+const selectedPage = ref("components");
+
+const pageTabs = [
+    { id: "components", label: "Components", component: null },
+    { id: "draw-single", label: "Draw · Single", component: DrawPage, draw: drawSingle },
+    { id: "draw-double", label: "Draw · Double", component: DrawPage, draw: drawDouble },
+    { id: "standby", label: "Standby", component: StandbyPage },
+    { id: "live-board", label: "LiveBoard", component: LiveBoardPage },
+    { id: "scoring", label: "Scoring", component: ScoringPage },
+    { id: "result", label: "Result", component: ResultPage },
+    { id: "ranking", label: "Ranking", component: RankingPage },
+    { id: "top-four", label: "TopFour", component: TopFourPage },
+];
+
+/*
+ * آداپتور Lab: از fixtureهای موجود در data.js استفاده می‌کند.
+ * این داده فقط برای پیش‌نمایش صفحه‌ها در Lab است و جایگزین Snapshot بک‌اند نیست.
+ */
+const labEntries = drawDouble.entries.map((entry, index) => {
+    const scoreItems = facingPair[index]?.items ?? [];
+    const valueOf = (label) => scoreItems.find((item) => item.label === label)?.value ?? null;
+
+    return {
+        ...entry,
+        accuracy_score: valueOf("Accuracy"),
+        presentation_score: valueOf("Presentation"),
+    };
+});
+
+const labTotals = Object.fromEntries(
+    labEntries.map((entry, index) => [
+        entry.id,
+        facingPair[index]?.items?.find((item) => item.label === "Total Score")?.value ?? null,
+    ]),
+);
+
+const labStandings = placementsRoundRobin.map((placement) => ({
+    rank: placement.rank,
+    name: placement.name,
+    wins: placement.score,
+}));
+
+const labTournament = {
+    id: 1,
+    name: drawSingle.title,
+    status: "running",
+    execution_duration_seconds: 90,
+    courts: [{ id: 1, name: "Court 1" }],
+    categories: [
+        {
+            id: 1,
+            name: drawSingle.category,
+            judge_count: 5,
+            entries: labEntries,
+            standings: labStandings,
+            champion_id: labEntries[1]?.id ?? null,
+            rounds: [
+                {
+                    id: 1,
+                    name: "R - 1",
+                    bouts: [
+                        {
+                            id: 1,
+                            court_id: 1,
+                            sequence: 1,
+                            status: "completed",
+                            entries: labEntries,
+                            winner_entry_id: labEntries[1]?.id ?? null,
+                            totals: labTotals,
+                            performances: [
+                                {
+                                    id: "lab-completed-performance",
+                                    status: "completed",
+                                    result: labTotals[labEntries[1]?.id] ?? null,
+                                    form_name: drawSingle.forms[0]?.form_name ?? "",
+                                    form_number: drawSingle.forms[0]?.form_number ?? null,
+                                    started_at: null,
+                                    ended_at: null,
+                                },
+                            ],
+                        },
+                        {
+                            id: 2,
+                            court_id: 1,
+                            sequence: 2,
+                            status: "running",
+                            entries: labEntries,
+                            winner_entry_id: null,
+                            totals: labTotals,
+                            performances: [
+                                {
+                                    id: "lab-running-performance",
+                                    status: "running",
+                                    result: null,
+                                    form_name: drawSingle.forms[1]?.form_name ?? drawSingle.forms[0]?.form_name ?? "",
+                                    form_number: drawSingle.forms[1]?.form_number ?? drawSingle.forms[0]?.form_number ?? null,
+                                    started_at: null,
+                                    ended_at: null,
+                                },
+                            ],
+                        },
+                        {
+                            id: 3,
+                            court_id: 1,
+                            sequence: 3,
+                            status: "pending",
+                            entries: labEntries,
+                            winner_entry_id: null,
+                            totals: {},
+                            performances: [
+                                {
+                                    id: "lab-pending-performance",
+                                    status: "pending",
+                                    result: null,
+                                    form_name: drawSingle.forms[0]?.form_name ?? "",
+                                    form_number: drawSingle.forms[0]?.form_number ?? null,
+                                    started_at: null,
+                                    ended_at: null,
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
+    ],
+};
+
+const activePage = computed(() =>
+    pageTabs.find((page) => page.id === selectedPage.value) ?? pageTabs[0],
+);
+
+const sections = [
+    { id: "scoreboard-header", label: "ScoreboardHeader" },
+    { id: "athlete-info", label: "AthleteInfo" },
+    { id: "nationality-badge", label: "NationalityBadge" },
+    { id: "form-badge", label: "FormBadge" },
+    { id: "symbol-container", label: "SymbolContainer / Medals" },
+    { id: "timer", label: "Timer" },
+    { id: "score-card", label: "ScoreCard / ScoreItem" },
+    { id: "single-scoring-table", label: "SingleScoringTable" },
+    { id: "freestyle-scoring-table", label: "FreestyleScoringTable" },
+    { id: "double-scoring-table", label: "DoubleScoringTable" },
+    { id: "ranking", label: "RankingTable / RankingRow" },
+    { id: "top-four", label: "TopFourTable / TopFourRow" },
+    { id: "contract", label: "فیلدهای Proposed" },
+];
+
+/** نگاشت placements[] پیشنهادی → props های RankingRow (adapter) */
+const toRankingRow = (placement) => ({
+    rank: placement.rank,
+    name: placement.name,
+    country: placement.country,
+    countryCode: placement.country_code,
+    flagUrl: placement.flag_url,
+    roundScores: placement.round_scores ?? [],
+});
+
+const roundRobinRows = placementsRoundRobin.map(toRankingRow);
+const knockoutRows = placementsKnockout.map(toRankingRow);
+</script>
+
+<template>
+    <div class="min-h-screen bg-rtds-bg text-rtds-text">
+        <!-- Lab Header -->
+        <header
+            class="sticky top-0 z-20 border-b border-rtds-border bg-rtds-bg-secondary/95 backdrop-blur"
+        >
+            <div class="mx-auto flex max-w-[1500px] flex-wrap items-baseline gap-x-4 gap-y-1 px-6 py-4">
+                <h1 class="text-xl font-bold text-rtds-text-light">
+                    Scoreboard Lab
+                </h1>
+                <span
+                    class="rounded-full border border-rtds-gold/40 bg-rtds-gold/10 px-3 py-0.5 text-[11px] text-rtds-gold"
+                    >Proposed Backend Contract</span
+                >
+                <p class="text-xs text-rtds-text-muted">
+                    محیط ایزولهٔ نمایش کامپوننت‌ها — بدون Inertia · اجرا:
+                    <code class="text-rtds-text-secondary">npm run dev</code> سپس
+                    <code class="text-rtds-text-secondary"
+                        >/resources/js/scoreboard-lab/index.html</code
+                    >
+                </p>
+            </div>
+        </header>
+
+        <div class="mx-auto flex max-w-[1500px] gap-6 px-6 py-6">
+            <nav
+                class="fixed bottom-4 left-4 right-4 z-30 flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-rtds-border bg-rtds-bg-card/95 p-3 shadow-2xl backdrop-blur"
+                aria-label="Scoreboard Lab pages"
+            >
+                <button
+                    v-for="page in pageTabs"
+                    :key="page.id"
+                    type="button"
+                    class="shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-xs transition"
+                    :class="selectedPage === page.id ? 'bg-rtds-bg-elevated text-rtds-text-light' : 'text-rtds-text-muted hover:bg-rtds-bg-elevated hover:text-rtds-text-light'"
+                    @click="selectedPage = page.id"
+                >
+                    {{ page.label }}
+                </button>
+            </nav>
+
+            <div v-if="selectedPage !== 'components'" class="min-w-0 flex-1 pb-24">
+                <section class="space-y-3">
+                    <div class="flex flex-wrap items-baseline justify-between gap-2">
+                        <h2 class="text-lg font-bold text-rtds-text-light">
+                            {{ activePage.label }}
+                        </h2>
+                        <code class="text-xs text-rtds-text-muted">Pages/Scoreboard/{{ activePage.id.startsWith('draw-') ? 'Draw' : activePage.label }}.vue</code>
+                    </div>
+                    <div class="min-h-[70vh] overflow-hidden rounded-2xl border border-rtds-border bg-rtds-bg">
+                        <component
+                            :is="activePage.component"
+                            :draw="activePage.draw"
+                            :tournament="labTournament"
+                            :court-id="1"
+                        />
+                    </div>
+                </section>
+            </div>
+
+            <div v-else class="flex min-w-0 flex-1 gap-6">
+            <!-- TOC -->
+            <aside class="sticky top-24 hidden h-fit w-56 shrink-0 lg:block">
+                <nav class="rounded-2xl border border-rtds-border bg-rtds-bg-card p-4">
+                    <p class="mb-3 text-[11px] uppercase tracking-widest text-rtds-text-muted">
+                        کامپوننت‌ها
+                    </p>
+                    <ul class="space-y-1 text-sm">
+                        <li v-for="s in sections" :key="s.id">
+                            <a
+                                :href="`#${s.id}`"
+                                class="block rounded-md px-2 py-1 text-rtds-text-secondary transition hover:bg-rtds-bg-elevated hover:text-rtds-text-light"
+                                >{{ s.label }}</a
+                            >
+                        </li>
+                    </ul>
+                </nav>
+            </aside>
+
+            <!-- Content -->
+            <main class="min-w-0 flex-1 space-y-14 pb-40">
+                <!-- Intro -->
+                <section class="rounded-2xl border border-rtds-border bg-rtds-bg-card p-6 text-sm leading-7 text-rtds-text-secondary">
+                    <p>
+                        این صفحه هر ۱۵ کامپوننت <code class="text-rtds-text-light">Components/scoreboard</code>
+                        را در همهٔ حالت‌ها رندر می‌کند؛ داده‌ها در
+                        <code class="text-rtds-text-light">data.js</code> طبق
+                        <code class="text-rtds-text-light">[Proposed Backend Contract]</code>
+                        سند <code class="text-rtds-text-light">docs/scoreboard-contract.md</code> ساخته شده‌اند
+                        تا شکل نهایی پس از تکمیل Backend را از همین الان ببینیم.
+                    </p>
+                    <p class="mt-2">
+                        برای هر کامپوننت، کارت‌های جدا حاوی توضیح حالت هستند؛ تصاویر به‌صورت
+                        data-URI داخلی‌اند و صفحه کاملاً offline کار می‌کند.
+                    </p>
+                </section>
+
+                <!-- 1. ScoreboardHeader -->
+                <section id="scoreboard-header" class="scroll-mt-28 space-y-4">
+                    <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-rtds-border-subtle pb-2">
+                        <h2 class="text-lg font-bold text-rtds-text-light">ScoreboardHeader</h2>
+                        <code class="text-xs text-rtds-text-muted">Components/scoreboard/ScoreboardHeader.vue</code>
+                    </div>
+                    <div class="grid gap-4 xl:grid-cols-2">
+                        <div
+                            v-for="c in headerCases"
+                            :key="c.title"
+                            class="min-w-0 overflow-hidden rounded-2xl border border-rtds-border bg-rtds-bg"
+                        >
+                            <p class="px-6 pt-4 text-[11px] text-rtds-text-muted">{{ c.title }}</p>
+                            <ScoreboardHeader v-bind="c.props" />
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 2. AthleteInfo -->
+                <section id="athlete-info" class="scroll-mt-28 space-y-4">
+                    <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-rtds-border-subtle pb-2">
+                        <h2 class="text-lg font-bold text-rtds-text-light">AthleteInfo</h2>
+                        <code class="text-xs text-rtds-text-muted">Components/scoreboard/AthleteInfo.vue</code>
+                    </div>
+                    <div class="flex flex-col gap-4">
+                        <div
+                            v-for="c in athleteCases"
+                            :key="c.title"
+                            class="min-w-0 rounded-2xl border border-rtds-border bg-rtds-bg"
+                        >
+                            <p class="px-6 pt-4 text-[11px] text-rtds-text-muted">{{ c.title }}</p>
+                            <div class="flex min-h-40 items-center justify-center p-6">
+                                <AthleteInfo v-bind="c.props" />
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 3. NationalityBadge -->
+                <section id="nationality-badge" class="scroll-mt-28 space-y-4">
+                    <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-rtds-border-subtle pb-2">
+                        <h2 class="text-lg font-bold text-rtds-text-light">NationalityBadge</h2>
+                        <code class="text-xs text-rtds-text-muted">Components/scoreboard/NationalityBadge.vue</code>
+                    </div>
+                    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                        <div
+                            v-for="c in nationalityCases"
+                            :key="c.title"
+                            class="min-w-0 rounded-2xl border border-rtds-border bg-rtds-bg"
+                        >
+                            <p class="px-6 pt-4 text-[11px] text-rtds-text-muted">{{ c.title }}</p>
+                            <div class="flex min-h-24 items-center justify-center p-6">
+                                <NationalityBadge v-bind="c.props" />
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 4. FormBadge -->
+                <section id="form-badge" class="scroll-mt-28 space-y-4">
+                    <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-rtds-border-subtle pb-2">
+                        <h2 class="text-lg font-bold text-rtds-text-light">FormBadge</h2>
+                        <code class="text-xs text-rtds-text-muted">Components/scoreboard/FormBadge.vue</code>
+                    </div>
+                    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                        <div
+                            v-for="c in formBadgeCases"
+                            :key="c.title"
+                            class="min-w-0 rounded-2xl border border-rtds-border bg-rtds-bg"
+                        >
+                            <p class="px-6 pt-4 text-[11px] text-rtds-text-muted">{{ c.title }}</p>
+                            <div class="flex min-h-28 items-center justify-center p-6">
+                                <FormBadge v-bind="c.props" />
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 5. SymbolContainer -->
+                <section id="symbol-container" class="scroll-mt-28 space-y-4">
+                    <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-rtds-border-subtle pb-2">
+                        <h2 class="text-lg font-bold text-rtds-text-light">SymbolContainer / Medals</h2>
+                        <code class="text-xs text-rtds-text-muted">Components/scoreboard/SymbolContainer.vue · Shared/Services/symbols.js</code>
+                    </div>
+                    <p class="px-1 text-xs leading-6 text-rtds-text-muted">
+                        مسیر تصویر از داده نمی‌آید: فقط کلید (<code>form_number</code> یا
+                        <code>rank</code>) از snapshot می‌آید و map در فرانت آن را به فایل
+                        <code>public/images/…</code> وصل می‌کند. تا وقتی فایل‌های webp اضافه شوند،
+                        این کارت‌ها خالی می‌مانند.
+                    </p>
+
+                    <div class="flex flex-col gap-4">
+                        <div
+                            v-for="c in symbolCases"
+                            :key="c.title"
+                            class="min-w-0 rounded-2xl border border-rtds-border bg-rtds-bg"
+                        >
+                            <p class="px-6 pt-4 text-[11px] text-rtds-text-muted">{{ c.title }}</p>
+                            <div class="flex min-h-28 items-center justify-center p-6">
+                                <SymbolContainer v-bind="c.props" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="rounded-2xl border border-rtds-border bg-rtds-bg p-6">
+                        <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">
+                            نوار همهٔ کلیدهای فرم (۱..۱۸) — برای کنترل assetهای موجود
+                        </p>
+                        <div class="flex flex-wrap items-center gap-4">
+                            <span
+                                v-for="s in formSymbolStrip"
+                                :key="s.key"
+                                class="flex flex-col items-center gap-1"
+                            >
+                                <SymbolContainer :src="s.src" :label="`فرم ${s.key}`" size="md" />
+                                <code class="text-[10px] text-rtds-text-muted">{{ s.key }}</code>
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="rounded-2xl border border-rtds-border bg-rtds-bg p-6">
+                        <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">
+                            مدال‌ها — از روی <code>rank</code> انتخاب می‌شوند (جایگزین جعبه‌های رنگی قبلی)
+                        </p>
+                        <div class="flex flex-wrap gap-4">
+                            <div
+                                v-for="c in medalCases"
+                                :key="c.title"
+                                class="min-w-40 flex-1 rounded-xl border border-rtds-border bg-rtds-bg-card p-4"
+                            >
+                                <p class="mb-3 text-[11px] text-rtds-text-muted">{{ c.title }}</p>
+                                <div class="flex min-h-16 items-center justify-center">
+                                    <SymbolContainer v-bind="c.props" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 6. Timer -->
+                <section id="timer" class="scroll-mt-28 space-y-4">
+                    <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-rtds-border-subtle pb-2">
+                        <h2 class="text-lg font-bold text-rtds-text-light">Timer</h2>
+                        <code class="text-xs text-rtds-text-muted">Components/scoreboard/Timer.vue</code>
+                    </div>
+                    <div class="grid gap-4 md:grid-cols-2">
+                        <div
+                            v-for="c in timerCases"
+                            :key="c.title"
+                            class="min-w-0 rounded-2xl border border-rtds-border bg-rtds-bg"
+                        >
+                            <p class="px-6 pt-4 text-[11px] text-rtds-text-muted">{{ c.title }}</p>
+                            <div class="flex min-h-64 items-center justify-center overflow-hidden p-6">
+                                <Timer v-bind="c.props" />
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 7. ScoreCard / ScoreItem (جایگزین TotalScoreArc) -->
+                <section id="score-card" class="scroll-mt-28 space-y-4">
+                    <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-rtds-border-subtle pb-2">
+                        <h2 class="text-lg font-bold text-rtds-text-light">ScoreCard / ScoreItem</h2>
+                        <code class="text-xs text-rtds-text-muted">Components/scoreboard/ScoreCard.vue · ScoreItem.vue</code>
+                    </div>
+
+                    <!-- جفت رو‌به‌رو — دقیقاً مثل صفحهٔ Result -->
+                    <div class="rounded-2xl border border-rtds-border bg-rtds-bg">
+                        <p class="px-6 pt-4 text-[11px] text-rtds-text-muted">
+                            رو‌به‌رو — دقیقاً مثل صفحهٔ Result (آبی چپ، قرمز راست، کادر زرد روی برنده)
+                        </p>
+                        <div class="flex flex-wrap items-start justify-center gap-16 p-6">
+                            <ScoreCard
+                                v-for="side in facingPair"
+                                :key="side.card.side"
+                                v-bind="side.card"
+                                class="w-[258px]"
+                            >
+                                <ScoreItem
+                                    v-for="(item, index) in side.items"
+                                    :key="index"
+                                    v-bind="item"
+                                    :side="side.card.side"
+                                    :size="side.card.size"
+                                />
+                            </ScoreCard>
+                        </div>
+                    </div>
+
+                    <!-- حالت‌های منفرد -->
+                    <div class="grid gap-4 md:grid-cols-2">
+                        <div
+                            v-for="c in scoreCardCases.filter((x) => x.card)"
+                            :key="c.title"
+                            class="min-w-0 rounded-2xl border border-rtds-border bg-rtds-bg"
+                        >
+                            <p class="px-6 pt-4 text-[11px] text-rtds-text-muted">{{ c.title }}</p>
+                            <div class="flex items-start justify-center overflow-hidden p-6">
+                                <ScoreCard v-bind="c.card" class="w-[258px]">
+                                    <ScoreItem
+                                        v-for="(item, index) in c.items"
+                                        :key="index"
+                                        v-bind="item"
+                                        :side="c.card.side"
+                                        :size="c.card.size"
+                                    />
+                                </ScoreCard>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 8. SingleScoringTable -->
+                <section id="single-scoring-table" class="scroll-mt-28 space-y-4">
+                    <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-rtds-border-subtle pb-2">
+                        <h2 class="text-lg font-bold text-rtds-text-light">SingleScoringTable</h2>
+                        <code class="text-xs text-rtds-text-muted">Components/scoreboard/tables/SingleScoringTable.vue</code>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="min-w-0 overflow-x-auto rounded-2xl border border-rtds-border bg-rtds-bg p-4">
+                            <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">
+                                سطر = داور · ۶ ستون · showSubScores=true (داده در ترتیب صندلی J1..J5)
+                            </p>
+                            <SingleScoringTable v-bind="singleFive" />
+                        </div>
+                        <div class="min-w-0 overflow-x-auto rounded-2xl border border-rtds-border bg-rtds-bg p-4">
+                            <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">
+                                showSubScores=false — سه ستون JUDGE/ACCURACY/PRESENTATION؛ عرض ستون‌های باقی ثابت می‌ماند
+                            </p>
+                            <SingleScoringTable v-bind="singleFiveCompact" />
+                        </div>
+                        <div class="min-w-0 overflow-x-auto rounded-2xl border border-rtds-border bg-rtds-bg p-4">
+                            <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">
+                                ۷ داور — ریسپانسیو
+                            </p>
+                            <SingleScoringTable v-bind="singleSeven" />
+                        </div>
+                        <div class="min-w-0 overflow-x-auto rounded-2xl border border-rtds-border bg-rtds-bg p-4">
+                            <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">
+                                بدون judge_scores — وضعیت snapshot فعلی (display=true، سلول‌ها «—»)
+                            </p>
+                            <SingleScoringTable v-bind="singleEmpty" />
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 9. FreestyleScoringTable -->
+                <section id="freestyle-scoring-table" class="scroll-mt-28 space-y-4">
+                    <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-rtds-border-subtle pb-2">
+                        <h2 class="text-lg font-bold text-rtds-text-light">FreestyleScoringTable</h2>
+                        <code class="text-xs text-rtds-text-muted">Components/scoreboard/tables/FreestyleScoringTable.vue</code>
+                    </div>
+                    <div class="grid gap-4">
+                        <div class="min-w-0 overflow-x-auto rounded-2xl border border-rtds-border bg-rtds-bg p-4">
+                            <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">
+                                showSubScores=true — ۴ زیرستون زیر ACCURACY و ۶ زیرستون زیر PRESENTATION (زیرستون‌ها بدون هدر)
+                            </p>
+                            <FreestyleScoringTable v-bind="freestyleFive" />
+                        </div>
+                        <div class="min-w-0 overflow-x-auto rounded-2xl border border-rtds-border bg-rtds-bg p-4">
+                            <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">
+                                showSubScores=false — جدول سه‌ستونه؛ عرض ستون‌ها ثابت
+                            </p>
+                            <FreestyleScoringTable v-bind="freestyleFiveCompact" />
+                        </div>
+                        <div class="min-w-0 overflow-x-auto rounded-2xl border border-rtds-border bg-rtds-bg p-4">
+                            <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">
+                                ۷ داور — ریسپانسیو
+                            </p>
+                            <FreestyleScoringTable v-bind="freestyleSeven" />
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 10. DoubleScoringTable -->
+                <section id="double-scoring-table" class="scroll-mt-28 space-y-4">
+                    <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-rtds-border-subtle pb-2">
+                        <h2 class="text-lg font-bold text-rtds-text-light">DoubleScoringTable</h2>
+                        <code class="text-xs text-rtds-text-muted">Components/scoreboard/tables/DoubleScoringTable.vue</code>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="min-w-0 overflow-x-auto rounded-2xl border border-rtds-border bg-rtds-bg p-4">
+                            <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">
+                                دو جدول جدا کنار هم — چپ: side=chung (J1..J5، برچسب چپ، آبی) · راست: side=hong (آینه: J5..J1، برچسب راست، قرمز)
+                            </p>
+                            <div class="flex gap-[60px]">
+                                <DoubleScoringTable v-bind="doubleFiveChung" />
+                                <DoubleScoringTable v-bind="doubleFiveHong" />
+                            </div>
+                        </div>
+                        <div class="min-w-0 overflow-x-auto rounded-2xl border border-rtds-border bg-rtds-bg p-4">
+                            <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">
+                                showSubScores=false — سطرهای ریزنمرات (EOE/S&amp;P/R&amp;P) مخفی می‌شوند
+                            </p>
+                            <DoubleScoringTable v-bind="doubleFiveCompact" />
+                        </div>
+                        <div class="min-w-0 overflow-x-auto rounded-2xl border border-rtds-border bg-rtds-bg p-4">
+                            <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">
+                                ۷ داور — ریسپانسیو
+                            </p>
+                            <div class="flex gap-[60px]">
+                                <DoubleScoringTable v-bind="doubleSevenChung" />
+                                <DoubleScoringTable v-bind="doubleSevenHong" />
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 11. RankingTable / RankingRow -->
+                <section id="ranking" class="scroll-mt-28 space-y-4">
+                    <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-rtds-border-subtle pb-2">
+                        <h2 class="text-lg font-bold text-rtds-text-light">RankingTable / RankingRow</h2>
+                        <code class="text-xs text-rtds-text-muted">Components/scoreboard/tables/RankingTable.vue · RankingRow.vue</code>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="min-w-0 overflow-x-auto rounded-2xl border border-rtds-border bg-rtds-bg p-4">
+                            <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">
+                                طرح RANKING-TABLE — بدون هدر (هدر متعلق به صفحه است)؛ دو ستون نمرهٔ راند با divider و ارتفاع ردیف‌ها ۱۳۰/۱۱۰/۹۰/۷۵/۷۰ طبق رتبه
+                            </p>
+                            <RankingTable :rows="roundRobinRows" />
+                        </div>
+                        <div class="min-w-0 overflow-x-auto rounded-2xl border border-rtds-border bg-rtds-bg p-4">
+                            <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">
+                                format=knockout — با همان placements[] یکدست (کمتر از ۵ ردیف)
+                            </p>
+                            <RankingTable :rows="knockoutRows" />
+                        </div>
+                        <div class="min-w-0 overflow-x-auto rounded-2xl border border-rtds-border bg-rtds-bg p-4">
+                            <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">حالت‌های تک‌ردیف RankingRow</p>
+                            <div class="space-y-3">
+                                <RankingRow
+                                    v-for="c in extraRankingRows"
+                                    :key="c.title"
+                                    v-bind="c.props"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 12. TopFourTable / TopFourRow -->
+                <section id="top-four" class="scroll-mt-28 space-y-4">
+                    <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-rtds-border-subtle pb-2">
+                        <h2 class="text-lg font-bold text-rtds-text-light">TopFourTable / TopFourRow</h2>
+                        <code class="text-xs text-rtds-text-muted">Components/scoreboard/tables/TopFourTable.vue · TopFourRow.vue</code>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="min-w-0 overflow-x-auto rounded-2xl border border-rtds-border bg-rtds-bg p-4">
+                            <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">
+                                طرح TOP-4-TABLE — نفر اول بزرگ‌تر و بقیه به ترتیب کوچک‌تر؛ نمرهٔ نهایی داخل بلاک رنگی هر ردیف
+                            </p>
+                            <TopFourTable :rows="topFourRows" />
+                        </div>
+                        <div class="min-w-0 overflow-x-auto rounded-2xl border border-rtds-border bg-rtds-bg p-4">
+                            <p class="mb-4 px-2 text-[11px] text-rtds-text-muted">حالت‌های تک‌ردیف TopFourRow</p>
+                            <div class="space-y-3">
+                                <TopFourRow
+                                    v-for="c in extraTopFourRows"
+                                    :key="c.title"
+                                    v-bind="c.props"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 13. Contract summary -->
+                <section id="contract" class="scroll-mt-28 space-y-4">
+                    <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-rtds-border-subtle pb-2">
+                        <h2 class="text-lg font-bold text-rtds-text-light">فیلدهای [Proposed Backend Contract]</h2>
+                        <code class="text-xs text-rtds-text-muted">docs/scoreboard-contract.md — بخش ۴</code>
+                    </div>
+                    <div class="overflow-x-auto rounded-2xl border border-rtds-border bg-rtds-bg-card p-4">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr>
+                                    <th class="border-b border-rtds-border bg-rtds-bg-elevated px-3 py-2 text-right text-xs text-rtds-text-muted">#</th>
+                                    <th class="border-b border-rtds-border bg-rtds-bg-elevated px-3 py-2 text-right text-xs text-rtds-text-muted">فیلد</th>
+                                    <th class="border-b border-rtds-border bg-rtds-bg-elevated px-3 py-2 text-right text-xs text-rtds-text-muted">شکل پیشنهادی</th>
+                                    <th class="border-b border-rtds-border bg-rtds-bg-elevated px-3 py-2 text-right text-xs text-rtds-text-muted">مصرف‌کننده</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="f in contractFields" :key="f.n">
+                                    <td class="border-b border-rtds-border-subtle px-3 py-2 align-top tabular-nums text-rtds-text-muted">{{ f.n }}</td>
+                                    <td class="border-b border-rtds-border-subtle px-3 py-2 align-top">
+                                        <code class="rounded bg-rtds-bg-elevated px-1.5 py-0.5 text-xs text-rtds-gold-bright">{{ f.field }}</code>
+                                    </td>
+                                    <td class="border-b border-rtds-border-subtle px-3 py-2 align-top text-rtds-text-secondary">{{ f.shape }}</td>
+                                    <td class="border-b border-rtds-border-subtle px-3 py-2 align-top text-rtds-text-secondary">{{ f.consumers }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="text-xs leading-6 text-rtds-text-muted">
+                        نکته: این صفحه فقط در dev است و به ورودی‌های
+                        <code class="text-rtds-text-secondary">vite.config.js</code> اضافه نشده؛
+                        هیچ فایل موجودی برای ساخت آن تغییر نکرده است.
+                    </p>
+                </section>
+            </main>
+            </div>
+        </div>
+    </div>
+</template>
