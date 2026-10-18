@@ -49,21 +49,21 @@ const sizeClasses = {
     },
 
     xl: {
-        bar: "h-20 gap-4 px-5",
-        number: "h-14 w-[82px] text-[50px] leading-[1.1]",
-        name: "text-[50px] leading-[1.1]",
+        bar: "h-[107px] gap-4 px-5",
+        number: "h-[69px] w-[80px] text-[57px] leading-[1.1]",
+        name: "text-[57px] leading-[1.1]",
     },
 
     xxl: {
-        bar: "h-24 gap-5 px-6",
-        number: "h-16 w-[94px] text-[60px] leading-[1.1]",
-        name: "text-[60px] leading-[1.1]",
+        bar: "h-[131px] gap-5 px-6",
+        number: "h-[84px] w-[98px] text-[70px] leading-[1.1]",
+        name: "text-[85px] leading-[1.1]",
     },
 
     xxxl: {
         bar: "h-32 gap-6 px-7",
         number: "h-20 w-[108px] text-[72px] leading-[1.1]",
-        name: "text-[72px] leading-[1.1]",
+        name: "text-[90px] leading-[1.1]",
     },
 };
 
@@ -124,7 +124,7 @@ const rootClasses = computed(() => {
                 ? "inline-flex flex-row-reverse items-center"
                 : "inline-flex flex-row items-center";
         case "vertical-under":
-            return `inline-flex flex-col ${anchor}`;
+            return `flex w-full flex-col ${anchor}`;
         case "vertical":
         default:
             return `inline-flex flex-col ${anchor}`;
@@ -141,8 +141,8 @@ const badgeSize = computed(() => {
         sm: "sm",
         md: "sm",
         lg: "md",
-        xl: "lg",
-        xxl: "xl",
+        xl: "xl",
+        xxl: "xxl",
         xxxl: "xxl",
     };
 
@@ -172,19 +172,25 @@ const badgeProps = computed(() => ({
         />
 
         <!-- نوار نام (در name-only هم فقط نوار داریم) -->
-        <span class="bar" :class="barClasses">
+        <span class="bar w-full" :class="barClasses">
             <!-- <span
                 v-if="number !== ''"
                 class="grid shrink-0 place-items-center bg-rtds-blue-soft/40 font-rtds font-bold tabular-nums text-white"
                 :class="sizeClasses[size]?.number ?? sizeClasses.md.number"
-                >{{ number }}</span
-            > -->
+            >
+                {{ number }}
+            </span> -->
+
             <span
                 v-if="name !== ''"
-                class="min-w-0 truncate font-rtds font-bold uppercase text-white"
-                :class="sizeClasses[size]?.name ?? sizeClasses.md.name"
-                >{{ name }}</span
+                class="min-w-0 flex-1 truncate font-rtds font-bold uppercase text-white"
+                :class="[
+                    sizeClasses[size]?.name ?? sizeClasses.md.name,
+                    isHong ? 'text-right' : 'text-left',
+                ]"
             >
+                {{ name }}
+            </span>
         </span>
 
         <!-- بج بعد از نوار: vertical-under (پایین نوار) -->

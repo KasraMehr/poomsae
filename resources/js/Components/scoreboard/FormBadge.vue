@@ -59,9 +59,9 @@ const sizeClasses = {
     },
 
     xxxl: {
-        root: "gap-8",
-        round: "text-5xl",
-        form: "text-6xl",
+        root: "gap-[30px]",
+        round: "text-[80px] leading-[1.1]",
+        form: "text-[96px] leading-[1.1]",
         symbol: "xxxl",
     },
 };

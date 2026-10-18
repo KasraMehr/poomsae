@@ -71,7 +71,7 @@ const category = computed(() => drawData.value?.category ?? "");
                 />
             </template>
 
-            <main class="flex min-h-0 flex-1 flex-col items-center px-2">
+            <main class="flex min-h-0 flex-1 flex-col items-center px-12">
                 <!-- SINGLE -->
                 <section
                     v-if="mode === 'single' && singleEntry"

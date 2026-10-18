@@ -37,17 +37,17 @@ const sizeClasses = {
     },
 
     xl: {
-        root: "h-20",
+        root: "h-[80px]",
         flag: "w-[110px]",
-        code: "min-w-[110px] px-3 text-[44px] leading-none",
+        code: "min-w-[110px] px-[6px] text-[57px] leading-none",
         placeholder: "text-base",
     },
 
     xxl: {
-        root: "h-24",
-        flag: "w-[132px]",
-        code: "min-w-[132px] px-3.5 text-[56px] leading-none",
-        placeholder: "text-lg",
+        root: "h-[131px]",
+        flag: "w-[193px]",
+        code: "min-w-[143px] px-[7px] text-[70px] leading-none",
+        placeholder: "text-2xl",
     },
 
     xxxl: {

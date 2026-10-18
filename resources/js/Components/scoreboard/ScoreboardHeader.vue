@@ -23,13 +23,15 @@ defineProps({
                     class="h-12 w-auto object-contain"
                 />
                 <span
-                    class="text-lg uppercase tracking-wide text-rtds-text-secondary"
+                    class="text-[45px] leading-[36px] uppercase tracking-wide text-rtds-text-secondary"
                     >{{ stage }}</span
                 >
             </div>
 
             <div class="text-center">
-                <h1 class="text-2xl font-semibold uppercase tracking-wider">
+                <h1
+                    class="text-[64px] leading-[36px] font-semibold uppercase tracking-wider"
+                >
                     {{ eventTitle }}
                 </h1>
                 <p
@@ -41,7 +43,7 @@ defineProps({
             </div>
 
             <span
-                class="justify-self-end text-right text-lg uppercase tracking-wide text-rtds-text-secondary"
+                class="justify-self-end text-right text-[45px] leading-[36px] uppercase tracking-wide text-rtds-text-secondary"
                 >{{ category }}</span
             >
         </div>

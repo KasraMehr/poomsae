@@ -18,7 +18,7 @@ const sizeClasses = {
     lg: "h-14 w-14",
     xl: "h-18 w-18",
     xxl: "h-24 w-24",
-    xxxl: "h-32 w-32",
+    xxxl: "h-[163px] w-[182px]",
 };
 </script>
 
