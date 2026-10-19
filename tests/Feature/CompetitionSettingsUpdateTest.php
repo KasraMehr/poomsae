@@ -278,7 +278,7 @@ class CompetitionSettingsUpdateTest extends TestCase
 
     #[TestWith(['tournament', 'operator'])]
     #[TestWith(['court', 'judge'])]
-    #[TestWith(['entry', 'display'])]
+    #[TestWith(['entry', 'judge'])]
     public function test_editing_requires_manager_role(string $kind, string $role): void
     {
         $fixture = $this->competition();

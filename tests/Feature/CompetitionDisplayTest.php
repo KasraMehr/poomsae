@@ -22,7 +22,10 @@ class CompetitionDisplayTest extends TestCase
         $fixture = $this->competition();
         $this->schedule($fixture);
         $viewer = User::factory()->create();
-        $fixture['tournament']->users()->attach($viewer, ['role' => 'display']);
+        $fixture['tournament']->users()->attach($viewer, ['role' => 'judge']);
+        $operator = User::factory()->create();
+        $fixture['tournament']->users()->attach($operator, ['role' => 'operator']);
+        $this->actingAs($operator)->get(route('scoreboard.show', $fixture['tournament']))->assertOk();
         $this->actingAs($viewer)->get(route('scoreboard.rtds', $fixture['tournament']))->assertOk()
             ->assertInertia(fn (Assert $page) => $page->component('Competition/Rtds')->has('display.courts', 1)->has('displayUrls.data'));
         $this->get(route('scoreboard.show', $fixture['tournament']))->assertOk()

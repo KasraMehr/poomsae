@@ -54,7 +54,7 @@ class OperatorLimitTest extends TestCase
         $tournament = Tournament::factory()->create(['created_by' => $admin->id]);
         $operator = User::factory()->create();
         $judge = User::factory()->create();
-        $display = User::factory()->create();
+        $secondJudge = User::factory()->create();
 
         $setup = app(CompetitionSetup::class);
         $setup->member($admin, $tournament, [
@@ -64,10 +64,10 @@ class OperatorLimitTest extends TestCase
             'name' => $judge->name, 'email' => $judge->email, 'role' => 'judge',
         ]);
         $setup->member($admin, $tournament, [
-            'name' => $display->name, 'email' => $display->email, 'role' => 'display',
+            'name' => $secondJudge->name, 'email' => $secondJudge->email, 'role' => 'judge',
         ]);
 
-        $this->assertDatabaseCount('tournament_user', 3); // operator + judge + display
+        $this->assertDatabaseCount('tournament_user', 3); // operator + judge + secondJudge
     }
 
     public function test_different_tournaments_can_each_have_one_operator(): void

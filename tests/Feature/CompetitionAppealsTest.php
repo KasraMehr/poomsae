@@ -15,7 +15,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia;
-use PHPUnit\Framework\Attributes\TestWith;
 use Tests\CreatesCompetition;
 use Tests\TestCase;
 
@@ -141,10 +140,9 @@ class CompetitionAppealsTest extends TestCase
         $this->assertSame(1, $sheet->fresh()->revision);
     }
 
-    #[TestWith(['judge'])]
-    #[TestWith(['display'])]
-    public function test_judge_and_display_cannot_review_or_decide(string $role): void
+    public function test_judge_cannot_review_or_decide(): void
     {
+        $role = 'judge';
         $fixture = $this->publishedFixture();
         $appeal = $this->fileAppeal($fixture);
         $user = User::factory()->create();
@@ -314,10 +312,9 @@ class CompetitionAppealsTest extends TestCase
         $this->assertSame('8.500000', $fixture['performance']->result()->firstOrFail()->score);
     }
 
-    #[TestWith(['judge'])]
-    #[TestWith(['display'])]
-    public function test_score_only_and_display_roles_cannot_file_or_view_appeals(string $role): void
+    public function test_judge_role_cannot_file_or_view_appeals(): void
     {
+        $role = 'judge';
         $fixture = $this->publishedFixture();
         $user = User::factory()->create();
         $fixture['tournament']->users()->attach($user, ['role' => $role]);

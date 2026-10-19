@@ -5,7 +5,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Broadcast;
 
 Broadcast::channel('tournaments.{tournament}', function (User $user, Tournament $tournament): bool {
-    return $user->hasTournamentRole($tournament, ['manager', 'operator', 'judge', 'display']);
+    return $user->hasTournamentRole($tournament, ['manager', 'operator', 'judge']);
 }, ['guards' => ['web', 'sanctum']]);
 
 Broadcast::channel('tournaments.{tournament}.judges', function (User $user, Tournament $tournament): array|false {

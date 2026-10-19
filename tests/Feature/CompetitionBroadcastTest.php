@@ -306,7 +306,6 @@ class CompetitionBroadcastTest extends TestCase
     #[TestWith(['manager', false])]
     #[TestWith(['operator', false])]
     #[TestWith(['judge', false])]
-    #[TestWith(['display', true])]
     public function test_mercure_authorizes_tournament_and_limits_presence_by_role(string $role, bool $presenceDenied): void
     {
         $this->configureMercure();

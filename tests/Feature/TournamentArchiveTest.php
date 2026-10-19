@@ -75,7 +75,6 @@ class TournamentArchiveTest extends TestCase
 
     #[TestWith(['operator'])]
     #[TestWith(['judge'])]
-    #[TestWith(['display'])]
     public function test_non_managers_cannot_archive_or_restore(string $role): void
     {
         $fixture = $this->finishedCompetition();

@@ -33,11 +33,6 @@ class CompetitionConsoleTest extends TestCase
         $this->actingAs($fixture['judges'][0])->get(route('tournaments.show', $fixture['tournament']))
             ->assertRedirect(route('judging.index', $fixture['tournament']));
 
-        $display = User::factory()->create();
-        $fixture['tournament']->users()->attach($display, ['role' => 'display']);
-        $this->actingAs($display)->get(route('tournaments.show', $fixture['tournament']))
-            ->assertRedirect(route('scoreboard.show', $fixture['tournament']));
-
         $this->actingAs(User::factory()->create())->get(route('tournaments.show', $fixture['tournament']))
             ->assertForbidden();
     }

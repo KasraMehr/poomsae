@@ -28,7 +28,7 @@ class CompetitionSetupRequest extends FormRequest
             'member' => [
                 'name' => ['required', 'string', 'max:100'], 'email' => ['required', 'email', 'max:255'],
                 'password' => ['nullable', 'string', 'min:12', 'max:255'],
-                'role' => ['required', Rule::in(['judge', 'operator', 'display'])],
+                'role' => ['required', Rule::in(['judge', 'operator'])],
             ],
             'category' => [
                 'name' => ['required', 'string', 'max:100', Rule::unique('categories')->where('tournament_id', $tournament->id)->ignore($this->route('category')?->id)],
