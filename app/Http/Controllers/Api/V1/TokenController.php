@@ -14,6 +14,9 @@ class TokenController extends Controller
     {
         $user = $request->authenticatedUser();
         $abilities = ['tournaments:read', 'scores:write'];
+        if ($user->is_admin || $user->tournaments()->wherePivotIn('role', ['manager', 'operator'])->exists()) {
+            $abilities[] = 'competition:operate';
+        }
         if ($user->is_admin || $user->tournaments()->wherePivot('role', 'manager')->exists()) {
             $abilities[] = 'competition:manage';
         }
