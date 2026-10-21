@@ -240,8 +240,7 @@ const athleteProps = (entry) => ({
                         size="xl"
                     />
                     <FormBadge
-                        size="xxl"
-                        :round-label="panel.round.name"
+                        size="xxxl"
                         :form-name="panel.sides[0].performance.form_name ?? ''"
                         :form-number="
                             panel.sides[0].performance.form_number ?? null

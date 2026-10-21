@@ -154,7 +154,7 @@ const totalPaddingClass = computed(() =>
 
         <!-- جعبهٔ عدد -->
         <div
-            class="mt-1 flex min-h-0 items-center justify-center bg-rtds-bg-card"
+            class="mt-1 flex min-h-0 items-center justify-center bg-rtds-bg"
             :class="[
                 boxClasses,
                 totalPaddingClass,
