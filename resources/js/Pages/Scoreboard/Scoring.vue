@@ -254,21 +254,23 @@ const athleteProps = (entry) => ({
                 <!-- Single scoring layout: judge rows and summary scores. -->
                 <div
                     v-if="panel.variant === 'single'"
-                    class="grid min-w-0 flex-1 grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] items-stretch gap-4"
+                    class="grid flex-1 grid-cols-[minmax(760px,1.6fr)_minmax(440px,1fr)] items-stretch gap-5 overflow-x-auto max-[1250px]:grid-cols-1"
                 >
                     <SingleScoringTable
                         :judges="singleJudgesOf(panel.sides[0])"
                         :judge-count="panel.category.judge_count ?? 5"
                     />
 
-                    <div class="grid min-h-[365px] min-w-0 grid-cols-[minmax(0,1fr)_minmax(270px,1.1fr)] items-stretch gap-5">
+                    <div
+                        class="grid min-h-[290px] min-w-[440px] grid-cols-[minmax(0,0.8fr)_minmax(280px,1.5fr)] items-stretch gap-5"
+                    >
                         <div class="grid min-h-0 min-w-0 grid-rows-2 gap-3">
                             <ScoreItem
                                 label="Accuracy"
                                 :max="maximumOf(panel.sides[0], 'accuracy', 4)"
                                 :value="scoreValue(panel.sides[0], 'accuracy')"
                                 :side="panel.sides[0].entry?.side"
-                                size="xxl"
+                                size="xl"
                             />
 
                             <ScoreItem
@@ -280,7 +282,7 @@ const athleteProps = (entry) => ({
                                     scoreValue(panel.sides[0], 'presentation')
                                 "
                                 :side="panel.sides[0].entry?.side"
-                                size="xxl"
+                                size="xl"
                             />
                         </div>
 
@@ -314,14 +316,16 @@ const athleteProps = (entry) => ({
                                 : 'PRESENTATION'
                         "
                     />
-                    <div class="grid min-h-[290px] min-w-[440px] grid-cols-[minmax(0,1fr)_minmax(200px,1.1fr)] items-stretch gap-5">
+                    <div
+                        class="grid min-h-[290px] min-w-[440px] grid-cols-[minmax(0,0.8fr)_minmax(280px,1.5fr)] items-stretch gap-5"
+                    >
                         <div class="grid min-h-0 min-w-0 grid-rows-2 gap-3">
                             <ScoreItem
                                 label="Accuracy"
                                 :max="maximumOf(panel.sides[0], 'accuracy', 4)"
                                 :value="scoreValue(panel.sides[0], 'accuracy')"
                                 :side="panel.sides[0].entry?.side"
-                                size="xxl"
+                                size="xl"
                             />
                             <ScoreItem
                                 label="Presentation"
@@ -332,7 +336,7 @@ const athleteProps = (entry) => ({
                                     scoreValue(panel.sides[0], 'presentation')
                                 "
                                 :side="panel.sides[0].entry?.side"
-                                size="xxl"
+                                size="xl"
                             />
                         </div>
                         <ScoreItem

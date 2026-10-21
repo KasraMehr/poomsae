@@ -100,7 +100,8 @@ const pageTabs = [
     { id: "scoring-double", label: "Scoring · Double", component: ScoringPage },
     { id: "scoring-freestyle", label: "Scoring · Freestyle 4+6", component: ScoringPage },
     { id: "scoring-freestyle-6-4", label: "Scoring · Freestyle 6+4", component: ScoringPage },
-    { id: "result", label: "Result", component: ResultPage },
+    { id: "result-one-round", label: "Result · One Round", component: ResultPage },
+    { id: "result-two-rounds", label: "Result · Two Rounds", component: ResultPage },
     { id: "ranking", label: "Ranking", component: RankingPage },
     { id: "top-four", label: "TopFour", component: TopFourPage },
 ];
@@ -195,6 +196,65 @@ const labTournamentDouble = {
     })),
 };
 
+const resultFixture = (roundCount) => {
+    const roundScores = [
+        {
+            chung: { accuracy: 3.46, presentation: 5.0, total: 8.46 },
+            hong: { accuracy: 3.52, presentation: 5.2, total: 8.72 },
+        },
+        {
+            chung: { accuracy: 3.81, presentation: 5.03, total: 8.84 },
+            hong: { accuracy: 3.33, presentation: 5.52, total: 8.86 },
+        },
+    ];
+    const rounds = roundScores.slice(0, roundCount).map((scores, index) => {
+        const entries = drawDouble.entries.map((entry) => ({
+            ...entry,
+            accuracy_score: scores[entry.side]?.accuracy ?? null,
+            presentation_score: scores[entry.side]?.presentation ?? null,
+        }));
+        const totals = Object.fromEntries(
+            entries.map((entry) => [entry.id, scores[entry.side]?.total ?? null]),
+        );
+
+        return {
+            id: index + 1,
+            name: "R - " + (index + 1),
+            bouts: [
+                {
+                    id: 200 + index,
+                    status: "completed",
+                    sequence: 1,
+                    entries,
+                    totals,
+                    winner_entry_id: entries.find((entry) => entry.side === "hong")?.id,
+                },
+            ],
+        };
+    });
+
+    return {
+        ...labTournament,
+        name: "RESULT",
+        stage: "SEMI-FINAL",
+        categories: [
+            {
+                id: 20,
+                name: "MALE - UNDER 30",
+                stage: "SEMI-FINAL",
+                execution_mode: "simultaneous",
+                entries: drawDouble.entries,
+                rounds,
+            },
+        ],
+    };
+};
+
+const resultFixtures = {
+    "result-one-round": resultFixture(1),
+    "result-two-rounds": resultFixture(2),
+};
+
 const scoringFixture = (mode) => {
     const isDouble = mode === "double";
     const isFreestyle = mode.startsWith("freestyle");
@@ -274,6 +334,10 @@ const activePage = computed(
 );
 
 const activeTournament = computed(() => {
+    if (resultFixtures[selectedPage.value]) {
+        return resultFixtures[selectedPage.value];
+    }
+
     if (scoringFixtures[selectedPage.value]) {
         return scoringFixtures[selectedPage.value];
     }

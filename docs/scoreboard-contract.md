@@ -20,7 +20,7 @@
 | Standby | `Standby.vue` | نمایش **اجرای فعلی + Timer اجرا + state پایان** (`running` / `scoring`). بدون صف، بدون اجرای قبلی/بعدی. | متصل به snapshot |
 | LiveBoard | `LiveBoard.vue` | Broadcast board وضعیت **یک زمین**: `PREVIOUS ↓ CURRENT ↓ NEXT`. Timer اینجا مسئولیت اصلی نیست. | متصل به snapshot |
 | Scoring | `Scoring.vue` | صفحهٔ زندهٔ امتیازدهی؛ layout تک‌نفره، دوتایی یا فری‌استایل بر پایهٔ category و جزئیات نمرهٔ backend. | پیاده‌سازی فرانت؛ هم‌ترازی قرارداد هنگام مرج |
-| Result | `Result.vue` | نتیجهٔ رقابت‌های تکمیل‌شده؛ هر ورزشکار یک `ScoreCard` روبه‌روی دیگری (آبی چپ، قرمز راست، کادر زرد روی برنده)؛ تک‌مرحله‌ای/دومرحله‌ای از `rounds.length`. | متصل به snapshot |
+| Result | `Result.vue` | نمایش نتیجهٔ boutهای تکمیل‌شدهٔ اجرای جاری؛ چیدمان یک یا دو راند بر اساس راندهای تکمیل‌شده، بدون برجسته‌سازی برنده. | متصل به snapshot |
 | Ranking | `Ranking.vue` | جدول رتبه‌بندی (`standings` برای round_robin + قهرمان برای knockout). | متصل به snapshot |
 | TopFour | `TopFour.vue` | چهار نفر برتر با مدال. | متصل به snapshot (فقط round_robin) |
 | Draw | `Draw.vue` | قرعه‌کشی: فرم‌ها و ورزشکاران هر دسته. | متصل به snapshot (با TODO) |
@@ -107,8 +107,10 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 
 | دسته | موارد |
 | ---- | ----- |
-| **دادهٔ موجود** | `bout.status=completed`، `winner_entry_id`، `entries[].name/side`، `bout.totals`، `rounds.length` (تشخیص `ONE-ROUND`/`TWO-ROUNDS`) |
-| **[Proposed]** | `entry.country/country_code/flag_url`، `form_number` (ترتیب فرم: `1..2`)، `symbol_key` (کلید سمبل فرم: `1..18`)، `logoUrl` |
+| **دادهٔ موجود** | boutهای `status=completed` پس از ثبت نمره‌ها؛ هر bout شامل دو `entries[]` با `id/name/side`، مقدارهای `accuracy_score/presentation_score` روی entryها و `totals` با کلید `entry_id`. Tournament می‌تواند همچنان `status=running` باشد. |
+| **منطق نمایش** | Result فقط boutهای تکمیل‌شده را می‌خواند و آن‌ها را درون category بر اساس همان دو `entry.id` گروه‌بندی می‌کند. یک bout تکمیل‌شده، چیدمان یک‌راند (`ROUND 1`) می‌دهد؛ دو bout تکمیل‌شده برای همان جفت، چیدمان دوراهه (`RESULT`) می‌دهد. تعداد راندهای category به‌تنهایی معیار نیست. در هر راند، Accuracy و Presentation از entry همان bout و Total از `bout.totals[entry_id]` می‌آیند؛ فرانت امتیازها را محاسبه نمی‌کند. |
+| **نمایش برنده** | `winner_entry_id` ممکن است در snapshot موجود باشد، اما فعلاً برای Result مصرف نمی‌شود و هیچ کادر/رنگ ویژه‌ای برای برنده نمایش داده نمی‌شود. |
+| **[Proposed]** | برای `AthleteInfo`: `entry.country/country_code/flag_url`؛ برای هدر: `category.stage` یا `tournament.stage` و `category.name`. اگر این فیلدهای هویتی/هدر در snapshot فعلی موجود نباشند، باید در قرارداد نهایی تأمین شوند. |
 
 ### ۳.۵ Ranking
 
@@ -147,7 +149,7 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 | 7 | `performance.detailed_scores` | نتایج/سقف‌های هر اجرای فرم به‌همراه `judges[]` | Scoring |
 | 8 | `detailed_scores.judges[]` | breakdown داور و زیرامتیازها مطابق بخش ۳.۳ | Scoring (جدول‌ها) |
 | 9 | `detailed_scores.accuracy/presentation/total` | عدد nullable از Backend؛ total را فرانت جمع نمی‌کند | Scoring (`ScoreItem`) |
-| 9 | `bout.winner_entry_id` | `int` — تعیین `winner` و در نتیجه کادر زرد روی total | Result (`ScoreCard`) |
+| 9 | `bout.winner_entry_id` | `int` — برندهٔ bout؛ Result فعلاً از آن برای استایل‌دهی استفاده نمی‌کند | اطلاعات نتیجه (نمایش برنده بعداً تعیین می‌شود) |
 | 10 | `placements[]` | `[{rank, entry_id, name, score, round_scores, country, country_code, flag_url}]` روی category — `round_scores = [R-1, R-2]` برای ستون‌های نمرهٔ Ranking؛ مدال/نشان از `rank` مشتق می‌شود | Ranking, TopFour |
 | 11 | `Draw.output_snapshot` | خروجی قرعه (ترتیب اجرا/جفت‌ها) | Draw |
 | 12 | `entry_members[]` | `[{name, club, position}]` روی entry | Draw, Standby, Scoring |

@@ -26,6 +26,13 @@ const props = defineProps({
     side: { type: String, default: "chung" },
     /** `sub` (پیش‌فرض) یا `total`. */
     variant: { type: String, default: "sub" },
+    labelPlacement: {
+        type: String,
+        default: "top",
+        validator: (value) => ["top", "inline"].includes(value),
+    },
+    showLabel: { type: Boolean, default: true },
+    showMax: { type: Boolean, default: true },
     /** `lg` برای صفحهٔ Result، `sm` برای جاهای فشرده. */
     size: {
         type: String,
@@ -96,9 +103,9 @@ const sizes = {
     xxl: {
         label: "text-2xl leading-[1.1] font-normal",
         box: "min-h-0 flex-1 w-full",
-        value: "text-8xl leading-[1.1] font-bold",
+        value: "text-9xl leading-[1.1] font-bold",
         totalBox: "min-h-0 flex-1 w-full",
-        totalValue: "text-9xl leading-[1.05] font-bold",
+        totalValue: "text-[10rem] leading-[1.05] font-bold",
     },
 };
 
@@ -120,16 +127,25 @@ const totalPaddingClass = computed(() =>
 
 <template>
     <div
-        class="flex flex-col items-start font-rtds uppercase select-none"
-        :class="rootClasses"
+        class="flex font-rtds uppercase select-none"
+        :class="[
+            rootClasses,
+            labelPlacement === 'inline'
+                ? 'flex-row items-center gap-3'
+                : 'flex-col items-start',
+        ]"
     >
         <!-- ردیف برچسب و سقف: «ACCURACY      /4.0» -->
-        <div class="flex w-full items-baseline justify-between">
+        <div
+            v-if="showLabel"
+            class="flex items-baseline justify-between"
+            :class="labelPlacement === 'inline' ? 'w-auto shrink-0' : 'w-full'"
+        >
             <span class="truncate" :class="[s.label, textColor]">
                 {{ label }}
             </span>
             <span
-                v-if="max != null"
+                v-if="showMax && max != null"
                 class="shrink-0 text-rtds-text-tertiary"
                 :class="s.label"
                 >/{{ max.toFixed(1) }}</span
@@ -139,7 +155,11 @@ const totalPaddingClass = computed(() =>
         <!-- جعبهٔ عدد -->
         <div
             class="mt-1 flex min-h-0 items-center justify-center bg-rtds-bg-card"
-            :class="[boxClasses, totalPaddingClass]"
+            :class="[
+                boxClasses,
+                totalPaddingClass,
+                labelPlacement === 'inline' || !showLabel ? 'mt-0 flex-1' : '',
+            ]"
         >
             <span class="tabular-nums" :class="[valueClasses, valueColor]">{{
                 formattedValue

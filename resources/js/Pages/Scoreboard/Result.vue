@@ -1,167 +1,255 @@
 <script setup>
 import { computed } from "vue";
-import { Head } from "@inertiajs/vue3";
 import ScoreboardLayout from "../../Shared/Layouts/ScoreboardLayout.vue";
 import ScoreboardHeader from "../../Components/scoreboard/ScoreboardHeader.vue";
-import ScoreCard from "../../Components/scoreboard/ScoreCard.vue";
+import AthleteInfo from "../../Components/scoreboard/AthleteInfo.vue";
 import ScoreItem from "../../Components/scoreboard/ScoreItem.vue";
 
-/**
- * صفحهٔ placeholder — هنوز از Backend رندر نمی‌شود
- * (هیچ controller/route‌ای دست نخورده است؛ repoint به بعد از Contract نهایی موکول است).
- * تا آن زمان props اختیاری است و همهٔ دسترسی‌ها null-safe می‌مانند.
- */
 const props = defineProps({
     tournament: { type: Object, default: null },
 });
 
-const statusLabels = {
-    draft: "پیش‌نویس",
-    ready: "آماده",
-    running: "در حال برگزاری",
-    completed: "پایان‌یافته",
-};
+const resultPanels = computed(() => {
+    const panels = [];
 
-const stage = computed(() => statusLabels[props.tournament?.status] ?? "");
+    for (const category of props.tournament?.categories ?? []) {
+        const matchups = new Map();
 
-/*
- * فقط داده‌ای که امروز در snapshot هست.
- * variant ONE-ROUND / TWO-ROUNDS از rounds.length قابل‌استخراج است (سطح ۲ قاعدهٔ mode).
- */
-const categories = computed(() =>
-    (props.tournament?.categories ?? []).map((category) => {
-        const bouts = category.rounds.flatMap((round) =>
-            round.bouts
-                .filter((bout) => bout.status === "completed")
-                .map((bout) => {
-                    // هر ورزشکار یک بلوک امتیاز دارد؛ برنده فقط کادر زرد می‌گیرد.
-                    const sides = bout.entries.map((entry) => ({
-                        side: entry.side ?? "chung",
-                        isWinner: entry.id === bout.winner_entry_id,
-                        accuracy: entry.accuracy_score ?? null,
-                        presentation: entry.presentation_score ?? null,
-                        total: bout.totals?.[entry.id] ?? null,
-                    }));
+        for (const round of category.rounds ?? []) {
+            for (const bout of round.bouts ?? []) {
+                if (
+                    bout.status !== "completed" ||
+                    !Array.isArray(bout.entries) ||
+                    bout.entries.length !== 2
+                ) {
+                    continue;
+                }
 
-                    return {
-                        id: bout.id,
-                        label: `${round.name} · رقابت ${bout.sequence}`,
-                        winner: bout.entries.find(
-                            (entry) => entry.id === bout.winner_entry_id,
-                        )?.name ?? null,
-                        winnerSide: bout.entries.find(
-                            (entry) => entry.id === bout.winner_entry_id,
-                        )?.side ?? null,
-                        sides,
-                        total: bout.totals?.[bout.winner_entry_id] ?? null,
-                        roundsCount: category.rounds.length,
-                    };
-                }),
-        );
-        return {
-            id: category.id,
-            name: category.name,
-            mode:
-                category.rounds.length > 1
-                    ? "نتیجهٔ دو مرحله‌ای"
-                    : "نتیجهٔ یک مرحله‌ای",
-            bouts,
-        };
-    }),
+                const entries = [...bout.entries].sort((left, right) =>
+                    String(left.id).localeCompare(String(right.id)),
+                );
+                const matchupKey = entries.map((entry) => entry.id).join(":");
+                const matchup = matchups.get(matchupKey) ?? {
+                    key: matchupKey,
+                    entries,
+                    rounds: [],
+                };
+
+                matchup.rounds.push({ round, bout });
+                matchups.set(matchupKey, matchup);
+            }
+        }
+
+        for (const matchup of matchups.values()) {
+            const rounds = matchup.rounds
+                .sort((left, right) =>
+                    String(left.round.id).localeCompare(
+                        String(right.round.id),
+                        undefined,
+                        {
+                            numeric: true,
+                        },
+                    ),
+                )
+                .slice(0, 2);
+            const sides = matchup.entries
+                .sort((left, right) => {
+                    const sideOrder = { chung: 0, hong: 1 };
+
+                    return (
+                        (sideOrder[left.side] ?? 2) -
+                        (sideOrder[right.side] ?? 2)
+                    );
+                })
+                .map((entry) => ({
+                    entry,
+                    rounds: rounds.map(({ round, bout }) => {
+                        const roundEntry = bout.entries.find(
+                            (candidate) => candidate.id === entry.id,
+                        );
+
+                        return {
+                            id: round.id,
+                            label: String(round.name ?? "").replace(
+                                /\s*-\s*/g,
+                                "-",
+                            ),
+                            accuracy: roundEntry?.accuracy_score ?? null,
+                            presentation:
+                                roundEntry?.presentation_score ?? null,
+                            total: bout.totals?.[entry.id] ?? null,
+                        };
+                    }),
+                }));
+
+            panels.push({
+                id: String(category.id) + "-" + matchup.key,
+                category,
+                stage: category.stage ?? props.tournament?.stage ?? "",
+                title:
+                    rounds.length > 1
+                        ? "RESULT"
+                        : sides[0]?.rounds[0]?.label ?? "RESULT",
+                rounds,
+                sides,
+            });
+        }
+    }
+
+    return panels;
+});
+
+const stage = computed(() => resultPanels.value[0]?.stage ?? "");
+const categoryLabel = computed(
+    () => resultPanels.value[0]?.category?.name ?? "",
 );
-
-/*
- * TODO / Proposed Contract (مرحلهٔ بعد):
- * - country / country_code / flag برندگان → AthleteInfo کامل‌تر
- * - کلید سمبل فرم هر رقابت (`form_number`)
- * - entry.accuracy_score / presentation_score (الان null → «--»)
- *   مجموع (total) از bout.totals می‌آید و در فرانت جمع نمی‌شود.
- * - logoUrl هدر
- */
+const title = computed(() => resultPanels.value[0]?.title ?? "RESULT");
 </script>
 
 <template>
-    <!-- <Head title="نتایج" /> -->
-    <ScoreboardLayout
-        :stage="stage"
-        :center="tournament?.name ?? ''"
-        category=""
-    >
+    <ScoreboardLayout :stage="stage" :center="title" :category="categoryLabel">
         <template #header>
             <ScoreboardHeader
                 :stage="stage"
-                :event-title="tournament?.name ?? ''"
+                :event-title="title"
+                :category="categoryLabel"
             />
         </template>
 
-        <!--
-          ساختار placeholder: فقط داده‌ای که همین الان در snapshot هست.
-          Proposed Contract: country / country_code / flag
-        -->
         <p
-            v-if="!categories.some((category) => category.bouts.length)"
+            v-if="!resultPanels.length"
             class="flex flex-1 items-center justify-center rounded-2xl border border-rtds-border-subtle bg-rtds-bg-card p-12 text-center text-rtds-text-secondary"
         >
-            نتیجه‌ای هنوز منتشر نشده است.
+            نتیجهٔ اجرای ثبت‌شده‌ای وجود ندارد.
         </p>
 
         <section
-            v-for="category in categories"
-            :key="category.id"
-            class="mb-8 last:mb-0"
+            v-for="panel in resultPanels"
+            :key="panel.id"
+            class="flex min-h-0 flex-1 flex-col"
         >
-            <div class="mb-4 flex items-center justify-between">
-                <h2>{{ category.name }}</h2>
-                <span
-                    class="rounded-full border border-rtds-border px-3 py-1 text-xs text-rtds-text-secondary"
-                >
-                    {{ category.mode }}
-                </span>
+            <div class="grid grid-cols-2 items-center gap-[60px]">
+                <AthleteInfo
+                    v-for="side in panel.sides"
+                    :key="side.entry.id"
+                    :number="side.entry.number ?? ''"
+                    :name="side.entry.name ?? ''"
+                    :side="side.entry.side ?? ''"
+                    :country="side.entry.country ?? ''"
+                    :country-code="side.entry.country_code ?? ''"
+                    :flag-url="side.entry.flag_url ?? ''"
+                    layout="horizontal"
+                    size="xl"
+                />
             </div>
 
-            <ul v-if="category.bouts.length" class="space-y-3">
-                <li
-                    v-for="bout in category.bouts"
-                    :key="bout.id"
-                    class="rounded-xl bg-rtds-bg-card px-5 py-4"
+            <!-- One-round result: each athlete has a stacked subscore column and a full-height total. -->
+            <div
+                v-if="panel.rounds.length === 1"
+                class="mt-[45px] grid flex-1 grid-cols-2 items-stretch gap-[60px]"
+            >
+                <div
+                    v-for="side in panel.sides"
+                    :key="side.entry.id"
+                    class="grid min-h-[365px] grid-cols-2 grid-rows-2 gap-x-8 gap-y-6"
                 >
-                    <span class="block text-xs text-rtds-text-tertiary">
-                        {{ bout.label }}
-                    </span>
+                    <ScoreItem
+                        label="Accuracy"
+                        :max="4"
+                        :value="side.rounds[0]?.accuracy"
+                        :side="side.entry.side"
+                        size="xxl"
+                        :class="
+                            side.entry.side === 'hong'
+                                ? 'col-start-2 row-start-1'
+                                : 'col-start-1 row-start-1'
+                        "
+                    />
+                    <ScoreItem
+                        label="Presentation"
+                        :max="6"
+                        :value="side.rounds[0]?.presentation"
+                        :side="side.entry.side"
+                        size="xxl"
+                        :class="
+                            side.entry.side === 'hong'
+                                ? 'col-start-2 row-start-2'
+                                : 'col-start-1 row-start-2'
+                        "
+                    />
+                    <ScoreItem
+                        label="Total Score"
+                        :max="10"
+                        :value="side.rounds[0]?.total"
+                        variant="total"
+                        :side="side.entry.side"
+                        size="xxl"
+                        class="row-span-2"
+                        :class="
+                            side.entry.side === 'hong'
+                                ? 'col-start-1'
+                                : 'col-start-2'
+                        "
+                    />
+                </div>
+            </div>
 
-                    <!-- بلوک هر ورزشکار: Accuracy / Presentation / Total
-                         سقف‌ها ثابت‌اند (۴/۶/۱۰) و کادر زرد فقط روی total برنده می‌آید. -->
-                    <div class="mt-3 flex flex-wrap items-start gap-12">
-                        <ScoreCard
-                            v-for="(s, index) in bout.sides"
-                            :key="index"
-                            class="w-[258px]"
-                            :side="s.side"
-                            :winner="s.isWinner"
+            <!-- Two-round result: each round shows its subscores and total, without winner highlighting. -->
+            <div v-else class="mt-2 grid flex-1 grid-cols-2 gap-[60px]">
+                <div
+                    v-for="side in panel.sides"
+                    :key="side.entry.id"
+                    class="flex flex-col gap-3"
+                >
+                    <div
+                        v-for="round in side.rounds"
+                        :key="round.id"
+                        class="min-h-[250px]"
+                    >
+                        <div
+                            class="flex h-8 items-center justify-between bg-rtds-border-strong px-4 font-rtds text-2xl font-semibold uppercase text-white"
+                            :dir="side.entry.side === 'hong' ? 'rtl' : 'ltr'"
                         >
-                            <ScoreItem
-                                label="Accuracy"
-                                :max="4"
-                                :value="s.accuracy"
-                                :side="s.side"
-                            />
-                            <ScoreItem
-                                label="Presentation"
-                                :max="6"
-                                :value="s.presentation"
-                                :side="s.side"
-                            />
+                            <span>{{ round.label }}</span>
+                            <span>TOTAL</span>
+                        </div>
+                        <div
+                            class="grid min-h-[214px] grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-stretch gap-5 pt-1"
+                            :dir="side.entry.side === 'hong' ? 'rtl' : 'ltr'"
+                        >
+                            <div class="grid min-h-0 grid-rows-2 gap-2">
+                                <ScoreItem
+                                    label="ACC"
+                                    :max="4"
+                                    :value="round.accuracy"
+                                    :side="side.entry.side"
+                                    size="xxl"
+                                    label-placement="inline"
+                                    :show-max="false"
+                                />
+                                <ScoreItem
+                                    label="PRE"
+                                    :max="6"
+                                    :value="round.presentation"
+                                    :side="side.entry.side"
+                                    size="xxl"
+                                    label-placement="inline"
+                                    :show-max="false"
+                                />
+                            </div>
                             <ScoreItem
                                 label="Total Score"
                                 :max="10"
-                                :value="s.total"
+                                :value="round.total"
                                 variant="total"
-                                :side="s.side"
+                                :side="side.entry.side"
+                                size="xxl"
+                                :show-label="false"
                             />
-                        </ScoreCard>
+                        </div>
                     </div>
-                </li>
-            </ul>
+                </div>
+            </div>
         </section>
     </ScoreboardLayout>
 </template>
