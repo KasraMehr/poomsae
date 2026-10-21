@@ -5,7 +5,7 @@ import { computed } from "vue";
  * ردیف جدول رنکینگ — طرح RANKING-TABLE:
  * جعبهٔ رتبه · پرچم+کد کشور · نام (بلاک تیره) · دو ستون نمرهٔ راند (R-1 | R-2).
  *
- * - ارتفاع ردیف و فونت‌ها طبق طرح بر اساس رتبه کاهش می‌یابند (۱۳۰/۱۱۰/۹۰/۷۵/۷۰).
+ * - رتبهٔ اول بزرگ‌تر است؛ ردیف‌ها و فونت‌های رتبه‌های بعدی هم‌اندازه‌اند.
  * - نمره‌ها بیرون از نام نیستند: هر دو ستون داخل بلاک تیرهٔ نام می‌نشینند و
  *   ستون دوم divider سمت چپ دارد (خط روشن بین R-1 و R-2 مثل طرح).
  * - تعداد نمره‌ها ثابت ۲ است (تصمیم کاربر)؛ مقدار خالی با «—» نمایش داده می‌شود.
@@ -21,16 +21,13 @@ const props = defineProps({
     roundScores: { type: Array, default: () => [] },
 });
 
-/** ابعاد طرح به تفکیک رتبه؛ رتبهٔ ۵ به بعد از اندازهٔ ردیفٔ ۵ استفاده می‌کند. */
+/** رتبهٔ اول اندازهٔ ویژه دارد؛ تمام رتبه‌های دیگر از اندازهٔ رتبهٔ دوم استفاده می‌کنند. */
 const SIZE_BY_RANK = {
     1: { row: "h-[130px]", name: "text-[84px]", score: "text-[64px]" },
     2: { row: "h-[110px]", name: "text-[74px]", score: "text-[55px]" },
-    3: { row: "h-[90px]", name: "text-[64px]", score: "text-[50px]" },
-    4: { row: "h-[75px]", name: "text-[54px]", score: "text-[45px]" },
-    5: { row: "h-[70px]", name: "text-[44px]", score: "text-[42px]" },
 };
 
-const size = computed(() => SIZE_BY_RANK[Number(props.rank)] ?? SIZE_BY_RANK[5]);
+const size = computed(() => SIZE_BY_RANK[Number(props.rank)] ?? SIZE_BY_RANK[2]);
 
 const hasCountry = computed(() => Boolean(props.flagUrl || props.countryCode));
 
@@ -42,7 +39,9 @@ const scores = computed(() => [
 const formatScore = (value) =>
     value === null || value === undefined || value === ""
         ? "—"
-        : String(value);
+        : Number.isFinite(Number(value))
+          ? Number(value).toFixed(2)
+          : String(value);
 </script>
 
 <template>

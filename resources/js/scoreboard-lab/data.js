@@ -43,6 +43,7 @@ const flags = {
     kz: flag("#00afca", "#fec50c", "#00afca"),
     de: flag("#000000", "#dd0000", "#ffce00"),
     es: flag("#aa151b", "#f1bf00", "#aa151b"),
+    nl: flag("#ae1c28", "#ffffff", "#21468b"),
 };
 
 /* -------------------------------------------------------------- رویداد/هدر */
@@ -455,11 +456,11 @@ export const doubleSevenHong = {
  * `round_scores` مصوب جدید است: نمرهٔ کل هر راند [R-1, R-2] برای ستون‌های RankingTable.
  */
 export const placementsRoundRobin = [
-    { rank: 1, entry_id: 101, name: "علی رضایی", score: 27, round_scores: [9.25, 9.36], country: "ایران", country_code: "IRI", flag_url: flags.ir },
-    { rank: 2, entry_id: 102, name: "کیم چان‌هی", score: 25, round_scores: [9.05, 8.91], country: "کرهٔ جنوبی", country_code: "KOR", flag_url: flags.kr },
-    { rank: 3, entry_id: 103, name: "امره ییلدیز", score: 22, round_scores: [8.93, 8.82], country: "ترکیه", country_code: "TUR", flag_url: flags.tr },
-    { rank: 4, entry_id: 104, name: "کنیچیرو تاناکا", score: 19, round_scores: [8.61, 8.9], country: "ژاپن", country_code: "JPN", flag_url: flags.jp },
-    { rank: 5, entry_id: 105, name: "پییر دوبوا", score: 15, round_scores: [8.24, 8.65], country: "فرانسه", country_code: "FRA", flag_url: flags.fr },
+    { rank: 1, entry_id: 101, name: "A.SALMANI", score: 27, round_scores: [9.25, 9.36], country: "ایران", country_code: "IRI", flag_url: flags.ir },
+    { rank: 2, entry_id: 102, name: "M.YILMAZ", score: 25, round_scores: [9.05, 8.91], country: "ترکیه", country_code: "TUR", flag_url: flags.tr },
+    { rank: 3, entry_id: 103, name: "C.SENFT", score: 22, round_scores: [8.93, 8.82], country: "آلمان", country_code: "DEU", flag_url: flags.de },
+    { rank: 4, entry_id: 104, name: "A.M.BORRAS", score: 19, round_scores: [8.61, 8.9], country: "اسپانیا", country_code: "ESP", flag_url: flags.es },
+    { rank: 5, entry_id: 105, name: "J.WEIDE VAN DER", score: 15, round_scores: [8.24, 8.65], country: "هلند", country_code: "NED", flag_url: flags.nl },
     { rank: 6, entry_id: 106, name: "النور حسین‌اف", score: 11, round_scores: [8.1, 8.3], country: "قزاقستان", country_code: "KAZ", flag_url: flags.kz },
 ];
 

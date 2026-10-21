@@ -21,7 +21,7 @@
 | LiveBoard | `LiveBoard.vue` | Broadcast board وضعیت **یک زمین**: `PREVIOUS ↓ CURRENT ↓ NEXT`. Timer اینجا مسئولیت اصلی نیست. | متصل به snapshot |
 | Scoring | `Scoring.vue` | صفحهٔ زندهٔ امتیازدهی؛ layout تک‌نفره، دوتایی یا فری‌استایل بر پایهٔ category و جزئیات نمرهٔ backend. | پیاده‌سازی فرانت؛ هم‌ترازی قرارداد هنگام مرج |
 | Result | `Result.vue` | نمایش نتیجهٔ boutهای تکمیل‌شدهٔ اجرای جاری؛ چیدمان یک یا دو راند بر اساس راندهای تکمیل‌شده، بدون برجسته‌سازی برنده. | متصل به snapshot |
-| Ranking | `Ranking.vue` | جدول رتبه‌بندی (`standings` برای round_robin + قهرمان برای knockout). | متصل به snapshot |
+| Ranking | `Ranking.vue` | نمایش رتبه، کشور، نام و امتیازهای `R-1` و `R-2` با `RankingTable` بر پایهٔ `category.placements[]`. | پیاده‌سازی فرانت؛ نیازمند تکمیل قرارداد Backend |
 | TopFour | `TopFour.vue` | چهار نفر برتر با مدال. | متصل به snapshot (فقط round_robin) |
 | Draw | `Draw.vue` | قرعه‌کشی: فرم‌ها و ورزشکاران هر دسته. | متصل به snapshot (با TODO) |
 
@@ -40,8 +40,8 @@
 | `SingleScoringTable` | جدول تک‌نفره — **سطر = داور**، هدر ثابت انگلیسی `JUDGE / ACCURACY / EOE / S&P / R&P / PRESENTATION`. با `showSubScores=false` سه ستون ریزنمرات حذف می‌شوند و **عرض ستون‌های باقی تغییر نمی‌کند**. ستون/ردیف «مجموع» ندارد. | Scoring |
 | `FreestyleScoringTable` | جدول فری‌استایل — سطر = داور، سه ستون `JUDGE / ACCURACY / PRESENTATION`. با `showSubScores=true` ستون ACCURACY به **۴** و PRESENTATION به **۶ زیرستون (بدون هدر)** تقسیم می‌شود؛ با `false` همان سه ستون می‌ماند و عرض ثابت است. | Scoring (بعد از داشتن `execution_mode`) |
 | `DoubleScoringTable` | جدول **یک سمت** (یک ورزشکار) — ستون = داوران، سطر = دسته‌های نمره. صفحه دو بار رندر می‌کند: `side="chung"` (چپ، برچسب‌ها چپ، آبی) و `side="hong"` (راست، **آینه**: ترتیب Jn..J1 و برچسب‌ها راست، قرمز). با `showSubScores=false` سطرهای ریزنمرات مخفی می‌شوند. | Scoring (بعد از داشتن `execution_mode`) |
-| `RankingTable` | جدول رنکینگ (طرح `RANKING-TABLE`) — **بدون هدر** (هدر متعلق به صفحهٔ مصرف‌کننده است)؛ ردیف‌هایی با ارتفاع کاهشی (۱۳۰/۱۱۰/۹۰/۷۵/۷۰ طبق رتبه). | Ranking |
-| `RankingRow` | ردیف رنکینگ: جعبهٔ رتبه · پرچم+کد · نام · **دو ستون نمرهٔ راند** (`roundScores=[R-1, R-2]` — مقدار خالی `—` نمایش داده می‌شود)؛ فونت/ارتفاع به تفکیک رتبه. | داخل RankingTable |
+| `RankingTable` | جدول رنکینگ (طرح `RANKING-TABLE`) — **بدون هدر** (هدر متعلق به صفحهٔ مصرف‌کننده است)؛ ردیف اول بزرگ‌تر و سایر ردیف‌ها هم‌اندازه‌اند. | Ranking |
+| `RankingRow` | ردیف رنکینگ: جعبهٔ رتبه · پرچم+کد · نام · **دو ستون نمرهٔ راند** (`roundScores=[R-1, R-2]` — مقدار خالی `—` نمایش داده می‌شود)؛ رتبهٔ اول بزرگ‌تر و سایر ردیف‌ها هم‌اندازه‌اند. | داخل RankingTable |
 | `TopFourTable` | جدول چهار نفر برتر (طرح `TOP-4-TABLE`) — **بدون هدر** (هدر متعلق به صفحه) + ۴ ردیف کاهشی. | TopFour |
 | `TopFourRow` | ردیف Top Four: نشان رتبه (medal-1..5.webp با سایز کاهشی) · پرچم+کد · بلاک رنگیِ نام (طلایی/نقره‌ای/برنزی/تیره) با نمرهٔ نهایی داخل همان بلاک؛ ارتفاع ۱۵۰/۱۳۰/۱۱۰/۹۰. | داخل TopFourTable |
 
@@ -116,8 +116,10 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 
 | دسته | موارد |
 | ---- | ----- |
-| **دادهٔ موجود** | `category.standings[]` = `{rank, name, wins, played}` (فقط `format=round_robin`)، `champion_id` (فقط `format=knockout`) |
-| **`[Proposed]`** | **`placements[]`** یکدست برای **هر دو قالب** (`round_robin` و `knockout`) با شکل پیشنهادی `{rank, entry_id, name, score, round_scores, country, country_code, flag_url}` — `round_scores: [number, number]` نمرهٔ کل هر راند (`[R-1, R-2]`) است و ستون‌های نمرهٔ `RankingTable` از آن می‌آیند (مدال/نشان از روی `rank` نمایش داده می‌شود، پس فیلد جدا لازم نیست) — الان برای knockout رتبه‌بندی نداریم، و `score` عددی نهایی هم نداریم، `logoUrl`، `stage` (مثل `SEMI-FINAL`) و `category` برای **هدر صفحه** (خود جدول هدر ندارد) |
+| **دادهٔ موجود** | `category.standings[]` = `{rank, id, name, wins, played}` فقط برای `format=round_robin`، و `champion_id` برای knockout. این داده‌ها تعداد برد/بازی را دارند و امتیاز اجرای راندها را تأمین نمی‌کنند. snapshot فعلی همچنین entryهای این صفحه را بدون `country/country_code/flag_url` می‌دهد. |
+| **[Proposed] منبع ردیف‌ها** | `category.placements[]` یکدست برای هر دو قالب (`round_robin` و `knockout`): `{rank, entry_id, name, score, round_scores, country, country_code, flag_url}`. `round_scores: [number, number]` امتیاز کل هر ورزشکار در راندهای `R-1` و `R-2` است؛ فرانت امتیاز را از تعداد برد یا boutها محاسبه نمی‌کند. `score` رتبه‌بندی نهایی/امتیاز کل است و برای نمایش ستون‌های تصویر استفاده نمی‌شود. |
+| **[Proposed] هدر** | `category.stage` (یا `tournament.stage`) برای سمت چپ و `category.name` برای عنوان دسته؛ برچسب‌های دو ستون فعلاً ثابت `R-1` و `R-2` هستند. `logoUrl` اختیاری است و در تصویر مرجع لوگو نمایش داده نمی‌شود. |
+| **رفتار فعلی فرانت** | فقط `placements[]` را به `RankingTable` می‌دهد؛ در نبود placements پیام خالی نمایش داده می‌شود و `standings.wins` به‌عنوان نمرهٔ راند استفاده نمی‌شود. Lab با fixture نمونهٔ placements هر پنج ردیف مرجع را نمایش می‌دهد. |
 
 ### ۳.۶ TopFour
 

@@ -255,6 +255,21 @@ const resultFixtures = {
     "result-two-rounds": resultFixture(2),
 };
 
+const rankingFixture = {
+    ...labTournament,
+    name: "RANKING",
+    stage: "SEMI-FINAL",
+    categories: [
+        {
+            id: 30,
+            name: "MALE - UNDER 30",
+            stage: "SEMI-FINAL",
+            format: "round_robin",
+            placements: placementsRoundRobin.slice(0, 5),
+        },
+    ],
+};
+
 const scoringFixture = (mode) => {
     const isDouble = mode === "double";
     const isFreestyle = mode.startsWith("freestyle");
@@ -334,6 +349,10 @@ const activePage = computed(
 );
 
 const activeTournament = computed(() => {
+    if (selectedPage.value === "ranking") {
+        return rankingFixture;
+    }
+
     if (resultFixtures[selectedPage.value]) {
         return resultFixtures[selectedPage.value];
     }
