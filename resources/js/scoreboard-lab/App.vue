@@ -21,6 +21,7 @@ import ScoringPage from "../Pages/Scoreboard/Scoring.vue";
 import ResultPage from "../Pages/Scoreboard/Result.vue";
 import RankingPage from "../Pages/Scoreboard/Ranking.vue";
 import TopFourPage from "../Pages/Scoreboard/TopFour.vue";
+import WinnerPage from "../Pages/Scoreboard/Winner.vue";
 import { computed, ref } from "vue";
 import {
     headerCases,
@@ -104,6 +105,8 @@ const pageTabs = [
     { id: "result-two-rounds", label: "Result · Two Rounds", component: ResultPage },
     { id: "ranking", label: "Ranking", component: RankingPage },
     { id: "top-four", label: "TopFour", component: TopFourPage },
+    { id: "winner-one-round", label: "Winner · One Round", component: WinnerPage },
+    { id: "winner-two-rounds", label: "Winner · Two Rounds", component: WinnerPage },
 ];
 
 /*
@@ -226,6 +229,16 @@ const resultFixture = (roundCount) => {
                     status: "completed",
                     sequence: 1,
                     entries,
+                    performances: entries.flatMap((entry) =>
+                        drawDouble.forms.map((form) => ({
+                            id: `winner-${200 + index}-${entry.id}-${form.form_number}`,
+                            entry_id: entry.id,
+                            form_number: form.form_number,
+                            symbol_key: form.symbol_key,
+                            form_name: form.form_name,
+                            status: "approved",
+                        })),
+                    ),
                     totals,
                     winner_entry_id: entries.find((entry) => entry.side === "hong")?.id,
                 },
@@ -243,6 +256,7 @@ const resultFixture = (roundCount) => {
                 name: "MALE - UNDER 30",
                 stage: "SEMI-FINAL",
                 execution_mode: "simultaneous",
+                form_names: drawDouble.forms.map((form) => form.form_name),
                 entries: drawDouble.entries,
                 rounds,
             },
@@ -253,6 +267,31 @@ const resultFixture = (roundCount) => {
 const resultFixtures = {
     "result-one-round": resultFixture(1),
     "result-two-rounds": resultFixture(2),
+};
+
+const winnerFixture = (roundCount) => {
+    const tournament = resultFixture(roundCount);
+    const finalBout = tournament.categories[0].rounds.at(-1).bouts[0];
+
+    return {
+        ...tournament,
+        current_result: {
+            category_id: tournament.categories[0].id,
+            status: "completed",
+            round_count: roundCount,
+            bout_ids: tournament.categories[0].rounds.map(
+                (round) => round.bouts[0].id,
+            ),
+            winner_entry_id: finalBout.winner_entry_id,
+            winner_total: roundCount === 1 ? 8.72 : 9.18,
+            total_max: 10,
+        },
+    };
+};
+
+const winnerFixtures = {
+    "winner-one-round": winnerFixture(1),
+    "winner-two-rounds": winnerFixture(2),
 };
 
 const rankingFixture = {
@@ -371,6 +410,10 @@ const activePage = computed(
 );
 
 const activeTournament = computed(() => {
+    if (winnerFixtures[selectedPage.value]) {
+        return winnerFixtures[selectedPage.value];
+    }
+
     if (selectedPage.value === "ranking") {
         return rankingFixture;
     }

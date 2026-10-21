@@ -209,5 +209,25 @@ Backend   →  در انتظار پیاده‌سازی بر اساس بخش ۳ �
             
 ```
 
-> تا تکمیل Backend: هیچ Route، Controller، Migration یا Business Logic تغییر نکرده،
-> هیچ mock/fixture ساخته نشده و همهٔ دسترسی‌ها `null-safe` است.
+> برای تغییرات این صفحه هیچ Route، Controller، Migration یا Business Logic بک‌اندی تغییر نکرده است. Fixtureهای Lab فقط برای پیش‌نمایش فرانت‌اند هستند و جایگزین snapshot واقعی نمی‌شوند.
+
+## الحاقیه قرارداد صفحه Winner (برنده)
+
+صفحه‌ی `Winner` بلافاصله پس از `Result`، برنده‌ی اجرای جاری را اعلام می‌کند. اجرای جاری می‌تواند شامل یک راند یا نتیجه‌ی نهاییِ تجمیعیِ دو راند باشد. در حالت یک‌راندی، صفحه هویت برنده، Total همان راند و زیر آن FormBadge همان راند را وسط‌چین نمایش می‌دهد. در حالت دوراندی، صفحه هویت برنده و Total نهایی را نشان می‌دهد و پایین آن دو ستون دارد که هر کدام FormBadge و Total همان راند را نمایش می‌دهد. `Accuracy` و `Presentation` نمایش داده نمی‌شوند.
+
+| فیلد | ساختار / قانون | کاربرد |
+| --- | --- | --- |
+| `tournament.current_result.status` | باید `completed` باشد | تعیین آماده‌بودن نتیجه برای نمایش |
+| `tournament.current_result.category_id` | شناسه‌ی دسته‌ی اجرای جاری | پیدا کردن اطلاعات شرکت‌کنندگان |
+| `tournament.current_result.round_count` | `1` یا `2` | مشخص‌کردن اجرای تک‌راند یا دو‌راند |
+| `tournament.current_result.bout_ids` | آرایه‌ی شناسه‌ی boutهای تکمیل‌شده‌ی همین اجرا؛ به تعداد `round_count` | اتصال نتیجه‌ی نهایی به دو شرکت‌کننده‌ی اجرای جاری |
+| `tournament.current_result.winner_entry_id` | شناسه‌ی یکی از دو شرکت‌کننده‌ی اجرای جاری | انتخاب ورزشکار برنده |
+| `tournament.current_result.winner_total` | Total نهایی و آماده‌ی نمایش که Backend طبق قاعده‌ی رسمی نتیجه تعیین می‌کند | مقدار `ScoreItem` مرکزی؛ فرانت‌اند آن را از نمره‌های راندها محاسبه نمی‌کند |
+| `tournament.current_result.total_max` | سقف عددی متناسب با `winner_total` | نمایش سقف Total در `ScoreItem` |
+| `bout.totals[entry_id]` | Total منتشرشده‌ی ورزشکار برنده برای همان bout؛ در اجرای دو‌راندی از هر یک از دو bout خوانده می‌شود | `ScoreItem` جداگانه‌ی هر راند؛ سقف هر راند `10` است |
+| `round.name` و `performance.form_number/form_name/symbol_key` | نام راند و مشخصات فرم ورزشکار برنده؛ `form_number` با شماره‌ی R-1/R-2 متناظر می‌شود | نمایش `FormBadge` بالای `AthleteInfo`؛ تک‌راندی `xxxl` و دوراندی هر دو badge در یک ردیف با سایز `lg` |
+| `entry.name`, `entry.side`, `entry.number`, `entry.country`, `entry.country_code`, `entry.flag_url` | اطلاعات هویتی entry در bout تکمیل‌شده؛ اطلاعات کشور اختیاری است | نمایش هویت برنده با `AthleteInfo` |
+
+برای اجرای یک‌راند، `bout_ids` یک شناسه دارد؛ برای اجرای دو‌راند، دو شناسه دارد. همه‌ی boutهای ارجاع‌شده باید تکمیل شده و متعلق به همان matchup باشند. هر `FormBadge` از round متناظر ساخته می‌شود و مشخصات فرم برنده را از performance همان round می‌گیرد؛ شکل و ترتیب نمایش مانند Draw است. Backend باید برنده و Total نهایی را پس از اعمال قاعده‌ی رسمی تعیین کند؛ فرانت‌اند دو نمره را برای Total نهایی جمع یا میانگین نمی‌گیرد و برنده را از روی `winner_entry_id` یک راند انتخاب نمی‌کند. Total هر راند از `bout.totals[entry_id]` می‌آید. این قرارداد پیشنهادی است و snapshot فعلی هنوز `tournament.current_result` را ندارد.
+
+تا زمان ارائه‌ی این فیلد، fallback فعلی فقط زمانی استفاده می‌شود که دقیقاً یک bout تکمیل‌شده با برنده در snapshot باشد. در حالت چند bout یا نتیجه‌ی دو‌راند بدون `current_result`، صفحه حالت خالی نشان می‌دهد تا برنده را حدس نزند. Lab fixtureهای جداگانه‌ی یک‌راند و دو‌راند را با `current_result` نمایش می‌دهد. تغییری در Backend انجام نشده است.

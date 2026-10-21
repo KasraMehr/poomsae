@@ -53,8 +53,8 @@ const sizeClasses = {
 
     xxl: {
         root: "gap-6",
-        round: "text-4xl",
-        form: "text-5xl",
+        round: "text-7xl",
+        form: "text-7xl",
         symbol: "xxl",
     },
 
