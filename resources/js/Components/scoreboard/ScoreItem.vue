@@ -27,7 +27,11 @@ const props = defineProps({
     /** `sub` (پیش‌فرض) یا `total`. */
     variant: { type: String, default: "sub" },
     /** `lg` برای صفحهٔ Result، `sm` برای جاهای فشرده. */
-    size: { type: String, default: "lg" },
+    size: {
+        type: String,
+        default: "lg",
+        validator: (value) => ["sm", "md", "lg", "xl", "xxl"].includes(value),
+    },
 });
 
 /**
@@ -59,21 +63,42 @@ const formattedValue = computed(() => {
     return num.toFixed(2);
 });
 
-/** ابعاد از طرح برای lg؛ sm نصف. */
+/** پشتیبانی از سایز های استاندارد  */
 const sizes = {
-    lg: {
-        label: "text-[24px] leading-[1.1] font-normal",
-        box: "h-[144px] w-full",
-        value: "text-[100px] leading-[1.1] font-bold",
-        totalBox: "h-[230px] w-full",
-        totalValue: "text-[135px] leading-[1.05] font-bold",
-    },
     sm: {
-        label: "text-[12px] leading-[1.1] font-normal",
-        box: "h-[72px] w-full",
-        value: "text-[50px] leading-[1.1] font-bold",
-        totalBox: "h-[115px] w-full",
-        totalValue: "text-[68px] leading-[1.05] font-bold",
+        label: "text-xs leading-[1.1] font-normal",
+        box: "h-12 w-full",
+        value: "text-2xl leading-[1.1] font-bold",
+        totalBox: "h-20 w-full",
+        totalValue: "text-4xl leading-[1.05] font-bold",
+    },
+    md: {
+        label: "text-sm leading-[1.1] font-normal",
+        box: "h-16 w-full",
+        value: "text-4xl leading-[1.1] font-bold",
+        totalBox: "h-28 w-full",
+        totalValue: "text-5xl leading-[1.05] font-bold",
+    },
+    lg: {
+        label: "text-lg leading-[1.1] font-normal",
+        box: "h-24 w-full",
+        value: "text-6xl leading-[1.1] font-bold",
+        totalBox: "h-40 w-full",
+        totalValue: "text-7xl leading-[1.05] font-bold",
+    },
+    xl: {
+        label: "text-xl leading-[1.1] font-normal",
+        box: "min-h-0 flex-1 w-full",
+        value: "text-7xl leading-[1.1] font-bold",
+        totalBox: "min-h-0 flex-1 w-full",
+        totalValue: "text-8xl leading-[1.05] font-bold",
+    },
+    xxl: {
+        label: "text-2xl leading-[1.1] font-normal",
+        box: "min-h-0 flex-1 w-full",
+        value: "text-8xl leading-[1.1] font-bold",
+        totalBox: "min-h-0 flex-1 w-full",
+        totalValue: "text-9xl leading-[1.05] font-bold",
     },
 };
 
@@ -85,10 +110,19 @@ const boxClasses = computed(() =>
 const valueClasses = computed(() =>
     props.variant === "total" ? s.value.totalValue : s.value.value,
 );
+const rootClasses = computed(() =>
+    ["xl", "xxl"].includes(props.size) ? "h-full min-h-0 w-full" : "w-full",
+);
+const totalPaddingClass = computed(() =>
+    props.variant === "total" ? "p-3" : "",
+);
 </script>
 
 <template>
-    <div class="flex flex-col items-start font-rtds uppercase select-none">
+    <div
+        class="flex flex-col items-start font-rtds uppercase select-none"
+        :class="rootClasses"
+    >
         <!-- ردیف برچسب و سقف: «ACCURACY      /4.0» -->
         <div class="flex w-full items-baseline justify-between">
             <span class="truncate" :class="[s.label, textColor]">
@@ -104,8 +138,8 @@ const valueClasses = computed(() =>
 
         <!-- جعبهٔ عدد -->
         <div
-            class="mt-1 flex items-center justify-center bg-rtds-bg-card"
-            :class="boxClasses"
+            class="mt-1 flex min-h-0 items-center justify-center bg-rtds-bg-card"
+            :class="[boxClasses, totalPaddingClass]"
         >
             <span class="tabular-nums" :class="[valueClasses, valueColor]">{{
                 formattedValue

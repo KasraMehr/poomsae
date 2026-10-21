@@ -15,6 +15,9 @@ const props = defineProps({
     showSubScores: { type: Boolean, default: true },
     judgeCount: { type: Number, default: 5 }, // حالت خالی
     judges: { type: Array, default: () => [] },
+    accuracyCount: { type: Number, default: 4 },
+    presentationCount: { type: Number, default: 6 },
+    presentationLabel: { type: String, default: "PRESENTATION" },
 });
 
 const rows = computed(() =>
@@ -42,6 +45,42 @@ const partsOf = (row, key) => {
 
 /** عرض ستون‌ها ثابت است: با تقسیم/ادغام زیرستون‌ها، ستون‌ها جابه‌جا نمی‌شوند. */
 const widths = { judge: "59px", accuracy: "268px", presentation: "432px" };
+const valuesOf = (row, key, count) => {
+    const parts = partsOf(row, key);
+
+    return parts.length === 1 && count > 1 ? Array(count).fill(parts[0]) : parts;
+};
+
+const isRejected = (row, key, partIndex) => {
+    const states = [
+        row.acceptance?.[key]?.[partIndex],
+        row.accepted?.[key]?.[partIndex],
+        row.acceptance?.[key + "_components"]?.[partIndex],
+        row.accepted?.[key + "_components"]?.[partIndex],
+        row.acceptance?.[key + "_penalties"]?.[partIndex],
+        row.accepted?.[key + "_penalties"]?.[partIndex],
+        row.score_status?.[key + "_components"]?.[partIndex],
+        row.score_status?.[key + "_penalties"]?.[partIndex],
+        row[key + "_accepted"]?.[partIndex],
+    ];
+    const scoreState =
+        row.acceptance?.[key] ??
+        row.accepted?.[key] ??
+        row.score_status?.[key];
+
+    return (
+        states.includes(false) ||
+        states.includes("rejected") ||
+        scoreState === false ||
+        scoreState === "rejected" ||
+        row.status === "rejected"
+    );
+};
+
+const scoreStateClass = (row, key, partIndex) =>
+    isRejected(row, key, partIndex)
+        ? "!text-rtds-red line-through decoration-2"
+        : "!text-white";
 </script>
 
 <template>
@@ -72,7 +111,7 @@ const widths = { judge: "59px", accuracy: "268px", presentation: "432px" };
             >
                 <span
                     class="whitespace-nowrap font-rtds text-xl font-normal uppercase leading-9 text-rtds-text-light"
-                    >PRESENTATION</span
+                    >{{ presentationLabel }}</span
                 >
             </div>
         </div>
@@ -97,9 +136,10 @@ const widths = { judge: "59px", accuracy: "268px", presentation: "432px" };
                 :style="{ width: widths.accuracy }"
             >
                 <span
-                    v-for="(value, partIndex) in partsOf(row, 'accuracy')"
+                    v-for="(value, partIndex) in valuesOf(row, 'accuracy', accuracyCount)"
                     :key="partIndex"
-                    class="flex-1 text-center font-rtds text-[32px] font-medium leading-[52px] text-rtds-text-light"
+                    class="flex-1 text-center font-rtds text-[32px] font-medium leading-[52px]"
+                    :class="scoreStateClass(row, 'accuracy', partIndex)"
                 >
                     {{ format(value) }}
                 </span>
@@ -110,9 +150,10 @@ const widths = { judge: "59px", accuracy: "268px", presentation: "432px" };
                 :style="{ width: widths.presentation }"
             >
                 <span
-                    v-for="(value, partIndex) in partsOf(row, 'presentation')"
+                    v-for="(value, partIndex) in valuesOf(row, 'presentation', presentationCount)"
                     :key="partIndex"
-                    class="flex-1 text-center font-rtds text-[32px] font-semibold leading-9 text-rtds-text-light"
+                    class="flex-1 text-center font-rtds text-[32px] font-semibold leading-9"
+                    :class="scoreStateClass(row, 'presentation', partIndex)"
                 >
                     {{ format(value) }}
                 </span>

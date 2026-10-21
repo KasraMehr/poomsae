@@ -52,6 +52,25 @@ const format = (value) => {
         : String(value);
 };
 
+const isRejected = (row, key) => {
+    const state =
+        row.acceptance?.[key] ??
+        row.accepted?.[key] ??
+        row.score_status?.[key];
+
+    return (
+        state === false ||
+        state === "rejected" ||
+        row[key + "_accepted"] === false ||
+        row.status === "rejected"
+    );
+};
+
+const scoreStateClass = (row, key) =>
+    isRejected(row, key)
+        ? "!text-rtds-red line-through decoration-2"
+        : "!text-white";
+
 const labelWidth = "132px";
 const labelGap = "15px"; // فاصلهٔ ستون برچسب تا ناحیهٔ اعداد
 
@@ -123,11 +142,12 @@ const reverseClass = computed(() => (isHong.value ? "flex-row-reverse" : ""));
                     v-for="(row, index) in seatRows"
                     :key="index"
                     class="flex flex-1 items-center justify-center"
-                    :class="
+                    :class="[
                         category.score
-                            ? 'font-rtds text-[50px] font-semibold leading-10 text-rtds-surface-light'
-                            : 'font-rtds text-[36px] font-medium leading-10 text-rtds-text-muted'
-                    "
+                            ? 'font-rtds text-[50px] font-semibold leading-10'
+                            : 'font-rtds text-[36px] font-medium leading-10',
+                        scoreStateClass(row, category.key),
+                    ]"
                 >
                     {{ format(row[category.key]) }}
                 </span>

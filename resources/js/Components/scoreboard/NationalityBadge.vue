@@ -37,7 +37,7 @@ const sizeClasses = {
     },
 
     xl: {
-        root: "h-[80px]",
+        root: "h-[107px]",
         flag: "w-[110px]",
         code: "min-w-[110px] px-[6px] text-[57px] leading-none",
         placeholder: "text-base",

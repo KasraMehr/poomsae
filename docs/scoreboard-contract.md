@@ -19,7 +19,7 @@
 | ------ | ---- | --- | ----- |
 | Standby | `Standby.vue` | نمایش **اجرای فعلی + Timer اجرا + state پایان** (`running` / `scoring`). بدون صف، بدون اجرای قبلی/بعدی. | متصل به snapshot |
 | LiveBoard | `LiveBoard.vue` | Broadcast board وضعیت **یک زمین**: `PREVIOUS ↓ CURRENT ↓ NEXT`. Timer اینجا مسئولیت اصلی نیست. | متصل به snapshot |
-| Scoring | `Scoring.vue` | نمایش زندهٔ bout در حال اجرا: ورزشکاران، فرم، جدول امتیاز قاضی‌ها، `ScoreCard` (سه امتیاز). | متصل به snapshot (با TODO) |
+| Scoring | `Scoring.vue` | صفحهٔ زندهٔ امتیازدهی؛ layout تک‌نفره، دوتایی یا فری‌استایل بر پایهٔ category و جزئیات نمرهٔ backend. | پیاده‌سازی فرانت؛ هم‌ترازی قرارداد هنگام مرج |
 | Result | `Result.vue` | نتیجهٔ رقابت‌های تکمیل‌شده؛ هر ورزشکار یک `ScoreCard` روبه‌روی دیگری (آبی چپ، قرمز راست، کادر زرد روی برنده)؛ تک‌مرحله‌ای/دومرحله‌ای از `rounds.length`. | متصل به snapshot |
 | Ranking | `Ranking.vue` | جدول رتبه‌بندی (`standings` برای round_robin + قهرمان برای knockout). | متصل به snapshot |
 | TopFour | `TopFour.vue` | چهار نفر برتر با مدال. | متصل به snapshot (فقط round_robin) |
@@ -36,7 +36,7 @@
 | `SymbolContainer` | نگه‌دارندهٔ یک تصویر سمبل (فرم یا مدال) در سه سایز؛ مسیر از `Shared/Services/symbols.js`. | داخل FormBadge |
 | `Timer` | **فقط نمایش** — شمارش معکوس از `execution_duration_seconds`. سه حالت کاملاً مشتق از props: `idle` (پیش از شروع، `startedAt` خالی) / `running` (`startedAt` هست، `endedAt` خالی) / `stopped` (هر دو هست). هیچ state تایمری در فرانت وجود ندارد؛ کنترل کامل از پنل اپراتور است. در صفر روی `00:00` می‌ایستد (نه قرمز، نه اعلام خودکار). دو سایز: `lg` در Standby، `sm` در LiveBoard. | Standby, LiveBoard |
 | `ScoreCard` | بلوک امتیاز **یک ورزشکار**: سه آیتم عمودی + آینه‌سازی برای `hong` (قرمز) + کادر زرد `winner` فقط روی جعبهٔ total. آیتم‌ها از slot می‌آیند. | Result, Scoring |
-| `ScoreItem` | یک آیتم امتیاز: ردیف `label … /max` و عدد در جعبهٔ تیره زیرش. `variant="sub"` (عدد سفید، ۱۰۰px) یا `variant="total"` (عدد رنگ تیم، ۱۳۵px). قالب ۲ رقم اعشار با **ممیز لاتین** (`8.46`، نه `۸٫۴۶`) و مقدار غایب `--`. | داخل ScoreCard |
+| `ScoreItem` | یک آیتم امتیاز: ردیف `label … /max` و عدد در جعبهٔ تیره زیرش. `variant="sub"` یا `variant="total"`; قالب ۲ رقم اعشار با ممیز لاتین و مقدار غایب `--`. Scoring از اندازه‌های `scoring` و `scoring-compact` استفاده می‌کند. | Result و Scoring |
 | `SingleScoringTable` | جدول تک‌نفره — **سطر = داور**، هدر ثابت انگلیسی `JUDGE / ACCURACY / EOE / S&P / R&P / PRESENTATION`. با `showSubScores=false` سه ستون ریزنمرات حذف می‌شوند و **عرض ستون‌های باقی تغییر نمی‌کند**. ستون/ردیف «مجموع» ندارد. | Scoring |
 | `FreestyleScoringTable` | جدول فری‌استایل — سطر = داور، سه ستون `JUDGE / ACCURACY / PRESENTATION`. با `showSubScores=true` ستون ACCURACY به **۴** و PRESENTATION به **۶ زیرستون (بدون هدر)** تقسیم می‌شود؛ با `false` همان سه ستون می‌ماند و عرض ثابت است. | Scoring (بعد از داشتن `execution_mode`) |
 | `DoubleScoringTable` | جدول **یک سمت** (یک ورزشکار) — ستون = داوران، سطر = دسته‌های نمره. صفحه دو بار رندر می‌کند: `side="chung"` (چپ، برچسب‌ها چپ، آبی) و `side="hong"` (راست، **آینه**: ترتیب Jn..J1 و برچسب‌ها راست، قرمز). با `showSubScores=false` سطرهای ریزنمرات مخفی می‌شوند. | Scoring (بعد از داشتن `execution_mode`) |
@@ -95,11 +95,13 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 
 | دسته | موارد |
 | ---- | ----- |
-| **دادهٔ موجود** | `category.judge_count` (۵/۷)، `bout.entries[].name/side`، `performance.form_name/form_number`، `bout.totals` (میانگین دو فرم)، `performance.result` |
-| **`[Proposed]`** | **`execution_mode`** (`SINGLE \| DOUBLE \| SINGLE-FREESTYLE`) — برای انتخاب جدول درست (الان همیشه `SingleScoringTable`)، **`judge_scores[]` per seat** — نمرهٔ هر قاضی (در display snapshot آرایهٔ `scores[]` خالی می‌آید)، **`entry.accuracy_score`** و **`entry.presentation_score`** (دو امتیاز زیرمجموعه در `ScoreItem`)، `entry.country/country_code/flag`، `logoUrl` |
-| **`[Proposed]` — ریزنمرات جدول‌ها** | برای Single/Double: سه مؤلفهٔ بین `accuracy` و `presentation` به‌نام **`EOE` / `S&P` / `R&P`** روی هر صندلی داور. برای Freestyle: **`accuracy_parts[]` (۴ مقدار)** و **`presentation_parts[]` (۶ مقدار)**. در Backend فعلی **فقط** `accuracy` و `presentation` وجود دارد (هیچ criterion دیگری ثبت نمی‌شود)؛ بدون این فیلدها ستون‌های ریزنمرات «—» نمایش داده می‌شوند. |
-| **نکته** | `mode` متعلق به Domain است؛ Frontend حدس نمی‌زند. |
-| **⚠️ تداخل نام** | ستون `categories.execution_mode` **از قبل در دیتابیس هست** با مقادیر `alternating \| simultaneous` (معنای متفاوت: نوبتی/همزمان). پیشنهاد `SINGLE \| DOUBLE \| SINGLE-FREESTYLE` همین نام را می‌گیرد؛ یا باید فیلد جدیدی با نام دیگر (مثلاً `scoring_mode`) بیاید یا نگاشت صریح از `discipline` (`recognized \| freestyle`) + `entry_type` (`individual \| pair \| team`). **این تصمیم با Backend است.** |
+| **دادهٔ موجود** | `category.discipline/format/execution_mode/judge_count/rules`، `bout.entries[]`، `performance.form_name/form_number` و `performance.detailed_scores` در snapshot امتیازدهی قابل‌نمایش؛ دادهٔ جزئی پیش از انتشار/نمایش مجاز می‌تواند خالی باشد. |
+| **قرارداد مصرف فرانت** | `detailed_scores` شامل `discipline`, `method`, `accuracy`, `accuracy_max`, `presentation`, `presentation_max`, `total`, `total_max`, `judges[]` است. فرانت total و میانگین را محاسبه نمی‌کند؛ اعداد و سقف‌ها را از پاسخ می‌خواند. نبودن مقدار به‌شکل `—` می‌ماند. |
+| **انتخاب layout** | `discipline=freestyle` → `FreestyleScoringTable`. در غیر این صورت `format=knockout` همراه `execution_mode=simultaneous` → دو جدول `DoubleScoringTable`. سایر دسته‌ها → `SingleScoringTable`. `execution_mode` همچنان فقط `alternating \| simultaneous` است و معنای SINGLE/DOUBLE ندارد. |
+| **ساختار `judges[]`** | هر آیتم: `seat`, `label`, `accuracy`, `presentation`, `total`, `accuracy_components[]`, `presentation_components[]`, `accuracy_penalties[]`, `presentation_penalties[]`. Single/Double سه مقدار `presentation_components` را به EOE/S&P/R&P نگاشت می‌کنند. |
+| **ریز امتیاز Freestyle** | `method=accuracy_4_presentation_6`: چهار `accuracy_components[]` و شش `presentation_components[]`. `method=accuracy_6_presentation_4`: سه `accuracy_components[]` به‌علاوهٔ چهار `presentation_penalties[]` که فرانت با علامت منفی نمایش می‌دهد. سقف‌ها و نتایج نهایی از `detailed_scores` می‌آیند؛ فرانت از روی شمار زیرامتیازها حدس نمی‌زند. |
+| **وضعیت پذیرش امتیاز (آینده)** | فرانت از metadata اختیاری داور مثل `acceptance`، `accepted` یا `score_status`، به‌شکل `{ accuracy, presentation, eoe, sp, rp, accuracy_components[], presentation_components[], presentation_penalties[] }` پشتیبانی می‌کند. مقدار `false` یا `"rejected"` باعث نمایش قرمز و خط‌خورده می‌شود؛ نبود metadata یعنی نمایش عادی سفید. منبع این metadata بعداً با Backend هماهنگ می‌شود. |
+| **هویت ورزشکار** | `bout.entries[]` می‌تواند `number`, `country`, `country_code`, `flag_url` داشته باشد؛ نبودنشان اختیاری است و به layout امتیازدهی لطمه نمی‌زند. |
 
 ### ۳.۴ Result
 
@@ -141,11 +143,10 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 | 3 | `entry.country` / `entry.country_code` / `entry.flag_url` | `string` روی entry — `country_code` از نوع ISO 3166-1 alpha-3 انگلیسی (مثل `IRI`) | هر جا بج/بلوک کشور (`AthleteInfo`, `RankingRow`, `TopFourRow`) |
 | 4 | `entry.number` | `int` روی entry | Standby, Scoring |
 | 5 | `execution_duration_seconds` | `int` روی تنظیمات مسابقه | Standby, LiveBoard (Timer) |
-| 6 | `execution_mode` | `SINGLE \| DOUBLE \| SINGLE-FREESTYLE` روی category | Scoring (انتخاب جدول) |
-| 7 | `judge_scores[]` | `[{seat, values[]}]` روی performance (در display هم) | Scoring (ستون‌های قاضی) |
-| 8 | `entry.accuracy_score` | `number` ۰..۴ روی entry — سقف **ثابت**، فرانت جمع نمی‌کند | Result, Scoring (`ScoreItem`) |
-| 9 | `entry.presentation_score` | `number` ۰..۶ روی entry — سقف **ثابت** | Result, Scoring (`ScoreItem`) |
-| 9 | `bout.totals[entry_id]` | `number` ۰..۱۰ = مجموع دو مورد قبل؛ از Backend می‌آید، نه جمع در فرانت | Result, Scoring (`ScoreItem variant="total"`) |
+| 6 | `category.discipline/format/execution_mode` | `recognized \| freestyle`; `knockout \| round_robin`; `alternating \| simultaneous` | Scoring (انتخاب layout) |
+| 7 | `performance.detailed_scores` | نتایج/سقف‌های هر اجرای فرم به‌همراه `judges[]` | Scoring |
+| 8 | `detailed_scores.judges[]` | breakdown داور و زیرامتیازها مطابق بخش ۳.۳ | Scoring (جدول‌ها) |
+| 9 | `detailed_scores.accuracy/presentation/total` | عدد nullable از Backend؛ total را فرانت جمع نمی‌کند | Scoring (`ScoreItem`) |
 | 9 | `bout.winner_entry_id` | `int` — تعیین `winner` و در نتیجه کادر زرد روی total | Result (`ScoreCard`) |
 | 10 | `placements[]` | `[{rank, entry_id, name, score, round_scores, country, country_code, flag_url}]` روی category — `round_scores = [R-1, R-2]` برای ستون‌های نمرهٔ Ranking؛ مدال/نشان از `rank` مشتق می‌شود | Ranking, TopFour |
 | 11 | `Draw.output_snapshot` | خروجی قرعه (ترتیب اجرا/جفت‌ها) | Draw |
@@ -155,7 +156,7 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 | 15 | `symbol_key` | `int` `1..18` روی فرم — کلید سمبل تصویری فرم | `FormBadge` در Scoring, Result, Draw, Standby, LiveBoard |
 | 16 | `courtId` (LiveBoard) | query param رسمی | LiveBoard |
 | 17 | `timeline` (LiveBoard) | `previous/current/next` صریح با ترتیب سراسری بین زمین‌ها | LiveBoard |
-| 18 | `judge_sub_scores` | `{ eoe, sp, rp }` روی هر صندلی داور (Single/Double) و `{ accuracy_parts[], presentation_parts[] }` (Freestyle) — برای `showSubScores` | Scoring (ستون/سطر ریزنمرات) |
+| 18 | `detailed_scores.judges[].*_components/ *_penalties` | سه component برای Single/Double؛ Freestyle با قاعدهٔ ۴+۶ یا ۶+۴ | Scoring (ستون/سطر ریزنمرات) |
 
 **نکتهٔ `NationalityBadge` (کد کشور و پرچم):**
 

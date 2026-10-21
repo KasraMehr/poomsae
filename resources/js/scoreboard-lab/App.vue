@@ -96,7 +96,10 @@ const pageTabs = [
     { id: "standby-single", label: "Standby · Single", component: StandbyPage },
     { id: "standby-double", label: "Standby · Double", component: StandbyPage },
     { id: "live-board", label: "LiveBoard", component: LiveBoardPage },
-    { id: "scoring", label: "Scoring", component: ScoringPage },
+    { id: "scoring-single", label: "Scoring · Single", component: ScoringPage },
+    { id: "scoring-double", label: "Scoring · Double", component: ScoringPage },
+    { id: "scoring-freestyle", label: "Scoring · Freestyle 4+6", component: ScoringPage },
+    { id: "scoring-freestyle-6-4", label: "Scoring · Freestyle 6+4", component: ScoringPage },
     { id: "result", label: "Result", component: ResultPage },
     { id: "ranking", label: "Ranking", component: RankingPage },
     { id: "top-four", label: "TopFour", component: TopFourPage },
@@ -192,12 +195,89 @@ const labTournamentDouble = {
     })),
 };
 
+const scoringFixture = (mode) => {
+    const isDouble = mode === "double";
+    const isFreestyle = mode.startsWith("freestyle");
+    const isPenaltyMode = mode === "freestyle-6-4";
+    const entries = isDouble ? drawDouble.entries : drawSingle.entries.slice(0, 1);
+    const judges = isFreestyle
+        ? freestyleFive.judges.map((judge, index) => ({
+              seat: index + 1,
+              label: judge.label,
+              accuracy: judge.accuracy,
+              accuracy_components: isPenaltyMode ? [1.5, 1.4, 1.2] : judge.accuracyParts,
+              presentation: judge.presentation,
+              presentation_components: isPenaltyMode ? [] : judge.presentationParts,
+              presentation_penalties: isPenaltyMode ? [0.2, 0.3, 0.1, 0.2] : [],
+          }))
+        : singleFive.judges.map((judge, index) => ({
+              seat: index + 1,
+              label: judge.label,
+              accuracy: judge.accuracy,
+              presentation: judge.presentation,
+              presentation_components: [judge.eoe, judge.sp, judge.rp],
+          }));
+    const performances = entries.map((entry, index) => ({
+        id: "scoring-performance-" + index,
+        entry_id: entry.id,
+        status: "scoring",
+        form_number: 1,
+        symbol_key: 1,
+        form_name: "TAEGUK 5",
+        detailed_scores: {
+            discipline: isFreestyle ? "freestyle" : "recognized",
+            method: isPenaltyMode ? "accuracy_6_presentation_4" : "accuracy_4_presentation_6",
+            judges,
+            accuracy: "3.46",
+            accuracy_max: "4.0",
+            presentation: "5.00",
+            presentation_max: "6.0",
+            total: "8.46",
+            total_max: "10.0",
+        },
+    }));
+
+    return {
+        ...labTournament,
+        categories: [{
+            ...labTournament.categories[0],
+            name: "MALE - UNDER 30",
+            discipline: isFreestyle ? "freestyle" : "recognized",
+            format: "knockout",
+            execution_mode: isDouble ? "simultaneous" : "alternating",
+            judge_count: 5,
+            rules: { accuracy_max: 400, presentation_max: 600 },
+            rounds: [{
+                ...labTournament.categories[0].rounds[0],
+                name: "SEMI-FINAL",
+                bouts: [{
+                    ...labTournament.categories[0].rounds[0].bouts[0],
+                    sequence: 1,
+                    entries,
+                    performances,
+                }],
+            }],
+        }],
+    };
+};
+
+const scoringFixtures = {
+    "scoring-single": scoringFixture("single"),
+    "scoring-double": scoringFixture("double"),
+    "scoring-freestyle": scoringFixture("freestyle"),
+    "scoring-freestyle-6-4": scoringFixture("freestyle-6-4"),
+};
+
 const activePage = computed(
     () =>
         pageTabs.find((page) => page.id === selectedPage.value) ?? pageTabs[0],
 );
 
 const activeTournament = computed(() => {
+    if (scoringFixtures[selectedPage.value]) {
+        return scoringFixtures[selectedPage.value];
+    }
+
     if (selectedPage.value === "standby-single") {
         return labTournamentSingle;
     }
