@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from "vue";
+import { Head } from "@inertiajs/vue3";
 import ScoreboardLayout from "../../Shared/Layouts/ScoreboardLayout.vue";
 import TopFourTable from "../../Components/scoreboard/tables/TopFourTable.vue";
 
@@ -35,6 +36,7 @@ const categoryLabel = computed(() => categories.value[0]?.name ?? "");
 </script>
 
 <template>
+    <!-- <Head title="topFour"/> -->
     <ScoreboardLayout
         :stage="stage"
         :center="categoryLabel"

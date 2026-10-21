@@ -2,6 +2,7 @@
 import { computed } from "vue";
 import ScoreboardLayout from "../../Shared/Layouts/ScoreboardLayout.vue";
 import RankingTable from "../../Components/scoreboard/tables/RankingTable.vue";
+import { Head } from "@inertiajs/vue3";
 
 const props = defineProps({
     tournament: { type: Object, default: null },
@@ -34,6 +35,7 @@ const categoryLabel = computed(
 </script>
 
 <template>
+    <!-- <Head title="ranking"/> -->
     <ScoreboardLayout
         :stage="stage"
         :center="categoryLabel"

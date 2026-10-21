@@ -4,6 +4,7 @@ import ScoreboardLayout from "../../Shared/Layouts/ScoreboardLayout.vue";
 import ScoreboardHeader from "../../Components/scoreboard/ScoreboardHeader.vue";
 import AthleteInfo from "../../Components/scoreboard/AthleteInfo.vue";
 import ScoreItem from "../../Components/scoreboard/ScoreItem.vue";
+import { Head } from "@inertiajs/vue3";
 
 const props = defineProps({
     tournament: { type: Object, default: null },
@@ -89,7 +90,7 @@ const resultPanels = computed(() => {
                 title:
                     rounds.length > 1
                         ? "RESULT"
-                        : sides[0]?.rounds[0]?.label ?? "RESULT",
+                        : (sides[0]?.rounds[0]?.label ?? "RESULT"),
                 rounds,
                 sides,
             });
@@ -107,6 +108,7 @@ const title = computed(() => resultPanels.value[0]?.title ?? "RESULT");
 </script>
 
 <template>
+    <!-- <Head title="result"/> -->
     <ScoreboardLayout :stage="stage" :center="title" :category="categoryLabel">
         <template #header>
             <ScoreboardHeader

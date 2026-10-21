@@ -5,6 +5,7 @@ import ScoreboardHeader from "../../Components/scoreboard/ScoreboardHeader.vue";
 import AthleteInfo from "../../Components/scoreboard/AthleteInfo.vue";
 import FormBadge from "../../Components/scoreboard/FormBadge.vue";
 import Timer from "../../Components/scoreboard/Timer.vue";
+import { Head } from "@inertiajs/vue3";
 
 const props = defineProps({
     draw: {
@@ -118,6 +119,7 @@ const courts = computed(() => props.tournament?.courts ?? []);
 </script>
 
 <template>
+    <!-- <Head title="standby"/> -->
     <ScoreboardLayout
         :stage="stage"
         :center="roundLabel"

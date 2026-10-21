@@ -59,7 +59,7 @@ const category = computed(() => drawData.value?.category ?? "");
 </script>
 
 <template>
-    <!-- <Head title="قرعه کشی"/> -->
+    <!-- <Head title="draw"/> -->
     <div dir="ltr">
         <ScoreboardLayout>
             <template #header>

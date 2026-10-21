@@ -1,4 +1,5 @@
 <script setup>
+import { Head } from "@inertiajs/vue3";
 import { computed } from "vue";
 import ScoreboardLayout from "../../Shared/Layouts/ScoreboardLayout.vue";
 import ScoreboardHeader from "../../Components/scoreboard/ScoreboardHeader.vue";
@@ -79,6 +80,7 @@ const scoringPanels = computed(() =>
                             bout,
                             category,
                             round,
+                            roundLabel: roundLabelOf(round),
                             variant,
                             sides: group.map((performance) => ({
                                 performance,
@@ -99,7 +101,10 @@ const currentCategory = computed(
 );
 const currentRound = computed(() => scoringPanels.value[0]?.round ?? null);
 const categoryLabel = computed(() => currentCategory.value?.name ?? "");
-const roundLabel = computed(() => currentRound.value?.name ?? "SCORING");
+const roundTitle = computed(() => currentRound.value?.name ?? "SCORING");
+
+const roundLabelOf = (round) =>
+    round?.sequence == null ? "" : `R-${round.sequence}`;
 
 const detailOf = (side) => side?.performance?.detailed_scores ?? null;
 const judgesOf = (side) => detailOf(side)?.judges ?? [];
@@ -182,6 +187,7 @@ const athleteProps = (entry) => ({
 </script>
 
 <template>
+    <!-- <Head title="scoring"/> -->
     <ScoreboardLayout
         :stage="stage"
         :center="tournament?.name ?? ''"
@@ -189,7 +195,7 @@ const athleteProps = (entry) => ({
     >
         <template #header>
             <ScoreboardHeader
-                :stage="roundLabel"
+                :stage="roundTitle"
                 event-title="SCORING"
                 :category="categoryLabel"
             />
@@ -241,6 +247,7 @@ const athleteProps = (entry) => ({
                     />
                     <FormBadge
                         size="xxxl"
+                        :round-label="panel.roundLabel"
                         :form-name="panel.sides[0].performance.form_name ?? ''"
                         :form-number="
                             panel.sides[0].performance.form_number ?? null
