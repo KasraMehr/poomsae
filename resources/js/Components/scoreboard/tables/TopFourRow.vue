@@ -70,7 +70,9 @@ const hasCountry = computed(() => Boolean(props.flagUrl || props.countryCode));
 const formattedScore = computed(() =>
     props.score === null || props.score === undefined || props.score === ""
         ? "—"
-        : String(props.score),
+        : Number.isFinite(Number(props.score))
+          ? Number(props.score).toFixed(2)
+          : String(props.score),
 );
 </script>
 

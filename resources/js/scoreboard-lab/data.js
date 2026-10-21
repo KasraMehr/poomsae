@@ -563,7 +563,7 @@ export const contractFields = [
     { n: 9, field: "presentation_score", shape: "number ۰..۶ — سقف ثابت، ScoreItem", consumers: "Result, Scoring (ScoreCard/ScoreItem)" },
     { n: 9, field: "total_score", shape: "number ۰..۱۰ = مجموع دو مورد قبل؛ از Backend می‌آید نه جمع فرانت", consumers: "Result, Scoring (ScoreCard/ScoreItem)" },
     { n: 9, field: "is_winner", shape: "bool — کادر زرد فقط روی total برنده", consumers: "Result" },
-    { n: 10, field: "placements[]", shape: "[{rank, entry_id, name, score, country, country_code, flag_url}] — مدال از روی rank نمایش داده می‌شود", consumers: "Ranking, TopFour" },
+    { n: 10, field: "placements[]", shape: "[{rank, entry_id, name, score, round_scores, country, country_code, flag_url}] — score امتیاز نهایی مستقل است؛ مدال از rank می‌آید", consumers: "Ranking, TopFour" },
     { n: 11, field: "Draw.output_snapshot", shape: "خروجی قرعه (ترتیب اجرا/جفت‌ها)", consumers: "Draw" },
     { n: 12, field: "entry_members[]", shape: "[{name, club, position}] روی entry", consumers: "Draw, Standby, Scoring" },
     { n: 13, field: "draw_timing", shape: "timestamp", consumers: "Draw" },

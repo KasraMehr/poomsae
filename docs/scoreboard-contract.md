@@ -22,7 +22,7 @@
 | Scoring | `Scoring.vue` | صفحهٔ زندهٔ امتیازدهی؛ layout تک‌نفره، دوتایی یا فری‌استایل بر پایهٔ category و جزئیات نمرهٔ backend. | پیاده‌سازی فرانت؛ هم‌ترازی قرارداد هنگام مرج |
 | Result | `Result.vue` | نمایش نتیجهٔ boutهای تکمیل‌شدهٔ اجرای جاری؛ چیدمان یک یا دو راند بر اساس راندهای تکمیل‌شده، بدون برجسته‌سازی برنده. | متصل به snapshot |
 | Ranking | `Ranking.vue` | نمایش رتبه، کشور، نام و امتیازهای `R-1` و `R-2` با `RankingTable` بر پایهٔ `category.placements[]`. | پیاده‌سازی فرانت؛ نیازمند تکمیل قرارداد Backend |
-| TopFour | `TopFour.vue` | چهار نفر برتر با مدال. | متصل به snapshot (فقط round_robin) |
+| TopFour | `TopFour.vue` | چهار رتبهٔ برتر هر دسته با مدال، اطلاعات کشور و امتیاز نهایی مستقل از `placements[]`. | پیاده‌سازی فرانت؛ نیازمند تکمیل قرارداد Backend |
 | Draw | `Draw.vue` | قرعه‌کشی: فرم‌ها و ورزشکاران هر دسته. | متصل به snapshot (با TODO) |
 
 ### ۱.۲ کامپوننت‌ها (`Components/scoreboard/`)
@@ -125,9 +125,9 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 
 | دسته | موارد |
 | ---- | ----- |
-| **دادهٔ موجود** | ۴ ردیف اول `standings` (فقط `round_robin`) |
-| **`[Proposed]`** | **`placements[]`** (همان فیلد پیشنهادی Ranking — شامل knockout)، `entry.country/country_code/flag_url`، `logoUrl` |
-| **نکته** | برای knockout در حال حاضر داده‌ای ندارد و صفحه پیام placeholder نشان می‌دهد. جدول از `TopFourTable`/`TopFourRow` رندر می‌شود و نمرهٔ نهایی از همان `score` می‌آید (بدون ستون راند). |
+| **دادهٔ موجود** | `category.standings[]` فقط رتبه/برد/تعداد بازی را برای `round_robin` می‌دهد؛ snapshot فعلی نمرهٔ نهایی اجرای ورزشکار یا اطلاعات کشور را ندارد و برای knockout نیز placement ارائه نمی‌کند. |
+| **`[Proposed]`** | `category.placements[]` مشترک با Ranking شامل `{rank, entry_id, name, score, country, country_code, flag_url}` برای هر دو قالب. فرانت چهار placement با rankهای ۱ تا ۴ را نمایش می‌دهد؛ مدال از rank مشتق می‌شود و `score` همان نمرهٔ نهایی مستقل است، نه تعداد برد و نه `round_scores[1]`. |
+| **هدر و Lab** | `category.stage` (یا `tournament.stage`) و `category.name` برای هدر؛ Lab از چهار placement fixture با نمرهٔ مستقل استفاده می‌کند. `logoUrl` در مرجع تصویری استفاده نشده است. |
 
 ### ۳.۷ Draw
 
@@ -152,7 +152,7 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 | 8 | `detailed_scores.judges[]` | breakdown داور و زیرامتیازها مطابق بخش ۳.۳ | Scoring (جدول‌ها) |
 | 9 | `detailed_scores.accuracy/presentation/total` | عدد nullable از Backend؛ total را فرانت جمع نمی‌کند | Scoring (`ScoreItem`) |
 | 9 | `bout.winner_entry_id` | `int` — برندهٔ bout؛ Result فعلاً از آن برای استایل‌دهی استفاده نمی‌کند | اطلاعات نتیجه (نمایش برنده بعداً تعیین می‌شود) |
-| 10 | `placements[]` | `[{rank, entry_id, name, score, round_scores, country, country_code, flag_url}]` روی category — `round_scores = [R-1, R-2]` برای ستون‌های نمرهٔ Ranking؛ مدال/نشان از `rank` مشتق می‌شود | Ranking, TopFour |
+| 10 | `placements[]` | `[{rank, entry_id, name, score, round_scores, country, country_code, flag_url}]` روی category — `score` امتیاز نهایی مستقل TopFour است؛ `round_scores = [R-1, R-2]` برای ستون‌های Ranking؛ مدال از `rank` مشتق می‌شود | Ranking, TopFour |
 | 11 | `Draw.output_snapshot` | خروجی قرعه (ترتیب اجرا/جفت‌ها) | Draw |
 | 12 | `entry_members[]` | `[{name, club, position}]` روی entry | Draw, Standby, Scoring |
 | 13 | `draw_timing` | `timestamp` | Draw |

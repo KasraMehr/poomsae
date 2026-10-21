@@ -270,6 +270,28 @@ const rankingFixture = {
     ],
 };
 
+const topFourFixture = {
+    ...labTournament,
+    name: "TOP FOUR",
+    stage: "SEMI-FINAL",
+    categories: [
+        {
+            id: 40,
+            name: "MALE - UNDER 30",
+            stage: "SEMI-FINAL",
+            placements: topFourRows.map((row) => ({
+                rank: row.rank,
+                entry_id: row.rank + 300,
+                name: row.name,
+                score: row.score,
+                country: row.country,
+                country_code: row.countryCode,
+                flag_url: row.flagUrl,
+            })),
+        },
+    ],
+};
+
 const scoringFixture = (mode) => {
     const isDouble = mode === "double";
     const isFreestyle = mode.startsWith("freestyle");
@@ -351,6 +373,10 @@ const activePage = computed(
 const activeTournament = computed(() => {
     if (selectedPage.value === "ranking") {
         return rankingFixture;
+    }
+
+    if (selectedPage.value === "top-four") {
+        return topFourFixture;
     }
 
     if (resultFixtures[selectedPage.value]) {
