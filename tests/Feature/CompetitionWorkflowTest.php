@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Actions\CompetitionView;
 use App\Actions\RunCompetition;
 use App\Actions\SubmitScore;
+use App\Models\AuditLog;
 use App\Models\Bout;
 use App\Models\Performance;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -18,7 +20,7 @@ class CompetitionWorkflowTest extends TestCase
         $f = $this->competition(5, 4);
         $this->schedule($f);
         $first = Bout::orderBy('id')->firstOrFail();
-        $p = $first->performances()->firstOrFail();
+        $p = $first->performances()->orderBy('id')->firstOrFail();
         $this->startScoring($f, $p);
         foreach (Bout::orderBy('id')->get() as $bout) {
             $winner = $bout->entries()->firstOrFail()->id;
@@ -46,11 +48,11 @@ class CompetitionWorkflowTest extends TestCase
         ])->assertSessionHasNoErrors()->assertRedirect();
         $this->assertDatabaseHas('users', ['email' => 'new-judge@example.test', 'is_admin' => false]);
         $this->post('/tournaments/'.$f['tournament']->id.'/categories', [
-            'name' => 'رده دوم', 'gender' => 'female', 'minimum_age' => 12, 'maximum_age' => 20, 'format' => 'round_robin',
-            'judge_count' => 7, 'accuracy_max' => 300, 'discard_extremes' => true, 'rules_acknowledged' => true,
+            'name' => 'رده دوم', 'gender' => 'female', 'minimum_age' => 12, 'maximum_age' => 20, 'format' => 'round_robin', 'performance_order' => 'phased',
+            'judge_count' => 7, 'accuracy_max' => 400, 'discard_each_end' => 1, 'rules_acknowledged' => true,
             'form_names' => ['فرم سوم', 'فرم چهارم'],
         ])->assertSessionHasNoErrors()->assertRedirect();
-        $this->assertDatabaseHas('categories', ['name' => 'رده دوم', 'judge_count' => '7']);
+        $this->assertDatabaseHas('categories', ['name' => 'رده دوم', 'judge_count' => '7', 'performance_order' => 'phased']);
     }
 
     use CreatesCompetition,RefreshDatabase;
@@ -61,7 +63,7 @@ class CompetitionWorkflowTest extends TestCase
         $this->schedule($f);
         $bout = Bout::firstOrFail();
         $winner = $bout->entries()->firstOrFail()->id;
-        foreach ($bout->performances()->orderBy('id')->get() as $performance) {
+        foreach ($bout->performances()->orderBy('form_number')->orderBy('id')->get() as $performance) {
             $this->startScoring($f, $performance);
             $this->scoreAll($f, $performance, '2.50', $performance->entry_id === $winner ? '6.00' : '5.00');
             $this->actingAs($f['admin'])->post('/tournaments/'.$f['tournament']->id.'/performances/'.$performance->id.'/command', [
@@ -73,7 +75,19 @@ class CompetitionWorkflowTest extends TestCase
         $this->post('/tournaments/'.$f['tournament']->id.'/complete')->assertSessionHasNoErrors()->assertRedirect();
         $this->assertSame('completed', $f['tournament']->fresh()->status);
         $this->get('/tournaments/'.$f['tournament']->id)->assertOk();
-        $this->get('/tournaments/'.$f['tournament']->id.'/results.csv')->assertOk()->assertDownload();
+        $response = $this->get('/tournaments/'.$f['tournament']->id.'/results.csv')->assertOk()->assertDownload('tournament-'.$f['tournament']->id.'-results.csv');
+        $lines = collect(preg_split('/\R/u', $response->streamedContent()))->filter()->values();
+        $this->assertStringStartsWith("\xEF\xBB\xBFردیف,", $lines[0]);
+        $this->assertSame([
+            'ردیف', 'رده', 'شیوه برگزاری', 'مرحله', 'شماره رقابت', 'زمین', 'ورزشکار / تیم', 'باشگاه',
+            'فرم اول', 'نمره فرم اول', 'فرم دوم', 'نمره فرم دوم', 'امتیاز نهایی', 'رتبه', 'وضعیت نتیجه', 'دلیل تعیین نتیجه',
+        ], str_getcsv(substr($lines[0], 3), ',', '"', ''));
+        $this->assertCount(3, $lines);
+        $rows = $lines->slice(1)->map(fn (string $line): array => str_getcsv($line, ',', '"', ''))->keyBy(6);
+        $winnerName = $bout->entries()->findOrFail($winner)->display_name;
+        $this->assertSame(['فرم اول', '8.500000', 'فرم دوم', '8.500000', '17.000000'], array_slice($rows[$winnerName], 8, 5));
+        $this->assertSame('برنده', $rows[$winnerName][14]);
+        $this->assertSame('بازنده', $rows->first(fn (array $row): bool => $row[6] !== $winnerName)[14]);
         $this->assertDatabaseCount('results', 4);
         $this->assertDatabaseCount('score_revisions', 20);
     }
@@ -84,7 +98,7 @@ class CompetitionWorkflowTest extends TestCase
         $this->schedule($f);
         $p = Performance::firstOrFail();
         $this->startScoring($f, $p);
-        $data = ['request_id' => (string) Str::uuid(), 'expected_version' => $p->fresh()->version, 'expected_revision' => 0, 'accuracy' => '2.50', 'presentation' => '6.00'];
+        $data = ['request_id' => (string) Str::uuid(), 'expected_version' => $p->fresh()->version, 'expected_revision' => 0, ...$this->detailedScoreInput('2.50', '6.00')];
         $submit = app(SubmitScore::class);
         $first = $submit->handle($f['judges'][0], $f['tournament'], $p, $data);
         $this->assertSame($first, $submit->handle($f['judges'][0], $f['tournament'], $p, $data));
@@ -97,6 +111,56 @@ class CompetitionWorkflowTest extends TestCase
         $this->assertSame('8.500000', $p->result()->firstOrFail()->score);
     }
 
+    public function test_two_scores_from_each_end_are_applied_to_a_seven_judge_result(): void
+    {
+        $fixture = $this->competition(7, 2, 'knockout', 2);
+        $this->schedule($fixture);
+        $performance = Performance::firstOrFail();
+        $this->startScoring($fixture, $performance);
+        $accuracy = ['1.00', '1.50', '2.00', '2.50', '2.80', '2.90', '3.00'];
+        $presentation = ['6.00', '5.50', '5.00', '4.50', '4.00', '3.50', '3.00'];
+
+        foreach ($fixture['judges'] as $seat => $judge) {
+            app(SubmitScore::class)->handle($judge, $fixture['tournament'], $performance, [
+                'request_id' => (string) Str::uuid(),
+                'expected_version' => $performance->fresh()->version,
+                'expected_revision' => 0,
+                ...$this->detailedScoreInput($accuracy[$seat], $presentation[$seat]),
+            ]);
+        }
+
+        app(RunCompetition::class)->command($fixture['admin'], $fixture['tournament'], $performance, [
+            'command' => 'approve', 'expected_version' => $performance->fresh()->version,
+        ]);
+
+        $result = $performance->result()->firstOrFail();
+        $this->assertSame('6.933333', $result->score);
+        $this->assertSame(2, $result->calculation_snapshot['rules']['discard_each_end']);
+        $this->assertSame([200, 250, 280], $result->calculation_snapshot['components']['accuracy']['kept_hundredths']);
+    }
+
+    public function test_category_setup_rejects_two_discarded_scores_with_five_judges(): void
+    {
+        $fixture = $this->competition();
+        $data = [
+            'name' => 'رده دوم', 'gender' => 'male', 'minimum_age' => 10, 'maximum_age' => 40,
+            'format' => 'knockout', 'execution_mode' => 'simultaneous', 'accuracy_max' => 400, 'discard_each_end' => 2,
+            'rules_acknowledged' => true, 'form_names' => ['فرم سوم', 'فرم چهارم'],
+        ];
+
+        $this->actingAs($fixture['admin'])->post('/tournaments/'.$fixture['tournament']->id.'/categories', [
+            ...$data, 'judge_count' => 5,
+        ])->assertSessionHasErrors('discard_each_end');
+
+        $this->post('/tournaments/'.$fixture['tournament']->id.'/categories', [
+            ...$data, 'judge_count' => 7,
+        ])->assertSessionHasNoErrors();
+
+        $category = $fixture['tournament']->categories()->where('name', 'رده دوم')->firstOrFail();
+        $this->assertSame(2, $category->scoringRuleSet->definition['discard_each_end']);
+        $this->assertSame('simultaneous', $category->execution_mode);
+    }
+
     public function test_knockout_byes_do_not_create_phantom_performances(): void
     {
         $f = $this->competition(5, 5);
@@ -107,21 +171,141 @@ class CompetitionWorkflowTest extends TestCase
         $this->assertDatabaseCount('draws', 1);
     }
 
-    public function test_round_robin_schedules_each_pair_exactly_once(): void
+    public function test_round_robin_schedules_two_forms_per_athlete(): void
     {
         $f = $this->competition(5, 4, 'round_robin');
         $this->schedule($f);
-        $this->assertDatabaseCount('bouts', 6);
-        $this->assertDatabaseCount('performances', 24);
-        $pairs = Bout::with('entries')->get()->map(fn ($b) => $b->entries->pluck('id')->sort()->implode(','))->all();
-        $this->assertCount(6, array_unique($pairs));
+        $this->assertDatabaseCount('bouts', 4);
+        $this->assertDatabaseCount('performances', 8);
+        $this->assertTrue(Bout::with('entries')->get()->every(fn ($bout) => $bout->entries->count() === 1 && $bout->performances()->count() === 2));
+    }
+
+    public function test_round_robin_phased_execution_ranks_athletes_by_two_approved_forms(): void
+    {
+        $fixture = $this->competition(5, 3, 'round_robin');
+        $fixture['category']->update(['performance_order' => 'phased']);
+        $this->schedule($fixture);
+        $performances = Performance::query()->orderBy('form_number')->orderBy('id')->get();
+        $firstSecondForm = $performances->firstWhere('form_number', 2);
+        $this->actingAs($fixture['admin'])->post('/tournaments/'.$fixture['tournament']->id.'/performances/'.$firstSecondForm->id.'/command', [
+            'command' => 'start', 'expected_version' => $firstSecondForm->version,
+        ])->assertSessionHasErrors('operation');
+
+        $highestEntryId = $fixture['category']->entries()->orderByDesc('id')->firstOrFail()->id;
+        foreach ($performances as $performance) {
+            $this->startScoring($fixture, $performance);
+            $this->scoreAll($fixture, $performance, '2.50', $performance->entry_id === $highestEntryId ? '6.00' : '5.00');
+            app(RunCompetition::class)->command($fixture['admin'], $fixture['tournament'], $performance, [
+                'command' => 'approve', 'expected_version' => $performance->fresh()->version,
+            ]);
+        }
+
+        $round = $fixture['category']->rounds()->firstOrFail();
+        $this->assertSame('completed', $round->fresh()->status);
+        $this->assertNull(Bout::firstOrFail()->winner_entry_id);
+        $standings = app(CompetitionView::class)->snapshot($fixture['tournament'], $fixture['admin'])['categories'][0]['standings'];
+        $this->assertSame($highestEntryId, $standings[0]['id']);
+        $this->assertSame('17.000000', $standings[0]['score']);
+        $this->assertSame(2, $standings[1]['rank']);
+        $this->assertSame(2, $standings[2]['rank']);
+        app(RunCompetition::class)->complete($fixture['admin'], $fixture['tournament']);
+        $this->assertSame('completed', $fixture['tournament']->fresh()->status);
+    }
+
+    public function test_round_robin_consecutive_execution_finishes_both_forms_before_next_athlete(): void
+    {
+        $fixture = $this->competition(5, 2, 'round_robin');
+        $this->schedule($fixture);
+        $firstBout = Bout::orderBy('sequence')->firstOrFail();
+        $nextBout = Bout::orderBy('sequence')->skip(1)->firstOrFail();
+        $firstForm = $firstBout->performances()->where('form_number', 1)->firstOrFail();
+        $nextAthleteFirstForm = $nextBout->performances()->where('form_number', 1)->firstOrFail();
+
+        $this->startScoring($fixture, $firstForm);
+        $this->scoreAll($fixture, $firstForm);
+        app(RunCompetition::class)->command($fixture['admin'], $fixture['tournament'], $firstForm, [
+            'command' => 'approve', 'expected_version' => $firstForm->fresh()->version,
+        ]);
+        $this->actingAs($fixture['admin'])->post('/tournaments/'.$fixture['tournament']->id.'/performances/'.$nextAthleteFirstForm->id.'/command', [
+            'command' => 'start', 'expected_version' => $nextAthleteFirstForm->version,
+        ])->assertSessionHasErrors('operation');
+    }
+
+    public function test_round_robin_uses_all_judges_mean_to_break_equal_published_scores(): void
+    {
+        $fixture = $this->competition(5, 2, 'round_robin');
+        $this->schedule($fixture);
+        $bouts = $fixture['category']->rounds()->firstOrFail()->bouts()->with('performances')->orderBy('sequence')->get();
+        $favoredEntryId = $bouts->last()->entries()->firstOrFail()->id;
+
+        foreach ($bouts as $bout) {
+            foreach ($bout->performances->sortBy('form_number') as $performance) {
+                $this->startScoring($fixture, $performance);
+                $presentations = $performance->entry_id === $favoredEntryId
+                    ? ['5.00', '5.00', '5.00', '5.00', '6.00']
+                    : ['4.00', '5.00', '5.00', '5.00', '6.00'];
+
+                foreach ($fixture['judges'] as $seat => $judge) {
+                    app(SubmitScore::class)->handle($judge, $fixture['tournament'], $performance, [
+                        'request_id' => (string) Str::uuid(),
+                        'expected_version' => $performance->fresh()->version,
+                        'expected_revision' => 0,
+                        ...$this->detailedScoreInput('2.50', $presentations[$seat]),
+                    ]);
+                }
+
+                app(RunCompetition::class)->command($fixture['admin'], $fixture['tournament'], $performance, [
+                    'command' => 'approve', 'expected_version' => $performance->fresh()->version,
+                ]);
+            }
+        }
+
+        $standings = app(CompetitionView::class)->snapshot($fixture['tournament'], $fixture['admin'])['categories'][0]['standings'];
+
+        $this->assertSame($favoredEntryId, $standings[0]['id']);
+        $this->assertSame(1, $standings[0]['rank']);
+        $this->assertSame('15.000000', $standings[0]['score']);
+        $this->assertSame('15.400000', $standings[0]['tie_break_score']);
+        $this->assertSame(2, $standings[1]['rank']);
+        $this->assertSame('15.000000', $standings[1]['score']);
+        $this->assertSame('15.000000', $standings[1]['tie_break_score']);
+    }
+
+    public function test_knockout_simultaneous_starts_and_finishes_each_pair_of_forms_together(): void
+    {
+        $fixture = $this->competition();
+        $fixture['category']->update(['execution_mode' => 'simultaneous']);
+        $this->schedule($fixture);
+        $bout = Bout::firstOrFail();
+        $runner = app(RunCompetition::class);
+        $firstForms = $bout->performances()->where('form_number', 1)->orderBy('id')->get();
+        $secondForms = $bout->performances()->where('form_number', 2)->orderBy('id')->get();
+
+        $runner->command($fixture['admin'], $fixture['tournament'], $firstForms[0], ['command' => 'start', 'expected_version' => 1]);
+        $this->assertSame(['running'], $firstForms->map(fn ($performance) => $performance->fresh()->status)->unique()->values()->all());
+        $runner->command($fixture['admin'], $fixture['tournament'], $firstForms[0], ['command' => 'finish', 'expected_version' => 2]);
+        $this->assertSame(['scoring'], $firstForms->map(fn ($performance) => $performance->fresh()->status)->unique()->values()->all());
+
+        foreach ($firstForms as $performance) {
+            $this->scoreAll($fixture, $performance, '2.50', $performance->id === $firstForms[0]->id ? '6.00' : '5.00');
+            $runner->command($fixture['admin'], $fixture['tournament'], $performance, ['command' => 'approve', 'expected_version' => $performance->fresh()->version]);
+        }
+        $runner->command($fixture['admin'], $fixture['tournament'], $secondForms[0], ['command' => 'start', 'expected_version' => 1]);
+        $runner->command($fixture['admin'], $fixture['tournament'], $secondForms[0], ['command' => 'finish', 'expected_version' => 2]);
+        foreach ($secondForms as $performance) {
+            $this->scoreAll($fixture, $performance, '2.50', $performance->entry_id === $firstForms[0]->entry_id ? '6.00' : '5.00');
+            $runner->command($fixture['admin'], $fixture['tournament'], $performance, ['command' => 'approve', 'expected_version' => $performance->fresh()->version]);
+        }
+
+        $this->assertSame('completed', $bout->fresh()->status);
+        $this->assertSame($firstForms[0]->entry_id, $bout->fresh()->winner_entry_id);
     }
 
     public function test_equal_final_scores_require_a_recorded_operator_decision(): void
     {
         $f = $this->competition();
         $this->schedule($f);
-        foreach (Performance::orderBy('id')->get() as $p) {
+        foreach (Performance::orderBy('form_number')->orderBy('id')->get() as $p) {
             $this->startScoring($f, $p);
             $this->scoreAll($f, $p);
             app(RunCompetition::class)->command($f['admin'], $f['tournament'], $p, ['command' => 'approve', 'expected_version' => $p->fresh()->version]);
@@ -135,16 +319,93 @@ class CompetitionWorkflowTest extends TestCase
         $this->assertDatabaseHas('audit_logs', ['action' => 'bout.tie_resolved', 'subject_id' => $bout->id]);
     }
 
+    public function test_presentation_score_breaks_a_tie_before_restoring_judges_scores(): void
+    {
+        $fixture = $this->competition();
+        $this->schedule($fixture);
+        $bout = Bout::firstOrFail();
+        $favoredEntryId = $bout->entries()->pluck('entries.id')[1];
+
+        // Total score = 7.50 for both athletes
+        // Favored athlete: accuracy = 2.40, presentation = 5.10 => total = 7.50
+        // Other athlete: accuracy = 2.60, presentation = 4.90 => total = 7.50
+        foreach ($bout->performances()->orderBy('form_number')->orderBy('id')->get() as $performance) {
+            $this->startScoring($fixture, $performance);
+            $accuracy = $performance->entry_id === $favoredEntryId ? '2.40' : '2.60';
+            $presentation = $performance->entry_id === $favoredEntryId ? '5.10' : '4.90';
+
+            foreach ($fixture['judges'] as $judge) {
+                app(SubmitScore::class)->handle($judge, $fixture['tournament'], $performance, [
+                    'request_id' => (string) Str::uuid(),
+                    'expected_version' => $performance->fresh()->version,
+                    'expected_revision' => 0,
+                    ...$this->detailedScoreInput($accuracy, $presentation),
+                ]);
+            }
+
+            app(RunCompetition::class)->command($fixture['admin'], $fixture['tournament'], $performance, [
+                'command' => 'approve', 'expected_version' => $performance->fresh()->version,
+            ]);
+        }
+
+        $this->assertSame($favoredEntryId, $bout->fresh()->winner_entry_id);
+        $this->assertSame('completed', $bout->fresh()->status);
+        $this->assertSame('بالاتر بودن نمرهٔ اجرا در شرایط تساوی', $bout->fresh()->resolution_reason);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'bout.tie_break_resolved', 'subject_id' => $bout->id]);
+        $log = AuditLog::where('action', 'bout.tie_break_resolved')->where('subject_id', $bout->id)->firstOrFail();
+        $this->assertSame('presentation', $log->after['tie_break_type']);
+    }
+
+    public function test_restored_judge_mean_breaks_a_tie_when_presentation_scores_are_also_equal(): void
+    {
+        $fixture = $this->competition();
+        $this->schedule($fixture);
+        $bout = Bout::firstOrFail();
+        $favoredEntryId = $bout->entries()->pluck('entries.id')[1];
+
+        foreach ($bout->performances()->orderBy('form_number')->orderBy('id')->get() as $performance) {
+            $this->startScoring($fixture, $performance);
+            $presentations = $performance->entry_id === $favoredEntryId
+                ? ['5.00', '5.00', '5.00', '5.00', '6.00']
+                : ['4.00', '5.00', '5.00', '5.00', '6.00'];
+
+            foreach ($fixture['judges'] as $seat => $judge) {
+                app(SubmitScore::class)->handle($judge, $fixture['tournament'], $performance, [
+                    'request_id' => (string) Str::uuid(),
+                    'expected_version' => $performance->fresh()->version,
+                    'expected_revision' => 0,
+                    ...$this->detailedScoreInput('2.50', $presentations[$seat]),
+                ]);
+            }
+
+            app(RunCompetition::class)->command($fixture['admin'], $fixture['tournament'], $performance, [
+                'command' => 'approve', 'expected_version' => $performance->fresh()->version,
+            ]);
+        }
+
+        $this->assertSame($favoredEntryId, $bout->fresh()->winner_entry_id);
+        $this->assertSame('completed', $bout->fresh()->status);
+        $this->assertSame('میانگین همهٔ نمره‌های داوران با بازگرداندن کمینه و بیشینه', $bout->fresh()->resolution_reason);
+        $this->assertDatabaseCount('results', 4);
+        $this->assertSame(['7.500000'], $bout->performances()->with('result')->get()->pluck('result.score')->unique()->values()->all());
+        $this->assertDatabaseHas('audit_logs', ['action' => 'bout.tie_break_resolved', 'subject_id' => $bout->id]);
+        $log = AuditLog::where('action', 'bout.tie_break_resolved')->where('subject_id', $bout->id)->firstOrFail();
+        $this->assertSame('restored_mean', $log->after['tie_break_type']);
+        $comparison = $log->after['restored_mean_totals_micros'];
+        $this->assertSame(15400000, $comparison[$favoredEntryId]);
+        $this->assertSame(15000000, $comparison[$bout->entries()->where('entries.id', '!=', $favoredEntryId)->firstOrFail()->id]);
+    }
+
     public function test_correction_requires_revision_and_is_audited(): void
     {
         $f = $this->competition();
         $this->schedule($f);
         $p = Performance::firstOrFail();
         $this->startScoring($f, $p);
-        $data = ['request_id' => (string) Str::uuid(), 'expected_version' => $p->fresh()->version, 'expected_revision' => 0, 'accuracy' => '2.50', 'presentation' => '6.00'];
+        $data = ['request_id' => (string) Str::uuid(), 'expected_version' => $p->fresh()->version, 'expected_revision' => 0, ...$this->detailedScoreInput('2.50', '6.00')];
         $submit = app(SubmitScore::class);
         $submit->handle($f['judges'][0], $f['tournament'], $p, $data);
-        $this->actingAs($f['judges'][0])->post('/tournaments/'.$f['tournament']->id.'/performances/'.$p->id.'/scores', [...$data, 'request_id' => (string) Str::uuid(), 'expected_revision' => 1, 'presentation' => '5.50', 'reason' => 'اصلاح اشتباه ورود نمره'])->assertSessionHasNoErrors();
+        $this->actingAs($f['judges'][0])->post('/tournaments/'.$f['tournament']->id.'/performances/'.$p->id.'/scores', [...$data, 'request_id' => (string) Str::uuid(), 'expected_revision' => 1, ...$this->detailedScoreInput('2.50', '5.50'), 'reason' => 'اصلاح اشتباه ورود نمره'])->assertSessionHasNoErrors();
         $this->assertDatabaseCount('score_revisions', 2);
         $this->assertDatabaseHas('score_components', ['criterion' => 'presentation', 'value_hundredths' => 550]);
     }

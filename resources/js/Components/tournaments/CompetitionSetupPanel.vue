@@ -85,7 +85,6 @@ const category = useForm({
                     ><select id="member-role" v-model="member.role">
                         <option value="judge">داور</option>
                         <option value="operator">اپراتور</option>
-                        <option value="display">نمایشگر سالن</option>
                     </select>
                 </div>
                 <div>

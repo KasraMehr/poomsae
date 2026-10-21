@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['category_id', 'display_name', 'seed', 'status'])]
+#[Fillable(['category_id', 'display_name', 'seed', 'status', 'music_path', 'external_id'])]
 class Entry extends Model
 {
     public function category(): BelongsTo

@@ -3,22 +3,53 @@
 namespace App\Http\Controllers;
 
 use App\Actions\CompetitionSetup;
+use App\Actions\CompetitionTiming;
+use App\Actions\DrawRoundForms;
 use App\Actions\RunCompetition;
 use App\Actions\ScheduleRound;
+use App\Actions\UpdateCompetitionSettings;
+use App\Http\Requests\AssignRoundFormsRequest;
 use App\Http\Requests\CompetitionSetupRequest;
 use App\Http\Requests\PerformanceCommandRequest;
 use App\Http\Requests\ResolveBoutRequest;
 use App\Http\Requests\ScheduleRoundRequest;
+use App\Http\Requests\UpdateCompetitionSettingsRequest;
+use App\Http\Requests\UpdateCompetitionTimingRequest;
 use App\Models\Bout;
 use App\Models\Category;
+use App\Models\Court;
 use App\Models\Entry;
 use App\Models\Performance;
 use App\Models\Tournament;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class OperationsController extends Controller
 {
+    public function timing(UpdateCompetitionTimingRequest $request, Tournament $tournament, Category $category, CompetitionTiming $timing): RedirectResponse
+    {
+        $timing->update($request->user(), $tournament, $category, $request->validated());
+
+        return back()->with('success', 'زمان اجرا و استراحت ذخیره شد.');
+    }
+
+    public function updateCourt(UpdateCompetitionSettingsRequest $request, Tournament $tournament, Court $court, UpdateCompetitionSettings $settings): RedirectResponse
+    {
+        $settings->court($request->user(), $tournament, $court, $request->validated());
+
+        return back()->with('success', 'نام زمین ویرایش شد.');
+    }
+
+    public function updateEntry(UpdateCompetitionSettingsRequest $request, Tournament $tournament, Entry $entry, UpdateCompetitionSettings $settings): RedirectResponse
+    {
+        $settings->entry($request->user(), $tournament, $entry, $request->validated());
+
+        return back()->with('success', 'اطلاعات ورزشکار ویرایش شد.');
+    }
+
     public function court(CompetitionSetupRequest $request, Tournament $tournament, CompetitionSetup $setup): RedirectResponse
     {
         $setup->court($request->user(), $tournament, $request->validated());
@@ -61,6 +92,22 @@ class OperationsController extends Controller
         return back()->with('success', 'جدول دور ساخته شد. فهرست این رده قفل شد.');
     }
 
+    public function drawForms(Request $request, Tournament $tournament, Category $category, DrawRoundForms $draw): RedirectResponse
+    {
+        $data = $request->validate(['round_id' => ['nullable', 'integer', 'min:1']]);
+        $draw->handle($request->user(), $tournament, $category, isset($data['round_id']) ? (int) $data['round_id'] : null);
+
+        return back()->with('success', 'قرعهٔ پومسه‌های مرحله ثبت شد.');
+    }
+
+    public function assignForms(AssignRoundFormsRequest $request, Tournament $tournament, Category $category, DrawRoundForms $draw): RedirectResponse
+    {
+        $round = $category->rounds()->findOrFail($request->validated('round_id'));
+        $draw->assign($request->user(), $tournament, $category, $round, array_map('intval', $request->validated('form_ids')), 'manual_forms_v1', 'manual-'.now()->timestamp);
+
+        return back()->with('success', 'فرم‌های انتخابی مرحله ثبت شد.');
+    }
+
     public function command(PerformanceCommandRequest $request, Tournament $tournament, Performance $performance, RunCompetition $run): RedirectResponse
     {
         $run->command($request->user(), $tournament, $performance, $request->validated());
@@ -68,17 +115,26 @@ class OperationsController extends Controller
         return back()->with('success', 'وضعیت اجرا به‌روزرسانی شد.');
     }
 
+    public function music(Request $request, Tournament $tournament, Performance $performance): BinaryFileResponse
+    {
+        Gate::forUser($request->user())->authorize('operate', $tournament);
+        abort_unless($performance->bout()->whereHas('category', fn ($query) => $query->where('tournament_id', $tournament->id))->exists(), 404);
+        abort_unless($performance->music_path && Storage::disk('local')->exists($performance->music_path), 404);
+
+        return response()->file(Storage::disk('local')->path($performance->music_path));
+    }
+
     public function resolve(ResolveBoutRequest $request, Tournament $tournament, Bout $bout, RunCompetition $run): RedirectResponse
     {
         $run->resolve($request->user(), $tournament, $bout, $request->validated());
 
-        return back()->with('success', 'تصمیم تساوی ثبت شد.');
+        return back()->with('success', $request->validated('decision_type') === 'walkover' ? 'انصراف ثبت و اجراهای باقی‌مانده لغو شد.' : 'تصمیم تساوی ثبت شد.');
     }
 
-    public function complete(Request $request,Tournament $tournament,RunCompetition $run): RedirectResponse
+    public function complete(Request $request, Tournament $tournament, RunCompetition $run): RedirectResponse
     {
-        $run->complete($request->user(),$tournament);
+        $run->complete($request->user(), $tournament);
 
-        return back()->with('success','مسابقه پایان یافت.');
+        return back()->with('success', 'مسابقه پایان یافت.');
     }
 }

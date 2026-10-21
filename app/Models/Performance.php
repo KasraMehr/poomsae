@@ -8,12 +8,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
-#[Fillable(['public_id', 'bout_id', 'entry_id', 'poomsae_form_id', 'draw_id', 'form_number', 'status', 'version', 'music_path', 'started_at', 'ended_at', 'approved_by', 'approved_at'])]
+#[Fillable(['public_id', 'bout_id', 'entry_id', 'poomsae_form_id', 'draw_id', 'form_number', 'status', 'version', 'music_path', 'started_at', 'ended_at', 'approved_by', 'approved_at', 'timing_snapshot'])]
 class Performance extends Model
 {
     protected function casts(): array
     {
-        return ['started_at' => 'datetime', 'ended_at' => 'datetime', 'approved_at' => 'datetime', 'version' => 'integer'];
+        return ['started_at' => 'datetime', 'ended_at' => 'datetime', 'approved_at' => 'datetime', 'version' => 'integer', 'timing_snapshot' => 'array'];
     }
 
     public function bout(): BelongsTo

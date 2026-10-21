@@ -19,7 +19,7 @@ class TournamentPolicy
 
     public function view(User $user, Tournament $tournament): bool
     {
-        return $user->hasTournamentRole($tournament, ['manager', 'operator', 'judge', 'display']);
+        return $user->hasTournamentRole($tournament, ['manager', 'operator', 'judge']);
     }
 
     public function update(User $user, Tournament $tournament): bool
@@ -28,6 +28,16 @@ class TournamentPolicy
     }
 
     public function operate(User $user, Tournament $tournament): bool
+    {
+        return $user->hasTournamentRole($tournament, ['manager', 'operator']);
+    }
+
+    public function viewAppeals(User $user, Tournament $tournament): bool
+    {
+        return $user->hasTournamentRole($tournament, ['manager', 'operator']);
+    }
+
+    public function reviewAppeals(User $user, Tournament $tournament): bool
     {
         return $user->hasTournamentRole($tournament, ['manager', 'operator']);
     }

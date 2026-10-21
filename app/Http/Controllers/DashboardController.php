@@ -11,7 +11,7 @@ class DashboardController extends Controller
 {
     public function __invoke(Request $request): Response
     {
-        $query = Tournament::query()->visibleTo($request->user());
+        $query = Tournament::query()->visibleTo($request->user())->where('status', '!=', 'archived');
 
         return Inertia::render('Dashboard', [
             'stats' => [

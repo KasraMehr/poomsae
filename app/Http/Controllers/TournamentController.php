@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Actions\CompetitionConsole;
 use App\Actions\CompetitionView;
 use App\Actions\CreateTournament;
+use App\Actions\UpdateCompetitionSettings;
 use App\Http\Requests\StoreTournamentRequest;
+use App\Http\Requests\UpdateCompetitionSettingsRequest;
 use App\Models\Tournament;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,8 +19,22 @@ class TournamentController extends Controller
 {
     public function index(Request $request): Response
     {
+        $filters = $request->validate(['status' => ['nullable', 'in:active,archived,all']]);
+        $status = $filters['status'] ?? 'active';
+        $query = Tournament::query()->visibleTo($request->user())->withCount('categories', 'courts')->latest();
+        if ($status === 'archived') {
+            $query->where('status', 'archived');
+        } elseif ($status === 'active') {
+            $query->where('status', '!=', 'archived');
+        }
+
         return Inertia::render('Tournaments/Index', [
-            'tournaments' => Tournament::query()->visibleTo($request->user())->withCount('categories', 'courts')->latest()->paginate(12),
+            'tournaments' => $query->paginate(12)->withQueryString(),
+            'statusFilter' => $status,
+            'listUrls' => [
+                'active' => route('tournaments.index'), 'archived' => route('tournaments.index', ['status' => 'archived']),
+                'all' => route('tournaments.index', ['status' => 'all']),
+            ],
         ]);
     }
 
@@ -53,10 +69,19 @@ class TournamentController extends Controller
         Gate::authorize('update', $tournament);
 
         return Inertia::render('Tournaments/Show', [
+            'ageCategories' => collect(config('poomsae.age_categories'))->map(fn (array $category, string $id): array => ['id' => $id, ...$category])->values(),
+            'ageTableYear' => config('poomsae.age_table_year'),
             'tournament' => $view->snapshot($tournament, $request->user()),
             'can' => $this->permissions($request, $tournament),
             'competitionUrls' => $this->urls($tournament),
         ]);
+    }
+
+    public function update(UpdateCompetitionSettingsRequest $request, Tournament $tournament, UpdateCompetitionSettings $settings): RedirectResponse
+    {
+        $settings->tournament($request->user(), $tournament, $request->validated());
+
+        return back()->with('success', 'اطلاعات مسابقه ویرایش شد.');
     }
 
     /** @return array<string, bool> */
@@ -64,7 +89,7 @@ class TournamentController extends Controller
     {
         return [
             'manage' => $request->user()->can('update', $tournament),
-            'operate' => $request->user()->can('operate', $tournament),
+            'operate' => $tournament->status !== 'archived' && $request->user()->can('operate', $tournament),
             'judge' => $request->user()->hasTournamentRole($tournament, ['judge']),
         ];
     }
@@ -77,7 +102,12 @@ class TournamentController extends Controller
             'setup' => route('tournaments.setup', $tournament),
             'judge' => route('judging.index', $tournament),
             'scoreboard' => route('scoreboard.show', $tournament),
+            'rtds' => route('scoreboard.rtds', $tournament),
             'export' => route('scoreboard.export', $tournament),
+            'results' => route('scoreboard.results', $tournament),
+            'excel' => route('scoreboard.excel', $tournament),
+            'reports' => route('reports.judges', $tournament),
+            'appeals' => route('appeals.index', $tournament),
         ];
     }
 }
