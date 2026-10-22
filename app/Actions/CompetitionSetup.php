@@ -131,13 +131,13 @@ class CompetitionSetup
                 $this->check($discipline === 'freestyle' || count($selectedFormNumbers) >= 2, 'حداقل دو فرم از فهرست مجاز رده انتخاب کنید.');
                 $this->check($discipline === 'freestyle' || count($selectedFormNumbers) === count(array_unique($selectedFormNumbers)), 'فرم‌های انتخابی نباید تکراری باشند.');
                 $this->check($discipline === 'freestyle' || array_diff($selectedFormNumbers, $ageCategory['forms']) === [], 'فرم انتخابی در فهرست مجاز این رده نیست.');
-                $data['form_names'] = array_map(fn (int $number): string => 'فرم '.$number, $selectedFormNumbers);
+                $data['form_names'] = array_map(fn (int $number): string => PoomsaeForm::defaultNameForNumber($number), $selectedFormNumbers);
                 $data['planned_round_count'] ??= 1;
             }
             $plannedRoundCount = isset($data['planned_round_count']) ? (int) $data['planned_round_count'] : null;
             $allowRepetition = (bool) ($data['allow_form_repetition'] ?? true);
             $this->check($plannedRoundCount === null || $plannedRoundCount >= 1, 'تعداد مراحل باید حداقل ۱ باشد.');
-            $this->check($discipline === 'freestyle' ? in_array($entryType, ['individual', 'pair'], true) : in_array($entryType, ['individual', 'team'], true), 'نوع شرکت در این سبک معتبر نیست.');
+            $this->check($discipline === 'freestyle' ? in_array($entryType, ['individual', 'pair'], true) : in_array($entryType, ['individual', 'pair', 'team'], true), 'نوع شرکت در این سبک معتبر نیست.');
             $accuracyMax = (int) ($data['accuracy_max'] ?? 400);
             $this->check($discipline === 'freestyle' ? in_array($accuracyMax, [400, 600], true) : $accuracyMax === 400, 'سقف نمرهٔ رده معتبر نیست.');
             $definition = $discipline === 'freestyle'

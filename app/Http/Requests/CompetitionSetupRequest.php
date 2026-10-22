@@ -33,7 +33,7 @@ class CompetitionSetupRequest extends FormRequest
             'category' => [
                 'name' => ['required', 'string', 'max:100', Rule::unique('categories')->where('tournament_id', $tournament->id)->ignore($this->route('category')?->id)],
                 'discipline' => ['sometimes', Rule::in(['recognized', 'freestyle'])],
-                'entry_type' => ['sometimes', Rule::in($discipline === 'freestyle' ? ['individual', 'pair'] : ['individual', 'team'])],
+                'entry_type' => ['sometimes', Rule::in($discipline === 'freestyle' ? ['individual', 'pair'] : ['individual', 'pair', 'team'])],
                 'gender' => ['required', Rule::in(['male', 'female'])],
                 'age_category' => ['sometimes', 'required', 'string', Rule::in(array_keys(config('poomsae.age_categories')))],
                 'minimum_age' => [$this->filled('age_category') ? 'exclude' : 'nullable', 'integer', 'min:1', 'max:100'],

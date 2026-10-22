@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Actions\CompetitionSetup;
 use App\Models\Athlete;
 use App\Models\Category;
+use App\Models\PoomsaeForm;
 use App\Models\Tournament;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -41,27 +42,11 @@ class AgeCategoryTest extends TestCase
     /** @return array<string, array{string, string, string, array<int, int>, ?string, ?string}> */
     public static function ageCategories(): array
     {
-        return [
-            'recognized_individual_under_12' => ['recognized_individual_under_12', 'recognized', 'individual', [2, 3, 4, 5, 6, 7, 8, 9], '2015-01-01', null],
-            'recognized_individual_12_14' => ['recognized_individual_12_14', 'recognized', 'individual', [4, 5, 6, 7, 8, 9, 10, 11], '2012-01-01', '2014-12-31'],
-            'recognized_individual_15_17' => ['recognized_individual_15_17', 'recognized', 'individual', [5, 6, 7, 8, 9, 10, 11, 12], '2008-12-31', '2011-12-31'],
-            'recognized_individual_18_30' => ['recognized_individual_18_30', 'recognized', 'individual', [7, 8, 9, 10, 11, 12, 13, 14], '1996-01-01', '2008-12-30'],
-            'recognized_individual_31_40' => ['recognized_individual_31_40', 'recognized', 'individual', [7, 8, 9, 10, 11, 12, 13, 14], '1986-01-01', '1995-12-31'],
-            'recognized_individual_41_50' => ['recognized_individual_41_50', 'recognized', 'individual', [8, 9, 10, 11, 12, 13, 14, 15], '1976-01-01', '1985-12-31'],
-            'recognized_individual_51_60' => ['recognized_individual_51_60', 'recognized', 'individual', [9, 10, 11, 12, 13, 14, 15, 16], '1966-01-01', '1975-12-31'],
-            'recognized_individual_61_65' => ['recognized_individual_61_65', 'recognized', 'individual', [9, 10, 11, 12, 13, 14, 15, 16], '1961-01-01', '1965-12-31'],
-            'recognized_individual_over_65' => ['recognized_individual_over_65', 'recognized', 'individual', [9, 10, 11, 12, 13, 14, 15, 16], null, '1960-12-31'],
-            'recognized_team_under_14' => ['recognized_team_under_14', 'recognized', 'team', [4, 5, 6, 7, 8, 9, 10, 11], '2012-01-01', null],
-            'recognized_team_15_17' => ['recognized_team_15_17', 'recognized', 'team', [4, 5, 6, 7, 8, 9, 10, 11], '2008-12-31', '2011-12-31'],
-            'recognized_team_18_30' => ['recognized_team_18_30', 'recognized', 'team', [6, 7, 8, 9, 10, 11, 12, 13], '1996-01-01', '2008-12-30'],
-            'recognized_team_31_50' => ['recognized_team_31_50', 'recognized', 'team', [8, 9, 10, 11, 12, 13, 14, 15], '1976-01-01', '1995-12-31'],
-            'recognized_team_over_50' => ['recognized_team_over_50', 'recognized', 'team', [9, 10, 11, 12, 13, 14, 15, 16], null, '1975-12-31'],
-            'freestyle_individual_under_14' => ['freestyle_individual_under_14', 'freestyle', 'individual', [], '2012-01-01', null],
-            'freestyle_individual_15_17' => ['freestyle_individual_15_17', 'freestyle', 'individual', [], '2008-12-31', '2011-12-31'],
-            'freestyle_individual_over_18' => ['freestyle_individual_over_18', 'freestyle', 'individual', [], null, '2008-12-30'],
-            'freestyle_pair_under_18' => ['freestyle_pair_under_18', 'freestyle', 'pair', [], '2008-12-31', null],
-            'freestyle_pair_over_18' => ['freestyle_pair_over_18', 'freestyle', 'pair', [], null, '2008-12-30'],
-        ];
+        $config = require __DIR__.'/../../config/poomsae.php';
+
+        return collect($config['age_categories'])->mapWithKeys(function (array $data, string $id): array {
+            return [$id => [$id, $data['discipline'], $data['entry_type'], $data['forms'], $data['birth_date_min'], $data['birth_date_max']]];
+        })->all();
     }
 
     #[DataProvider('ageCategories')]
@@ -76,7 +61,7 @@ class AgeCategoryTest extends TestCase
         ])->assertSessionHasNoErrors()->assertRedirect();
 
         $category = $tournament->categories()->firstOrFail();
-        $this->assertSame(array_map(fn (int $number): string => 'فرم '.$number, $forms), $category->forms()->orderBy('poomsae_forms.id')->pluck('name')->all());
+        $this->assertSame(array_map(fn (int $number): string => PoomsaeForm::defaultNameForNumber($number), $forms), $category->forms()->orderBy('poomsae_forms.id')->pluck('name')->all());
         $this->assertSame($minimumBirthDate, $category->scoringRuleSet->definition['age_category']['birth_date_min']);
         $this->assertSame($maximumBirthDate, $category->scoringRuleSet->definition['age_category']['birth_date_max']);
         $this->assertSame('birth_date_range', $category->scoringRuleSet->definition['age_basis']);
@@ -94,7 +79,7 @@ class AgeCategoryTest extends TestCase
         ])->assertSessionHasNoErrors();
 
         $category = $tournament->categories()->firstOrFail();
-        $this->assertSame(['فرم 4', 'فرم 7', 'فرم 11'], $category->forms()->orderBy('poomsae_forms.id')->pluck('name')->all());
+        $this->assertSame(['فرم 4', 'فرم 7', 'ته بک'], $category->forms()->orderBy('poomsae_forms.id')->pluck('name')->all());
     }
 
     public function test_category_creation_rejects_a_form_outside_the_age_table(): void
@@ -181,15 +166,16 @@ class AgeCategoryTest extends TestCase
         $this->assertDatabaseCount('scoring_rule_sets', 0);
     }
 
-    public function test_setup_exposes_all_nineteen_age_categories_from_the_reference_table(): void
+    public function test_setup_exposes_all_age_categories_from_the_reference_table(): void
     {
         $fixture = $this->competitionForAgeCategory('recognized_individual_12_14');
+        $expectedCount = count(config('poomsae.age_categories'));
 
         $this->actingAs($fixture['admin'])->get('/tournaments/'.$fixture['tournament']->id.'/setup')
             ->assertOk()->assertInertia(fn (AssertableInertia $page) => $page->component('Tournaments/Show')
-            ->where('ageTableYear', 1405)->has('ageCategories', 19)
+            ->where('ageTableYear', 1405)->has('ageCategories', $expectedCount)
             ->where('ageCategories.0.label', 'زیر ۱۲ سال')
-            ->where('ageCategories.18.label', 'تیمی ابداعی دو نفره بالای ۱۸ سال')
+            ->where('ageCategories.'.($expectedCount - 1).'.label', 'تیمی ابداعی دو نفره بالای ۱۸ سال')
             ->where('tournament.categories.0.rules.age_category.birth_date_label', 'متولدین ۱۳۹۰/۱۰/۱۱ الی ۱۳۹۳/۱۰/۱۰'));
     }
 
@@ -224,6 +210,6 @@ class AgeCategoryTest extends TestCase
 
         $this->assertDatabaseCount('entries', 0);
         $this->assertSame(0, $fixture['category']->fresh()->management_version);
-        $this->assertSame(['فرم 4', 'فرم 5', 'فرم 6', 'فرم 7', 'فرم 8', 'فرم 9', 'فرم 10', 'فرم 11'], $fixture['category']->forms()->orderBy('poomsae_forms.id')->pluck('name')->all());
+        $this->assertSame(['فرم 4', 'فرم 5', 'فرم 6', 'فرم 7', 'فرم 8', 'کوریو', 'کومگانگ', 'ته بک'], $fixture['category']->forms()->orderBy('poomsae_forms.id')->pluck('name')->all());
     }
 }

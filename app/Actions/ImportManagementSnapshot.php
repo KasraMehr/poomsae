@@ -44,11 +44,15 @@ class ImportManagementSnapshot
                         $this->setup->check(! array_key_exists($field, $categoryFields) || $receivedAge === $ageCategory[$field], 'بازهٔ سن ردهٔ جدول قابل تغییر نیست.');
                     }
                     if (isset($categoryFields['form_names'])) {
-                        $expectedForms = array_map(fn (int $number): string => 'فرم '.$number, $ageCategory['forms']);
+                        $expectedForms = array_map(fn (int $number): string => PoomsaeForm::defaultNameForNumber($number), $ageCategory['forms']);
                         $receivedForms = array_map('trim', $categoryFields['form_names']);
                         sort($expectedForms);
                         sort($receivedForms);
-                        $this->setup->check($receivedForms === $expectedForms, 'فهرست فرم‌ها باید مطابق جدول ردهٔ سنی باشد.');
+                        $expectedNumbers = $ageCategory['forms'];
+                        $receivedNumbers = array_map(fn ($name) => PoomsaeForm::numberFromName($name), $receivedForms);
+                        sort($expectedNumbers);
+                        sort($receivedNumbers);
+                        $this->setup->check($receivedForms === $expectedForms || $receivedNumbers === $expectedNumbers, 'فهرست فرم‌ها باید مطابق جدول ردهٔ سنی باشد.');
                     }
                 }
                 unset($categoryFields['form_names']);

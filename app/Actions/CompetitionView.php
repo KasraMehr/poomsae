@@ -4,6 +4,7 @@ namespace App\Actions;
 
 use App\Models\AuditLog;
 use App\Models\CompetitionAppeal;
+use App\Models\PoomsaeForm;
 use App\Models\Tournament;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -185,7 +186,7 @@ class CompetitionView
                             }
 
                             $formName = $p->form?->name ?? ($category->discipline === 'freestyle' ? 'اجرای ابداعی' : 'در انتظار قرعهٔ پومسه');
-                            $formBadge = preg_match('/(\d+)/', $p->form?->name ?? '', $matches) ? (int) $matches[1] : $p->form_number;
+                            $formBadge = PoomsaeForm::numberFromName($p->form?->name) ?? $p->form_number;
 
                             return [
                                 'id' => $p->id, 'entry_id' => $p->entry_id, 'form_number' => $p->form_number, 'form_name' => $formName, 'form_badge' => $formBadge, 'music_url' => $p->music_path && $operate ? route('operations.performance.music', [$category->tournament_id, $p->id]) : null, 'status' => $p->status, 'version' => $p->version,
