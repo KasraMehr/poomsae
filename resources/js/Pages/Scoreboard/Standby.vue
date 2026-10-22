@@ -12,6 +12,10 @@ const props = defineProps({
         type: Object,
         default: null,
     },
+    display: {
+        type: Object,
+        default: null,
+    },
     tournament: {
         type: Object,
         default: null,
@@ -22,6 +26,11 @@ const props = defineProps({
     },
 });
 
+// Accept the production display envelope and the standalone lab snapshot.
+const tournament = computed(
+    () => props.tournament ?? props.display?.tournament ?? null,
+);
+
 const statusLabels = {
     draft: "DRAFT",
     ready: "READY",
@@ -29,12 +38,12 @@ const statusLabels = {
     completed: "COMPLETED",
 };
 
-const stage = computed(() => statusLabels[props.tournament?.status] ?? "");
+const stage = computed(() => statusLabels[tournament.value?.status] ?? "");
 
-const finished = computed(() => props.tournament?.status === "completed");
+const finished = computed(() => tournament.value?.status === "completed");
 
 const currentExecution = computed(() => {
-    for (const category of props.tournament?.categories ?? []) {
+    for (const category of tournament.value?.categories ?? []) {
         for (const round of category.rounds ?? []) {
             for (const bout of round.bouts ?? []) {
                 if (bout.status !== "running") continue;
@@ -107,15 +116,28 @@ const categoryName = computed(
     () => currentExecution.value?.category?.name ?? "",
 );
 
-const DEFAULT_EXECUTION_SECONDS = 90;
+const durationSeconds = computed(() => {
+    const performance = currentExecution.value?.performance;
 
-const durationSeconds = computed(
-    () =>
-        props.tournament?.execution_duration_seconds ??
-        DEFAULT_EXECUTION_SECONDS,
-);
+    return (
+        performance?.live_timing?.duration_seconds ??
+        tournament.value?.execution_duration_seconds ??
+        performance?.timing?.maximum_duration_seconds ??
+        null
+    );
+});
 
-const courts = computed(() => props.tournament?.courts ?? []);
+const formSymbolKey = computed(() => {
+    const execution = currentExecution.value;
+
+    if (!execution || execution.category.discipline === "freestyle") {
+        return null;
+    }
+
+    return execution.performance.form_badge ?? null;
+});
+
+const courts = computed(() => tournament.value?.courts ?? []);
 </script>
 
 <template>
@@ -128,8 +150,9 @@ const courts = computed(() => props.tournament?.courts ?? []);
         <template #header>
             <ScoreboardHeader
                 :stage="stage"
-                :event-title="roundLabel"
+                :event-title="tournament?.name ?? ''"
                 :category="categoryName"
+                :round-label="roundLabel"
             />
         </template>
 
@@ -150,7 +173,6 @@ const courts = computed(() => props.tournament?.courts ?? []);
                             mode === 'single' ? 'justify-self-center' : 'w-full'
                         "
                         :size="mode === 'single' ? 'xxl' : 'xl'"
-                        :number="entry.number"
                         :name="entry.name"
                         :country="entry.country"
                         :country-code="entry.country_code"
@@ -167,16 +189,7 @@ const courts = computed(() => props.tournament?.courts ?? []);
                     <div class="flex min-w-0 items-center justify-start">
                         <FormBadge
                             size="xxxl"
-                            :form-number="
-                                currentExecution.performance.form_name
-                                    ?.form_number ??
-                                currentExecution.performance.form_number
-                            "
-                            :symbol-key="
-                                currentExecution.performance.form_name
-                                    ?.symbol_key ??
-                                currentExecution.performance.symbol_key
-                            "
+                            :symbol-key="formSymbolKey"
                             :form-name="
                                 currentExecution.performance.form_name
                                     ?.form_name ??
@@ -189,6 +202,7 @@ const courts = computed(() => props.tournament?.courts ?? []);
                     <!-- TIMER: RIGHT -->
                     <div class="flex items-center justify-center">
                         <Timer
+                            v-if="durationSeconds != null"
                             size="xl"
                             :duration-seconds="durationSeconds"
                             :started-at="
@@ -196,6 +210,12 @@ const courts = computed(() => props.tournament?.courts ?? []);
                             "
                             :ended-at="currentExecution.performance.ended_at"
                         />
+                        <span
+                            v-else
+                            class="text-center text-rtds-text-secondary"
+                        >
+                            Timer data unavailable
+                        </span>
                     </div>
                 </section>
             </template>

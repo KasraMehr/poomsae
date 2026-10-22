@@ -1,13 +1,13 @@
 # Scoreboard — قرارداد پیشنهادی داده (Frontend → Backend)
 
-> **وضعیت:** Frontend پیاده‌سازی شده و **منتظر تکمیل پیاده‌سازی Backend است.**
+> **وضعیت:** صفحات Scoreboard مرحله‌به‌مرحله با snapshot واقعی Backend تطبیق داده می‌شوند؛ این سند وضعیت هر صفحه را جداگانه ثبت می‌کند.
 >
 > این سند برای مطالعهٔ تیم Backend نوشته شده تا بداند **هر صفحه چه داده‌ای لازم دارد**
 > و بر اساس همین، قرارداد نهایی تأمین شود.
 >
-> * هر مورد با `[Proposed Backend Contract]` هنوز در Backend پیاده‌سازی **نشده** است.
-> * Frontend آن‌ها را دادهٔ قطعی فرض نمی‌کند، برایشان mock نساخته و فقط با TODO علامت زده است.
-> * منبع دادهٔ فعلی: `CompetitionView::snapshot(..., $display = true)`.
+> * `[Proposed Backend Contract]` فقط برای داده‌ای استفاده می‌شود که بررسی همان صفحه نشان دهد در پاسخ فعلی موجود نیست.
+> * پاسخ صفحهٔ نمایشگر از `ScoreboardController` و `CompetitionDisplay::snapshot` می‌آید؛ `CompetitionDisplay` دادهٔ پایه را از `CompetitionView::snapshot(..., $display = true)` می‌گیرد و در `display.tournament` قرار می‌دهد.
+> * route فعلی هنوز `Pages/Competition/Scoreboard.vue` را render می‌کند؛ صفحات `Pages/Scoreboard/*` فعلاً در production از این route فراخوانی نمی‌شوند. در مرحلهٔ Standby، route wrapper عمداً تغییر نمی‌کند.
 
 ---
 
@@ -17,7 +17,7 @@
 
 | صفحه | فایل | هدف | وضعیت |
 | ------ | ---- | --- | ----- |
-| Standby | `Standby.vue` | نمایش **اجرای فعلی + Timer اجرا + state پایان** (`running` / `scoring`). بدون صف، بدون اجرای قبلی/بعدی. | متصل به snapshot |
+| Standby | `Standby.vue` | نمایش **اجرای فعلی + Timer اجرا + state پایان** (`running` / `scoring`). بدون صف، بدون اجرای قبلی/بعدی. | با envelope واقعی `display.tournament` سازگار شد؛ route production هنوز به این صفحه وصل نیست |
 | LiveBoard | `LiveBoard.vue` | Broadcast board وضعیت **یک زمین**: `PREVIOUS ↓ CURRENT ↓ NEXT`. Timer اینجا مسئولیت اصلی نیست. | متصل به snapshot |
 | Scoring | `Scoring.vue` | صفحهٔ زندهٔ امتیازدهی؛ layout تک‌نفره، دوتایی یا فری‌استایل بر پایهٔ category و جزئیات نمرهٔ backend. | پیاده‌سازی فرانت؛ هم‌ترازی قرارداد هنگام مرج |
 | Result | `Result.vue` | نمایش نتیجهٔ boutهای تکمیل‌شدهٔ اجرای جاری؛ چیدمان یک یا دو راند بر اساس راندهای تکمیل‌شده، بدون برجسته‌سازی برنده. | متصل به snapshot |
@@ -79,9 +79,10 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 
 | دسته | موارد |
 | ---- | ----- |
-| **دادهٔ موجود** | `tournament.status/name`, `courts[]`, `bout.status=running`, `performance.status/started_at/ended_at`, `performance.form_name`, `round.name`, `entries[].name/side` |
-| **`[Proposed]`** | `logoUrl` (لوگوی رویداد)، `execution_duration_seconds` (مدت استاندارد اجرا برای شمارش معکوس)، `entry.country`، `entry.country_code`، `entry.flag_url`، `entry.number` — ~~`entry.photo_url`~~ **حذف موقت** (ردیف ۲ بخش ۴) |
-| **نکته** | صرفاً اجرای جاری؛ هیچ داده‌ای برای صف/بعدی لازم ندارد. |
+| **دادهٔ موجود و محل مصرف** | `display.tournament.status/name/courts[]` برای وضعیت، نام رویداد و حالت بدون اجرای فعال؛ `categories[].execution_mode` برای چیدمان تک/دو نفره؛ `round.name` و `category.name` برای هدر؛ `bout.status/court_id`, `performances[]`, `entries[].id/name/side/country_code` برای یافتن اجرا و هویت؛ `performance.status/started_at/ended_at` برای state و Timer؛ `performance.live_timing.duration_seconds` برای مدت Timer؛ `performance.form_name` برای عنوان فرم؛ `performance.form_badge` برای انتخاب سمبل فرم‌های شناخته‌شده. `country_code` مستقیماً از athlete گرفته می‌شود یا در صورت خالی‌بودن از `club` کوتاهِ لاتین ساخته می‌شود؛ بنابراین همیشه کد کشورِ تأییدشده نیست. |
+| **`[Proposed]` دادهٔ واقعاً غایب** | `logoUrl` برای نشان رویداد در `ScoreboardHeader`؛ `entry.country` و `entry.flag_url` برای نام کشور و پرچم واقعی کنار کد کشور. فعلاً `country_code` موجود است و بدون `flag_url` کامپوننت کد را به‌صورت placeholder نشان می‌دهد. ~~`entry.photo_url`~~ **حذف موقت** (ردیف ۲ بخش ۴). |
+| **داده‌هایی که لازم نیست از Backend اضافه شوند** | `execution_duration_seconds` در ریشهٔ tournament لازم نیست: مدت اجرا از `performance.live_timing.duration_seconds` موجود است. `entry.number` در UI فعلی نمایش داده نمی‌شود؛ بخش رندر شماره در `AthleteInfo` غیرفعال است. `symbol_key` مستقل ارائه نشده، اما `form_badge` در Backend برای فرم‌های شناخته‌شده موجود است؛ ترتیب `form_number` به‌عنوان کلید سمبل استفاده نمی‌شود. |
+| **نکتهٔ اتصال** | `Standby.vue` می‌تواند هم snapshot مستقیم آزمایشگاه و هم envelope واقعی `display` را بخواند؛ بااین‌حال route فعلی `scoreboard.show` هنوز `Competition/Scoreboard` را render می‌کند و این صفحه را فراخوانی نمی‌کند. در این مرحله wrapper فرانت‌اند تغییر نمی‌کند؛ بنابراین Standby هنوز از route production قابل دسترسی نیست. |
 
 ### ۳.۲ LiveBoard
 
@@ -140,24 +141,25 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 
 ## ۴. خلاصهٔ فیلدهای `[Proposed Backend Contract]`
 
+> این فهرست مشترک هنوز برای همهٔ صفحات بازبینی نشده است. برای Standby، `entry.country_code`، `performance.form_number`، `performance.form_badge` و `performance.live_timing.duration_seconds` در پاسخ فعلی موجودند؛ آن‌ها را برای این صفحه دادهٔ غایب حساب نکنید.
+
 | # | فیلد | شکل پیشنهادی | مصرف‌کننده |
 | - | ---- | ------------ | ---------- |
 | 1 | `logoUrl` | `string \| null` روی snapshot | همهٔ صفحات (header) |
 | 2 | ~~`entry.photo_url`~~ | **حذف موقت** — تا اطلاع بعدی تأمین نشود (عکس ورزشکار در هیچ صفحه‌ای نمایش داده نمی‌شود) | — |
-| 3 | `entry.country` / `entry.country_code` / `entry.flag_url` | `string` روی entry — `country_code` از نوع ISO 3166-1 alpha-3 انگلیسی (مثل `IRI`) | هر جا بج/بلوک کشور (`AthleteInfo`, `RankingRow`, `TopFourRow`) |
-| 4 | `entry.number` | `int` روی entry | Standby, Scoring |
-| 5 | `execution_duration_seconds` | `int` روی تنظیمات مسابقه | Standby, LiveBoard (Timer) |
+| 3 | `entry.country` / `entry.flag_url` | رشته روی entry؛ `country_code` در snapshot فعلی برای Standby موجود است | هر جا نام کشور یا پرچم واقعی لازم باشد؛ سایر صفحات هنوز بررسی نشده‌اند |
+| 4 | `entry.number` | `int` روی entry | Scoring (هنوز بررسی نشده؛ Standby آن را نمایش نمی‌دهد) |
+| 5 | `execution_duration_seconds` | `int` روی تنظیمات مسابقه | LiveBoard (هنوز بررسی نشده؛ Standby از `performance.live_timing.duration_seconds` استفاده می‌کند) |
 | 6 | `category.discipline/format/execution_mode` | `recognized \| freestyle`; `knockout \| round_robin`; `alternating \| simultaneous` | Scoring (انتخاب layout) |
 | 7 | `performance.detailed_scores` | نتایج/سقف‌های هر اجرای فرم به‌همراه `judges[]` | Scoring |
 | 8 | `detailed_scores.judges[]` | breakdown داور و زیرامتیازها مطابق بخش ۳.۳ | Scoring (جدول‌ها) |
 | 9 | `detailed_scores.accuracy/presentation/total` | عدد nullable از Backend؛ total را فرانت جمع نمی‌کند | Scoring (`ScoreItem`) |
-| 9 | `bout.winner_entry_id` | `int` — برندهٔ bout؛ Result فعلاً از آن برای استایل‌دهی استفاده نمی‌کند | اطلاعات نتیجه (نمایش برنده بعداً تعیین می‌شود) |
-| 10 | `placements[]` | `[{rank, entry_id, name, score, round_scores, country, country_code, flag_url}]` روی category — `score` امتیاز نهایی مستقل TopFour است؛ `round_scores = [R-1, R-2]` برای ستون‌های Ranking؛ مدال از `rank` مشتق می‌شود | Ranking, TopFour |
-| 11 | `Draw.output_snapshot` | خروجی قرعه (ترتیب اجرا/جفت‌ها) | Draw |
-| 12 | `entry_members[]` | `[{name, club, position}]` روی entry | Draw, Standby, Scoring |
-| 13 | `draw_timing` | `timestamp` | Draw |
-| 14 | `form_number` | `int` `1..2` روی performance — ترتیب فرم در اجرای رقابت | Scoring, Result, Draw, Standby, LiveBoard |
-| 15 | `symbol_key` | `int` `1..18` روی فرم — کلید سمبل تصویری فرم | `FormBadge` در Scoring, Result, Draw, Standby, LiveBoard |
+| 10 | `bout.winner_entry_id` | `int` — برندهٔ bout؛ Result فعلاً از آن برای استایل‌دهی استفاده نمی‌کند | اطلاعات نتیجه (نمایش برنده بعداً تعیین می‌شود) |
+| 11 | `placements[]` | `[{rank, entry_id, name, score, round_scores, country, country_code, flag_url}]` روی category — `score` امتیاز نهایی مستقل TopFour است؛ `round_scores = [R-1, R-2]` برای ستون‌های Ranking؛ مدال از `rank` مشتق می‌شود | Ranking, TopFour |
+| 12 | `Draw.output_snapshot` | خروجی قرعه (ترتیب اجرا/جفت‌ها) | Draw |
+| 13 | `entry_members[]` | `[{name, club, position}]` روی entry | Draw, Scoring (هنوز بررسی نشده‌اند) |
+| 14 | `draw_timing` | `timestamp` | Draw |
+| 15 | `symbol_key` | `int` `1..18` روی فرم — کلید سمبل تصویری فرم | `FormBadge` در Scoring, Result, Draw, LiveBoard (هنوز بررسی نشده‌اند؛ Standby از `form_badge` استفاده می‌کند) |
 | 16 | `courtId` (LiveBoard) | query param رسمی | LiveBoard |
 | 17 | `timeline` (LiveBoard) | `previous/current/next` صریح با ترتیب سراسری بین زمین‌ها | LiveBoard |
 | 18 | `detailed_scores.judges[].*_components/ *_penalties` | سه component برای Single/Double؛ Freestyle با قاعدهٔ ۴+۶ یا ۶+۴ | Scoring (ستون/سطر ریزنمرات) |
@@ -197,19 +199,17 @@ court_id               → فیلتر زمین در LiveBoard
 
 ---
 
-## ۵. وضعیت انتظار
+## ۵. وضعیت اتصال و کار باقی‌مانده
 
 ```text
-Frontend  →  پیاده‌سازی شده (۷ صفحه + ۱۵ کامپوننت)، بدون mock، با TODO/Proposed Contract
-Backend   →  در انتظار پیاده‌سازی بر اساس بخش ۳ و ۴ همین سند
-بعد از تأیید Contract نهایی:
-            ۱. فیلدهای Proposed به snapshot اضافه می‌شوند.
-            ۲. صفحات از TODOها پاک و داده‌محور می‌شوند.
-            ۳. Route/Inertia render به `Pages/Scoreboard/*` repoint می‌شود.
+Backend   →  snapshot اجرایی فعلی از `CompetitionDisplay` و `CompetitionView` تأمین می‌شود.
+Standby   →  با شکل snapshot واقعی تطبیق داده شده؛ route production هنوز آن را render نمی‌کند.
+Pages     →  `Pages/Scoreboard/*` فعلاً در `scoreboard-lab` پیش‌نمایش می‌شوند.
+باقی‌مانده → تصمیم دربارهٔ wrapper/اتصال فرانت‌اند و ادامهٔ بررسی صفحه‌به‌صفحه.
             
 ```
 
-> برای تغییرات این صفحه هیچ Route، Controller، Migration یا Business Logic بک‌اندی تغییر نکرده است. Fixtureهای Lab فقط برای پیش‌نمایش فرانت‌اند هستند و جایگزین snapshot واقعی نمی‌شوند.
+> در تطبیق Standby هیچ Route، Controller، Migration یا Business Logic بک‌اندی تغییر نکرده است. Fixtureهای Lab برای پیش‌نمایش باقی می‌مانند و جایگزین snapshot واقعی نیستند.
 
 ## الحاقیه قرارداد صفحه Winner (برنده)
 
