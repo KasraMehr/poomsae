@@ -15,6 +15,14 @@ const props = defineProps({
         type: Object,
         default: null,
     },
+    display: {
+        type: Object,
+        default: null,
+    },
+    courtId: {
+        type: [Number, String],
+        default: null,
+    },
 });
 
 const drawData = computed(() => {
@@ -22,24 +30,73 @@ const drawData = computed(() => {
         return props.draw;
     }
 
-    const category = props.tournament?.categories?.[0] ?? null;
+    const tournament = props.display?.tournament ?? props.tournament;
+    const court = props.display?.courts?.find(
+        (item) => String(item.id) === String(props.courtId),
+    );
+    const target = court?.current ?? null;
 
-    if (!category) {
+    if (
+        !tournament ||
+        !target?.bout_id ||
+        !["running", "scoring"].includes(target.status)
+    ) {
         return null;
     }
 
+    const matchesId = (left, right) => String(left) === String(right);
+    const category = tournament.categories?.find((item) =>
+        item.rounds?.some((round) =>
+            round.bouts?.some((bout) => matchesId(bout.id, target.bout_id)),
+        ),
+    );
+    const round = category?.rounds?.find((item) =>
+        item.bouts?.some((bout) => matchesId(bout.id, target.bout_id)),
+    );
+    const bout = round?.bouts?.find((item) =>
+        matchesId(item.id, target.bout_id),
+    );
+
+    if (!category || !round || !bout) {
+        return null;
+    }
+
+    const performancesByNumber = new Map();
+    for (const performance of bout.performances ?? []) {
+        if (!performancesByNumber.has(performance.form_number)) {
+            performancesByNumber.set(performance.form_number, performance);
+        }
+    }
+
+    const roundFormNames = round.form_names ?? [];
+    const forms = roundFormNames.length
+        ? roundFormNames.map((formName, index) => {
+              const formNumber = index + 1;
+              const performance = performancesByNumber.get(formNumber);
+
+              return {
+                  round_label: `R - ${formNumber}`,
+                  form_number: formNumber,
+                  symbol_key: performance?.form_badge ?? null,
+                  form_name: formName,
+              };
+          })
+        : [...performancesByNumber.values()]
+              .sort((left, right) => left.form_number - right.form_number)
+              .map((performance) => ({
+                  round_label: `R - ${performance.form_number}`,
+                  form_number: performance.form_number,
+                  symbol_key: performance.form_badge,
+                  form_name: performance.form_name,
+              }));
+
     return {
-        mode: "single",
-        stage: "",
-        title: props.tournament?.name ?? "",
+        mode: target.entries?.length > 1 ? "double" : "single",
+        stage: round.stage_label ?? round.name ?? "",
+        title: tournament.name ?? "",
         category: category.name ?? "",
-        entries: category.entries ?? [],
-        forms: (category.form_names ?? []).map((name, index) => ({
-            round_label: `R - ${index + 1}`,
-            form_number: index + 1,
-            symbol_key: null,
-            form_name: name,
-        })),
+        entries: target.entries ?? [],
+        forms,
     };
 });
 

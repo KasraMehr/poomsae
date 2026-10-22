@@ -23,7 +23,7 @@
 | Result | `Result.vue` | نمایش نتیجهٔ boutهای تکمیل‌شدهٔ اجرای جاری؛ چیدمان یک یا دو راند بر اساس راندهای تکمیل‌شده، بدون برجسته‌سازی برنده. | با envelope واقعی `display.tournament` سازگار شد؛ route production هنوز به این صفحه وصل نیست |
 | Ranking | `Ranking.vue` | نمایش رتبه، کشور، نام و امتیازهای `R-1` و `R-2` با `RankingTable`؛ از placements یا standings سازگار تغذیه می‌شود. | با envelope واقعی `display.tournament` و rankهای round-robin سازگار شد؛ کامل‌بودن داده‌ها نیازمند هماهنگی قرارداد است |
 | TopFour | `TopFour.vue` | چهار رتبهٔ برتر هر دسته با مدال، اطلاعات کشور و امتیاز نهایی؛ از placements یا standings سازگار تغذیه می‌شود. | با envelope واقعی `display.tournament` و داده‌های round-robin سازگار شد؛ برای knockout کمبود placement باقی است |
-| Draw | `Draw.vue` | قرعه‌کشی: فرم‌ها و ورزشکاران هر دسته. | متصل به snapshot (با TODO) |
+| Draw | `Draw.vue` | پس از آغاز اجرای یک bout، ورزشکار/ورزشکاران همان گروه اجرا و فرم‌های برنامه‌ریزی‌شدهٔ راند را نشان می‌دهد. | envelope واقعی `display` قابل تطبیق است؛ صفحه فعلاً از route production فراخوانی نمی‌شود و برای انتخاب زمین به `courtId` نیاز دارد |
 
 ### ۱.۲ کامپوننت‌ها (`Components/scoreboard/`)
 
@@ -142,20 +142,23 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 
 | دسته | موارد |
 | ---- | ----- |
-| **دادهٔ موجود** | `category.form_names[]` (ترتیب فرم‌ها)، `category.entries[]` (`name/club`) |
-| **[Proposed]** | **`Draw.output_snapshot`** (ترتیب واقعی قرعه: شمارهٔ اجرا/جفت‌ها/slot)، `entry.number`, `entry.entry_type`, `entry_members[]` (`{name, club, position}`)، `draw_timing` (زمان قرعه)، `form_number`, `symbol_key`, `logoUrl` |
+| **دادهٔ موجود و محل مصرف** | از `display.courts[].current`، صفحه `bout_id` و `entries[]` گروه اجرای فعال را می‌گیرد؛ `current.entries[]` برای نمایش ورزشکار یا ورزشکاران همان اجراست (در اجرای هم‌زمان می‌تواند دو ورودی و در اجرای متناوب یک ورودی باشد). با `bout_id` در `display.tournament.categories[].rounds[].bouts[]` دسته، راند و bout پیدا می‌شوند. `tournament.name`، `category.name` و `round.stage_label/name` در هدر؛ `round.form_names[]` به ترتیب برای فهرست فرم‌های راند؛ و `performance.form_number/form_name/form_badge` برای اتصال شماره و نام فرم به سمبل استفاده می‌شوند. اگر فهرست فرم راند خالی باشد، صفحه از performanceهای همان bout استفاده می‌کند. |
+| **فیلدهای مشابهِ موجود** | `category.entry_type` وجود دارد؛ اعضا نیز در `category.entries[].members[]` هستند. زمان قرعهٔ فرم در `round.forms_drawn_at` می‌آید. کلید سمبل مستقل نداریم، اما `performance.form_badge` معادل مصرفی آن است. `Draw.output_snapshot` در مدل `Draw` ذخیره می‌شود، ولی در snapshot عمومی صفحه ارائه نشده است؛ برای نمایش bout فعال و فرم‌های راند لازم نیست، چون اطلاعات مصرف‌شده در `current`، bout و round موجودند. |
+| **دادهٔ واقعاً غایب** | `entry.country` و `entry.flag_url` در `current.entries[]` و `bout.entries[]` نیستند؛ `country_code` موجود است و به `NationalityBadge` می‌رسد، اما ممکن است از club کوتاه لاتین مشتق شده باشد و برای نام کشور/پرچم واقعی کافی نیست. شمارهٔ entry در snapshot bout موجود نیست؛ `AthleteInfo` فعلاً شماره را رندر نمی‌کند، پس این صفحه به آن وابسته نیست. |
+| **اطلاعات لازم در آینده** | برای نام کشور و پرچم واقعی لازم است backend کد کشور تأییدشده و/یا نام کشور و URL پرچم را روی entry ارائه کند. اگر در آینده خودِ ترتیب قرعه، seed، جایگاه bracket یا زمان ثبت قرعه روی Draw نمایش داده شود، باید `Draw.output_snapshot` و زمان ایجاد/قرعه نیز از snapshot به فرانت برسند؛ نیاز فعلی صفحه نیستند. |
+| **نکتهٔ انتخاب و اتصال** | صفحه فقط `current` همان `courtId` را وقتی `status` آن `running` یا `scoring` است می‌پذیرد؛ `upcoming` باعث نمایش Draw پیش از شروع اجرا نمی‌شود. صفحه هنوز در route production فراخوانی نشده است؛ route فعلی `scoreboard.show` صفحهٔ `Competition/Scoreboard` را render می‌کند. اتصال و جابه‌جایی Draw → Standby خارج از این مرحله است. |
 
 ---
 
 ## ۴. خلاصهٔ فیلدهای `[Proposed Backend Contract]`
 
-> این فهرست مشترک هنوز برای همهٔ صفحات بازبینی نشده است. برای Standby، LiveBoard، Scoring، Ranking و TopFour، `country_code` در پاسخ فعلی موجود است؛ برای سه صفحهٔ اول، `performance.form_number` و `performance.form_badge` نیز موجودند؛ برای Standby و LiveBoard مدت Timer هم موجود است. آن‌ها را برای صفحات بررسی‌شده دادهٔ غایب حساب نکنید.
+> این فهرست مشترک هنوز برای همهٔ صفحات بازبینی نشده است. برای Standby، LiveBoard، Scoring، Ranking، TopFour و Draw، `country_code` در پاسخ فعلی موجود است؛ برای Standby، LiveBoard، Scoring و Draw، `performance.form_number` و `performance.form_badge` نیز موجودند؛ برای Standby و LiveBoard مدت Timer هم موجود است. آن‌ها را برای صفحات بررسی‌شده دادهٔ غایب حساب نکنید.
 
 | # | فیلد | شکل پیشنهادی | مصرف‌کننده |
 | - | ---- | ------------ | ---------- |
 | 1 | `logoUrl` | `string \| null` روی snapshot | همهٔ صفحات (header) |
 | 2 | ~~`entry.photo_url`~~ | **حذف موقت** — تا اطلاع بعدی تأمین نشود (عکس ورزشکار در هیچ صفحه‌ای نمایش داده نمی‌شود) | — |
-| 3 | `entry.country` / `entry.flag_url` | رشته روی entry؛ `country_code` در snapshot فعلی برای Standby، LiveBoard، Scoring، Ranking و TopFour موجود است | هر جا نام کشور یا پرچم واقعی لازم باشد؛ سایر صفحات هنوز بررسی نشده‌اند |
+| 3 | `entry.country` / `entry.flag_url` | رشته روی entry؛ `country_code` در snapshot فعلی برای Standby، LiveBoard، Scoring، Ranking، TopFour و Draw موجود است | هر جا نام کشور یا پرچم واقعی لازم باشد |
 | 4 | `entry.number` | `int` روی entry | در snapshot bout موجود نیست؛ `AthleteInfo` شماره را فعلاً رندر نمی‌کند |
 | 5 | ~~`execution_duration_seconds`~~ | برای Standby و LiveBoard لازم نیست؛ مدت از `performance.live_timing.duration_seconds` می‌آید | — |
 | 6 | `category.discipline/format/execution_mode` | `recognized \| freestyle`; `knockout \| round_robin`; `alternating \| simultaneous` | Scoring (انتخاب layout) |
@@ -164,10 +167,10 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 | 9 | `detailed_scores.accuracy/presentation/total` | عدد nullable از Backend؛ total را فرانت جمع نمی‌کند | Scoring (`ScoreItem`) |
 | 10 | `bout.winner_entry_id` | `int` — برندهٔ bout؛ Result فعلاً از آن برای استایل‌دهی استفاده نمی‌کند | اطلاعات نتیجه (نمایش برنده بعداً تعیین می‌شود) |
 | 11 | `placements[]` | `[{rank, entry_id, name, score, round_scores, country, country_code, flag_url}]` روی category — `score` امتیاز نهایی مستقل TopFour است؛ `round_scores = [R-1, R-2]` برای ستون‌های Ranking؛ مدال از `rank` مشتق می‌شود | Ranking, TopFour |
-| 12 | `Draw.output_snapshot` | خروجی قرعه (ترتیب اجرا/جفت‌ها) | Draw |
-| 13 | `entry_members[]` | `[{name, club, position}]` روی entry | Draw (Scoring از اعضای تیم استفاده نمی‌کند) |
-| 14 | `draw_timing` | `timestamp` | Draw |
-| 15 | `symbol_key` | `int` `1..18` روی فرم — کلید سمبل تصویری فرم | `FormBadge` در Result, Draw (هنوز بررسی نشده‌اند؛ Standby, LiveBoard و Scoring از `form_badge` استفاده می‌کنند) |
+| 12 | `Draw.output_snapshot` | در snapshot عمومی موجود نیست؛ برای Draw فعلی لازم نیست. فقط اگر ترتیب/seed/slot قرعه نمایش داده شود باید از Backend ارائه شود | Draw (نیاز آینده، مشروط به نمایش جزئیات قرعه) |
+| 13 | `category.entries[].members[]` | در پاسخ فعلی موجود است؛ اعضا با `name/short_name/gender/country_code` ارائه می‌شوند | دادهٔ موجود برای entryهای تیمی؛ Draw فعلی نام entry را نمایش می‌دهد |
+| 14 | `round.forms_drawn_at` | timestamp زمان قرعهٔ فرم در snapshot فعلی موجود است | دادهٔ موجود؛ Draw فعلی زمان قرعه را نمایش نمی‌دهد |
+| 15 | `performance.form_badge` | کلید عددی سمبل در snapshot فعلی موجود است؛ `symbol_key` مستقل لازم نیست | `FormBadge` در Draw؛ Result جداگانه در بخش خودش بررسی شده است |
 | 16 | `courtId` (LiveBoard) | query param رسمی | LiveBoard |
 | 17 | `timeline.previous` (LiveBoard) | تاریخچهٔ مرتب‌شدهٔ boutهای همان زمین؛ current/upcoming هم‌اکنون در `display.courts[]` هستند | LiveBoard |
 | 18 | `detailed_scores.judges[].*_components/ *_penalties` | سه component برای Single/Double؛ Freestyle با قاعدهٔ ۴+۶ یا ۶+۴ | Scoring (ستون/سطر ریزنمرات) |
