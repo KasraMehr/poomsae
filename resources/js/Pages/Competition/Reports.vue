@@ -4,7 +4,7 @@ import { Head, Link, router, useForm, usePoll } from '@inertiajs/vue3';
 import AppLayout from '../../Layouts/AppLayout.vue';
 import FormErrors from '../../Components/FormErrors.vue';
 import AuditSnapshot from '../../Components/AuditSnapshot.vue';
-import { useCompetitionUpdates } from '../../useCompetitionUpdates';
+import { useCompetitionUpdates } from '../../Shared/Composables/useCompetitionUpdates';
 
 const props = defineProps({ tournament: Object, type: String, title: String, report: Object, filters: Object, options: Object, canArchive: Boolean, reportUrls: Object });
 const filters = useForm({ category_id: '', judge_id: '', user_id: '', action: '', from: '', to: '', ...props.filters });

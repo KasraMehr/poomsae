@@ -4,7 +4,7 @@ import { Head, Link, router, useForm, usePage, usePoll } from '@inertiajs/vue3';
 import AppLayout from '../../Layouts/AppLayout.vue';
 import FormErrors from '../../Components/FormErrors.vue';
 import AppealDecisionForm from '../../Components/AppealDecisionForm.vue';
-import { useCompetitionUpdates } from '../../useCompetitionUpdates';
+import { useCompetitionUpdates } from '../../Shared/Composables/useCompetitionUpdates';
 const props = defineProps({ tournament: Object, appeals: Object, candidates: Array, statusFilter: String, canFile: Boolean, canApply: Boolean, urls: Object });
 const page = usePage();
 useCompetitionUpdates(props.tournament.id, ['appeals', 'candidates', 'canFile', 'canApply']);

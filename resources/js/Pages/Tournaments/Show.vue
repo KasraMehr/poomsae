@@ -1,5 +1,5 @@
 <script setup>
-import { useCompetitionUpdates } from '../../useCompetitionUpdates';
+import { useCompetitionUpdates } from '../../Shared/Composables/useCompetitionUpdates';
 import { computed, ref } from 'vue';
 import { Head, Link, useForm, usePoll } from '@inertiajs/vue3';
 import AppLayout from '../../Layouts/AppLayout.vue';

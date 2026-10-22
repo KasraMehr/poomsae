@@ -1,6 +1,6 @@
 <script setup>
-import { useCompetitionUpdates } from '../../useCompetitionUpdates';
-import { useJudgePresence } from '../../useJudgePresence';
+import { useCompetitionUpdates } from '../../Shared/Composables/useCompetitionUpdates';
+import { useJudgePresence } from '../../Shared/Composables/useJudgePresence';
 import { computed } from 'vue';
 import { Head, usePoll, usePage, Link } from '@inertiajs/vue3';
 import ArenaLayout from '../../Layouts/ArenaLayout.vue';

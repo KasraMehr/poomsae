@@ -34,7 +34,9 @@ async function loadReports(type = 'judges') {
         '../../Layouts/AppLayout.vue': { default: {} },
         '../../Components/FormErrors.vue': { default: {} },
         '../../Components/AuditSnapshot.vue': { default: {} },
-        '../../useCompetitionUpdates': { useCompetitionUpdates() {} },
+        '../../Shared/Composables/useCompetitionUpdates': {
+            useCompetitionUpdates() {},
+        },
     };
     const context = createContext({ defineProps: () => props, window: { print() {} } });
     const source = await readFile(new URL('../../resources/js/Pages/Competition/Reports.vue', import.meta.url), 'utf8');

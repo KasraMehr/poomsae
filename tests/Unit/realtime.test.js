@@ -10,9 +10,16 @@ async function loadUpdates(file, echo, reload = () => {}) {
     const imports = {
         vue: { onMounted: callback => mounted.push(callback), onUnmounted: callback => unmounted.push(callback), ref: value => ({ value }) },
         '@inertiajs/vue3': { router: { reload } },
-        './Shared/Services/realtime': { getRealtime: () => echo },
+        '../Services/realtime': { getRealtime: () => echo },
     };
-    const module = new SourceTextModule(await readFile(new URL(`../../resources/js/${file}.js`, import.meta.url), 'utf8'), { context });
+    const source = await readFile(
+        new URL(
+            `../../resources/js/Shared/Composables/${file}.js`,
+            import.meta.url,
+        ),
+        'utf8',
+    );
+    const module = new SourceTextModule(source, { context });
     await module.link(specifier => {
         const exports = imports[specifier];
         return new SyntheticModule(Object.keys(exports), function () {

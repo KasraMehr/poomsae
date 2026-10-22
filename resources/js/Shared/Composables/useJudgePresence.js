@@ -9,16 +9,19 @@ export function useJudgePresence(tournamentId) {
         if (!echo) return;
         echo.join(`tournaments.${tournamentId}.judges`)
             .here(
-                (users) => (onlineUserIds.value = users.map((user) => user.id)),
+                (users) =>
+                    (onlineUserIds.value = users.map((user) => Number(user.id))),
             )
             .joining((user) => {
-                if (!onlineUserIds.value.includes(user.id))
-                    onlineUserIds.value = [...onlineUserIds.value, user.id];
+                // Normalize IDs so strict comparisons work for socket strings.
+                const id = Number(user.id);
+                if (!onlineUserIds.value.includes(id))
+                    onlineUserIds.value = [...onlineUserIds.value, id];
             })
             .leaving(
                 (user) =>
                     (onlineUserIds.value = onlineUserIds.value.filter(
-                        (id) => id !== user.id,
+                        (id) => id !== Number(user.id),
                     )),
             )
             .error(() => (onlineUserIds.value = []));

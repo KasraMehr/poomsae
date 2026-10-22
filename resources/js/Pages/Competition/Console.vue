@@ -5,8 +5,8 @@ import ArenaLayout from '../../Layouts/ArenaLayout.vue';
 import CourtConsole from '../../Components/CourtConsole.vue';
 import BoutPanel from '../../Components/BoutPanel.vue';
 import FormErrors from '../../Components/FormErrors.vue';
-import { useCompetitionUpdates } from '../../useCompetitionUpdates';
-import { useJudgePresence } from '../../useJudgePresence';
+import { useCompetitionUpdates } from '../../Shared/Composables/useCompetitionUpdates';
+import { useJudgePresence } from '../../Shared/Composables/useJudgePresence';
 
 const props = defineProps({ console: Object, can: Object, competitionUrls: Object });
 const competition = computed(() => props.console);
