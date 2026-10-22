@@ -19,7 +19,7 @@
 | ------ | ---- | --- | ----- |
 | Standby | `Standby.vue` | نمایش **اجرای فعلی + Timer اجرا + state پایان** (`running` / `scoring`). بدون صف، بدون اجرای قبلی/بعدی. | با envelope واقعی `display.tournament` سازگار شد؛ route production هنوز به این صفحه وصل نیست |
 | LiveBoard | `LiveBoard.vue` | Broadcast board وضعیت **یک زمین**: `PREVIOUS ↓ CURRENT ↓ NEXT`. Timer اینجا مسئولیت اصلی نیست. | با envelope واقعی `display.tournament` سازگار شد؛ route production هنوز به این صفحه وصل نیست |
-| Scoring | `Scoring.vue` | صفحهٔ زندهٔ امتیازدهی؛ layout تک‌نفره، دوتایی یا فری‌استایل بر پایهٔ category و جزئیات نمرهٔ backend. | پیاده‌سازی فرانت؛ هم‌ترازی قرارداد هنگام مرج |
+| Scoring | `Scoring.vue` | صفحهٔ زندهٔ امتیازدهی؛ layout تک‌نفره، دوتایی یا فری‌استایل بر پایهٔ category و جزئیات نمرهٔ backend. | با envelope واقعی `display.tournament` سازگار شد؛ route production هنوز به این صفحه وصل نیست |
 | Result | `Result.vue` | نمایش نتیجهٔ boutهای تکمیل‌شدهٔ اجرای جاری؛ چیدمان یک یا دو راند بر اساس راندهای تکمیل‌شده، بدون برجسته‌سازی برنده. | متصل به snapshot |
 | Ranking | `Ranking.vue` | نمایش رتبه، کشور، نام و امتیازهای `R-1` و `R-2` با `RankingTable` بر پایهٔ `category.placements[]`. | پیاده‌سازی فرانت؛ نیازمند تکمیل قرارداد Backend |
 | TopFour | `TopFour.vue` | چهار رتبهٔ برتر هر دسته با مدال، اطلاعات کشور و امتیاز نهایی مستقل از `placements[]`. | پیاده‌سازی فرانت؛ نیازمند تکمیل قرارداد Backend |
@@ -98,13 +98,15 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 
 | دسته | موارد |
 | ---- | ----- |
-| **دادهٔ موجود** | `category.discipline/format/execution_mode/judge_count/rules`، `bout.entries[]`، `performance.form_name/form_number` و `performance.detailed_scores` در snapshot امتیازدهی قابل‌نمایش؛ دادهٔ جزئی پیش از انتشار/نمایش مجاز می‌تواند خالی باشد. |
-| **قرارداد مصرف فرانت** | `detailed_scores` شامل `discipline`, `method`, `accuracy`, `accuracy_max`, `presentation`, `presentation_max`, `total`, `total_max`, `judges[]` است. فرانت total و میانگین را محاسبه نمی‌کند؛ اعداد و سقف‌ها را از پاسخ می‌خواند. نبودن مقدار به‌شکل `—` می‌ماند. |
+| **دادهٔ موجود و محل مصرف** | `display.tournament.status` برای وضعیت Layout و `name` برای متن مرکزی آن؛ `categories[]` برای پنل‌ها؛ `category.discipline/format/execution_mode/judge_count/rules` برای انتخاب جدول و تعداد داورها؛ `bout.status=running` به‌همراه `performance.status` برای پنل‌های فعال؛ `bout.entries[]` و `performance.entry_id` برای اتصال هویت؛ `round.sequence/name` برای برچسب راند؛ `performance.form_name/form_badge` برای مشخصات فرم؛ `performance.detailed_scores` برای نمره‌ها و breakdown داورها؛ `result/preview_result` فقط برای Total در نبود مقدار `detailed_scores.total`. عنوان ثابت `SCORING` در هدر فعلاً از داده نمی‌آید و دست‌نخورده مانده است. |
+| **زمان در دسترس بودن جزئیات** | Backend پاسخ `detailed_scores` را از نتیجهٔ منتشرشده یا محاسبهٔ موقت می‌سازد؛ محاسبهٔ موقت وقتی در دسترس است که performance در `scoring` باشد و همهٔ داوران assign‌شده نمره داده باشند. در غیر این صورت، جدول خالی می‌ماند و عددی از فرانت ساخته نمی‌شود. |
+| **قرارداد مصرف فرانت** | `detailed_scores` شامل `discipline`, `method`, `accuracy`, `accuracy_max`, `presentation`, `presentation_max`, `total`, `total_max`, `judges[]` است. فرانت total و میانگین را محاسبه نمی‌کند؛ اعداد و سقف‌ها را از پاسخ می‌خواند. `judges[]` می‌تواند `accuracy_components[]`, `presentation_components[]` و `presentation_penalties[]` داشته باشد. |
 | **انتخاب layout** | `discipline=freestyle` → `FreestyleScoringTable`. در غیر این صورت `format=knockout` همراه `execution_mode=simultaneous` → دو جدول `DoubleScoringTable`. سایر دسته‌ها → `SingleScoringTable`. `execution_mode` همچنان فقط `alternating \| simultaneous` است و معنای SINGLE/DOUBLE ندارد. |
 | **ساختار `judges[]`** | هر آیتم: `seat`, `label`, `accuracy`, `presentation`, `total`, `accuracy_components[]`, `presentation_components[]`, `accuracy_penalties[]`, `presentation_penalties[]`. Single/Double سه مقدار `presentation_components` را به EOE/S&P/R&P نگاشت می‌کنند. |
 | **ریز امتیاز Freestyle** | `method=accuracy_4_presentation_6`: چهار `accuracy_components[]` و شش `presentation_components[]`. `method=accuracy_6_presentation_4`: سه `accuracy_components[]` به‌علاوهٔ چهار `presentation_penalties[]` که فرانت با علامت منفی نمایش می‌دهد. سقف‌ها و نتایج نهایی از `detailed_scores` می‌آیند؛ فرانت از روی شمار زیرامتیازها حدس نمی‌زند. |
 | **وضعیت پذیرش امتیاز (آینده)** | فرانت از metadata اختیاری داور مثل `acceptance`، `accepted` یا `score_status`، به‌شکل `{ accuracy, presentation, eoe, sp, rp, accuracy_components[], presentation_components[], presentation_penalties[] }` پشتیبانی می‌کند. مقدار `false` یا `"rejected"` باعث نمایش قرمز و خط‌خورده می‌شود؛ نبود metadata یعنی نمایش عادی سفید. منبع این metadata بعداً با Backend هماهنگ می‌شود. |
-| **هویت ورزشکار** | `bout.entries[]` می‌تواند `number`, `country`, `country_code`, `flag_url` داشته باشد؛ نبودنشان اختیاری است و به layout امتیازدهی لطمه نمی‌زند. |
+| **دادهٔ واقعاً غایب** | `entry.country` و `entry.flag_url` در `bout.entries[]` نیستند؛ `country_code` موجود است و صفحه آن را به `AthleteInfo` می‌دهد، اما ممکن است از نام کوتاه لاتین باشگاه مشتق شده باشد. شمارهٔ entry در snapshot bout ارائه نمی‌شود؛ `AthleteInfo` در حال حاضر شماره را رندر نمی‌کند. `symbol_key` جدا وجود ندارد، اما صفحه از `performance.form_badge` موجود استفاده می‌کند. |
+| **نکتهٔ اتصال** | `Scoring.vue` می‌تواند snapshot مستقیم آزمایشگاه و envelope واقعی `display` را بخواند؛ route فعلی `scoreboard.show` هنوز `Competition/Scoreboard` را render می‌کند و این صفحه را فراخوانی نمی‌کند. در این مرحله wrapper فرانت‌اند تغییر نمی‌کند؛ بنابراین Scoring هنوز از route production قابل دسترسی نیست. |
 
 ### ۳.۴ Result
 
@@ -143,14 +145,14 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 
 ## ۴. خلاصهٔ فیلدهای `[Proposed Backend Contract]`
 
-> این فهرست مشترک هنوز برای همهٔ صفحات بازبینی نشده است. برای Standby و LiveBoard، `entry.country_code`، `performance.form_number`، `performance.form_badge` و `performance.live_timing.duration_seconds` در پاسخ فعلی موجودند؛ آن‌ها را برای این دو صفحه دادهٔ غایب حساب نکنید.
+> این فهرست مشترک هنوز برای همهٔ صفحات بازبینی نشده است. برای Standby، LiveBoard و Scoring، `entry.country_code`، `performance.form_number` و `performance.form_badge` در پاسخ فعلی موجودند؛ برای دو صفحهٔ اول `performance.live_timing.duration_seconds` نیز موجود است. آن‌ها را برای صفحات بررسی‌شده دادهٔ غایب حساب نکنید.
 
 | # | فیلد | شکل پیشنهادی | مصرف‌کننده |
 | - | ---- | ------------ | ---------- |
 | 1 | `logoUrl` | `string \| null` روی snapshot | همهٔ صفحات (header) |
 | 2 | ~~`entry.photo_url`~~ | **حذف موقت** — تا اطلاع بعدی تأمین نشود (عکس ورزشکار در هیچ صفحه‌ای نمایش داده نمی‌شود) | — |
-| 3 | `entry.country` / `entry.flag_url` | رشته روی entry؛ `country_code` در snapshot فعلی برای Standby و LiveBoard موجود است | هر جا نام کشور یا پرچم واقعی لازم باشد؛ سایر صفحات هنوز بررسی نشده‌اند |
-| 4 | `entry.number` | `int` روی entry | Scoring (هنوز بررسی نشده؛ Standby آن را نمایش نمی‌دهد) |
+| 3 | `entry.country` / `entry.flag_url` | رشته روی entry؛ `country_code` در snapshot فعلی برای Standby، LiveBoard و Scoring موجود است | هر جا نام کشور یا پرچم واقعی لازم باشد؛ سایر صفحات هنوز بررسی نشده‌اند |
+| 4 | `entry.number` | `int` روی entry | در snapshot bout موجود نیست؛ `AthleteInfo` شماره را فعلاً رندر نمی‌کند |
 | 5 | ~~`execution_duration_seconds`~~ | برای Standby و LiveBoard لازم نیست؛ مدت از `performance.live_timing.duration_seconds` می‌آید | — |
 | 6 | `category.discipline/format/execution_mode` | `recognized \| freestyle`; `knockout \| round_robin`; `alternating \| simultaneous` | Scoring (انتخاب layout) |
 | 7 | `performance.detailed_scores` | نتایج/سقف‌های هر اجرای فرم به‌همراه `judges[]` | Scoring |
@@ -159,9 +161,9 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 | 10 | `bout.winner_entry_id` | `int` — برندهٔ bout؛ Result فعلاً از آن برای استایل‌دهی استفاده نمی‌کند | اطلاعات نتیجه (نمایش برنده بعداً تعیین می‌شود) |
 | 11 | `placements[]` | `[{rank, entry_id, name, score, round_scores, country, country_code, flag_url}]` روی category — `score` امتیاز نهایی مستقل TopFour است؛ `round_scores = [R-1, R-2]` برای ستون‌های Ranking؛ مدال از `rank` مشتق می‌شود | Ranking, TopFour |
 | 12 | `Draw.output_snapshot` | خروجی قرعه (ترتیب اجرا/جفت‌ها) | Draw |
-| 13 | `entry_members[]` | `[{name, club, position}]` روی entry | Draw, Scoring (هنوز بررسی نشده‌اند) |
+| 13 | `entry_members[]` | `[{name, club, position}]` روی entry | Draw (Scoring از اعضای تیم استفاده نمی‌کند) |
 | 14 | `draw_timing` | `timestamp` | Draw |
-| 15 | `symbol_key` | `int` `1..18` روی فرم — کلید سمبل تصویری فرم | `FormBadge` در Scoring, Result, Draw (هنوز بررسی نشده‌اند؛ Standby و LiveBoard از `form_badge` استفاده می‌کنند) |
+| 15 | `symbol_key` | `int` `1..18` روی فرم — کلید سمبل تصویری فرم | `FormBadge` در Result, Draw (هنوز بررسی نشده‌اند؛ Standby, LiveBoard و Scoring از `form_badge` استفاده می‌کنند) |
 | 16 | `courtId` (LiveBoard) | query param رسمی | LiveBoard |
 | 17 | `timeline.previous` (LiveBoard) | تاریخچهٔ مرتب‌شدهٔ boutهای همان زمین؛ current/upcoming هم‌اکنون در `display.courts[]` هستند | LiveBoard |
 | 18 | `detailed_scores.judges[].*_components/ *_penalties` | سه component برای Single/Double؛ Freestyle با قاعدهٔ ۴+۶ یا ۶+۴ | Scoring (ستون/سطر ریزنمرات) |

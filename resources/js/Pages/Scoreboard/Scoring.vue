@@ -11,8 +11,14 @@ import DoubleScoringTable from "../../Components/scoreboard/tables/DoubleScoring
 import FreestyleScoringTable from "../../Components/scoreboard/tables/FreestyleScoringTable.vue";
 
 const props = defineProps({
+    display: { type: Object, default: null },
     tournament: { type: Object, default: null },
 });
+
+// Read the production Inertia envelope while keeping standalone lab snapshots supported.
+const tournament = computed(
+    () => props.tournament ?? props.display?.tournament ?? null,
+);
 
 const statusLabels = {
     draft: "پیش‌نویس",
@@ -21,7 +27,7 @@ const statusLabels = {
     completed: "پایان‌یافته",
 };
 
-const stage = computed(() => statusLabels[props.tournament?.status] ?? "");
+const stage = computed(() => statusLabels[tournament.value?.status] ?? "");
 
 const isActivePerformance = (performance) =>
     ["running", "scoring"].includes(performance.status);
@@ -42,7 +48,7 @@ const scoringVariant = (category) => {
 };
 
 const scoringPanels = computed(() =>
-    (props.tournament?.categories ?? []).flatMap((category) =>
+    (tournament.value?.categories ?? []).flatMap((category) =>
         (category.rounds ?? []).flatMap((round) =>
             (round.bouts ?? [])
                 .filter((bout) => bout.status === "running")
@@ -87,7 +93,8 @@ const scoringPanels = computed(() =>
                                 category,
                                 entry: (bout.entries ?? []).find(
                                     (entry) =>
-                                        entry.id === performance.entry_id,
+                                        String(entry.id) ===
+                                        String(performance.entry_id),
                                 ),
                             })),
                         }));
@@ -249,11 +256,8 @@ const athleteProps = (entry) => ({
                         size="xxxl"
                         :round-label="panel.roundLabel"
                         :form-name="panel.sides[0].performance.form_name ?? ''"
-                        :form-number="
-                            panel.sides[0].performance.form_number ?? null
-                        "
                         :symbol-key="
-                            panel.sides[0].performance.symbol_key ?? null
+                            panel.sides[0].performance.form_badge ?? null
                         "
                     />
                 </div>
