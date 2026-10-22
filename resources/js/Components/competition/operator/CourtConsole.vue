@@ -3,7 +3,7 @@ import { useForm } from "@inertiajs/vue3";
 import FormErrors from "../../../Shared/Components/FormErrors.vue";
 import ProxyScoreForm from "./ProxyScoreForm.vue";
 import PerformanceTiming from "../PerformanceTiming.vue";
-import { restRemaining, usePerformanceClock } from "../../../usePerformanceTiming";
+import { restRemaining, usePerformanceClock } from "../../../Shared/Composables/usePerformanceTiming";
 
 const props = defineProps({
     court: Object,

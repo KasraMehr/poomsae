@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
-import { useDisplayUpdates } from '../../useDisplayUpdates';
+import { useDisplayUpdates } from '../../Shared/Composables/useDisplayUpdates';
 import { connectionLabels, statusLabels } from '../../display';
 import PerformanceTiming from '../../Components/competition/PerformanceTiming.vue';
 const props = defineProps({ display: Object, displayUrls: Object });

@@ -1,5 +1,6 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 
+// Keep performance clocks aligned with the server while the view is mounted.
 export function restRemaining(performance, now) {
     return performance?.rest_ready_at ? Math.max(0, Math.ceil((Date.parse(performance.rest_ready_at) - now) / 1000)) : 0;
 }

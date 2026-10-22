@@ -1,6 +1,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { getRealtime } from './Shared/Services/realtime';
+import { getRealtime } from '../Services/realtime';
 
+// Keep the public scoreboard synchronized with realtime events and polling.
 export function useDisplayUpdates(initialDisplay, endpoint) {
     const display = ref(initialDisplay);
     const now = ref(Date.now());
