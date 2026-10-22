@@ -1,6 +1,6 @@
 <script setup>
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
-import AppLayout from '../../Layouts/AppLayout.vue';
+import AppLayout from '../../Shared/Layouts/AppLayout.vue';
 import TournamentCard from '../../Components/tournaments/TournamentCard.vue';
 defineProps({ tournaments: Object, statusFilter: String, listUrls: Object });
 const page = usePage();

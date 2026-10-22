@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 import { Head, Link, router, useForm, usePage, usePoll } from '@inertiajs/vue3';
-import AppLayout from '../../Layouts/AppLayout.vue';
+import AppLayout from '../../Shared/Layouts/AppLayout.vue';
 import FormErrors from '../../Shared/Components/FormErrors.vue';
 import AppealDecisionForm from '../../Components/AppealDecisionForm.vue';
 import { useCompetitionUpdates } from '../../Shared/Composables/useCompetitionUpdates';

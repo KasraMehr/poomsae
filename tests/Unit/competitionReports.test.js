@@ -31,7 +31,7 @@ async function loadReports(type = 'judges') {
     const imports = {
         vue: { computed, watch },
         '@inertiajs/vue3': { Head: {}, Link: {}, router: { get() {} }, useForm, usePoll() {} },
-        '../../Layouts/AppLayout.vue': { default: {} },
+        '../../Shared/Layouts/AppLayout.vue': { default: {} },
         '../../Shared/Components/FormErrors.vue': { default: {} },
         '../../Components/AuditSnapshot.vue': { default: {} },
         '../../Shared/Composables/useCompetitionUpdates': {

@@ -2,7 +2,7 @@
 import { useCompetitionUpdates } from '../../Shared/Composables/useCompetitionUpdates';
 import { computed, ref } from 'vue';
 import { Head, Link, useForm, usePoll } from '@inertiajs/vue3';
-import AppLayout from '../../Layouts/AppLayout.vue';
+import AppLayout from '../../Shared/Layouts/AppLayout.vue';
 import CompetitionSetupPanel from '../../Components/CompetitionSetupPanel.vue';
 import CategoryRegistration from '../../Components/CategoryRegistration.vue';
 import BoutPanel from '../../Components/BoutPanel.vue';
