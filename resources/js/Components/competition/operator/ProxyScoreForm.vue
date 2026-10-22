@@ -8,7 +8,7 @@ import {
     scoreComponentsComplete,
     scoreDetailFields,
     scorePayload,
-} from "../../../scoring";
+} from "../../../Shared/Services/scoring";
 
 const props = defineProps({
     performance: Object,

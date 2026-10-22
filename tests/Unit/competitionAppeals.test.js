@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { SourceTextModule, SyntheticModule, createContext } from 'node:vm';
 import { computed, reactive } from 'vue';
-import { scoreComponentsComplete, scoreDetailFields, scorePayload } from '../../resources/js/scoring.js';
+import { scoreComponentsComplete, scoreDetailFields, scorePayload } from '../../resources/js/Shared/Services/scoring.js';
 
 async function decisionForm(method = 'deductions_and_components_v1') {
     const requests = [];
@@ -27,9 +27,9 @@ async function decisionForm(method = 'deductions_and_components_v1') {
         return form;
     };
     const context = createContext({ defineProps: () => props });
-    const source = (await readFile(new URL('../../resources/js/Components/AppealDecisionForm.vue', import.meta.url), 'utf8')).match(/<script setup>([\s\S]*?)<\/script>/)[1];
+    const source = (await readFile(new URL('../../resources/js/Components/competition/AppealDecisionForm.vue', import.meta.url), 'utf8')).match(/<script setup>([\s\S]*?)<\/script>/)[1];
     const module = new SourceTextModule(source + '\nexport { form, corrections, ready, submit };', { context });
-    const imports = { vue: { computed, reactive }, '@inertiajs/vue3': { useForm }, '../scoring': { scoreComponentsComplete, scoreDetailFields, scorePayload } };
+    const imports = { vue: { computed, reactive }, '@inertiajs/vue3': { useForm }, '../../Shared/Services/scoring': { scoreComponentsComplete, scoreDetailFields, scorePayload } };
     await module.link(specifier => {
         const values = imports[specifier] || { default: {} };
         return new SyntheticModule(Object.keys(values), function () { for (const [key, value] of Object.entries(values)) this.setExport(key, value); }, { context });

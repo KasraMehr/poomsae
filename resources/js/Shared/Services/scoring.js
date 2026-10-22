@@ -1,3 +1,4 @@
+// Keep score payload calculations shared across competition workflows.
 export function scoreDetailFields(method, breakdown) {
     return {
         accuracy_penalties: method === 'deductions_and_components_v1' ? (breakdown?.accuracy_penalties_hundredths || []).map(value => (value / 100).toFixed(2)) : null,

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { adjustPenalties, hasScoreDetails, scoreComponentsComplete, scoreDetailFields, scorePayload } from '../../resources/js/scoring.js';
+import { adjustPenalties, hasScoreDetails, scoreComponentsComplete, scoreDetailFields, scorePayload } from '../../resources/js/Shared/Services/scoring.js';
 
 test('deduction controls add and restore tenths and thirds without crossing zero or four', () => {
     for (let total = 0; total <= 400; total += 10) {

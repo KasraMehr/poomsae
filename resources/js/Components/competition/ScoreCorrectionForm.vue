@@ -4,7 +4,7 @@ import { useForm } from '@inertiajs/vue3';
 import FormErrors from '../../Shared/Components/FormErrors.vue';
 import ScoreEntryFields from './ScoreEntryFields.vue';
 import { requestId } from '../../Shared/Services/requestId';
-import { scoreComponentsComplete, scoreDetailFields, scorePayload } from '../../scoring';
+import { scoreComponentsComplete, scoreDetailFields, scorePayload } from '../../Shared/Services/scoring';
 
 const props = defineProps({
     performance: Object,
