@@ -3,7 +3,7 @@ import { useCompetitionUpdates } from '../../Shared/Composables/useCompetitionUp
 import { computed, ref } from 'vue';
 import { Head, Link, useForm, usePoll } from '@inertiajs/vue3';
 import AppLayout from '../../Shared/Layouts/AppLayout.vue';
-import CompetitionSetupPanel from '../../Components/CompetitionSetupPanel.vue';
+import CompetitionSetupPanel from '../../Components/tournaments/CompetitionSetupPanel.vue';
 import CategoryRegistration from '../../Components/CategoryRegistration.vue';
 import BoutPanel from '../../Components/competition/BoutPanel.vue';
 import FormErrors from '../../Shared/Components/FormErrors.vue';
