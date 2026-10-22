@@ -7,13 +7,37 @@ import ScoreItem from "../../Components/scoreboard/ScoreItem.vue";
 import { Head } from "@inertiajs/vue3";
 
 const props = defineProps({
+    display: { type: Object, default: null },
     tournament: { type: Object, default: null },
 });
+
+// Read the production Inertia envelope while keeping standalone lab snapshots supported.
+const tournament = computed(
+    () => props.tournament ?? props.display?.tournament ?? null,
+);
+
+const maximumFrom = (value) => {
+    if (value == null) return null;
+
+    const maximum = Number(value);
+
+    return Number.isFinite(maximum) ? maximum : null;
+};
+
+const ruleMaximum = (rules, key) => {
+    const rawMaximum = maximumFrom(rules?.[key + "_max"]);
+
+    return rawMaximum == null
+        ? null
+        : rawMaximum > 20
+          ? rawMaximum / 100
+          : rawMaximum;
+};
 
 const resultPanels = computed(() => {
     const panels = [];
 
-    for (const category of props.tournament?.categories ?? []) {
+    for (const category of tournament.value?.categories ?? []) {
         const matchups = new Map();
 
         for (const round of category.rounds ?? []) {
@@ -43,14 +67,10 @@ const resultPanels = computed(() => {
 
         for (const matchup of matchups.values()) {
             const rounds = matchup.rounds
-                .sort((left, right) =>
-                    String(left.round.id).localeCompare(
-                        String(right.round.id),
-                        undefined,
-                        {
-                            numeric: true,
-                        },
-                    ),
+                .sort(
+                    (left, right) =>
+                        Number(left.round.sequence) -
+                        Number(right.round.sequence),
                 )
                 .slice(0, 2);
             const sides = matchup.entries
@@ -65,9 +85,28 @@ const resultPanels = computed(() => {
                 .map((entry) => ({
                     entry,
                     rounds: rounds.map(({ round, bout }) => {
-                        const roundEntry = bout.entries.find(
-                            (candidate) => candidate.id === entry.id,
+                        const performances = (bout.performances ?? []).filter(
+                            (performance) =>
+                                String(performance.entry_id) ===
+                                String(entry.id),
                         );
+                        const detailedScores =
+                            performances.length === 1
+                                ? performances[0].detailed_scores
+                                : null;
+                        const maximumScores =
+                            performances[0]?.detailed_scores ?? null;
+                        const accuracyMax =
+                            maximumFrom(maximumScores?.accuracy_max) ??
+                            ruleMaximum(category.rules, "accuracy");
+                        const presentationMax =
+                            maximumFrom(maximumScores?.presentation_max) ??
+                            ruleMaximum(category.rules, "presentation");
+                        const totalMax =
+                            maximumFrom(maximumScores?.total_max) ??
+                            (accuracyMax != null && presentationMax != null
+                                ? accuracyMax + presentationMax
+                                : null);
 
                         return {
                             id: round.id,
@@ -75,10 +114,12 @@ const resultPanels = computed(() => {
                                 /\s*-\s*/g,
                                 "-",
                             ),
-                            accuracy: roundEntry?.accuracy_score ?? null,
-                            presentation:
-                                roundEntry?.presentation_score ?? null,
+                            accuracy: detailedScores?.accuracy ?? null,
+                            accuracyMax,
+                            presentation: detailedScores?.presentation ?? null,
+                            presentationMax,
                             total: bout.totals?.[entry.id] ?? null,
+                            totalMax,
                         };
                     }),
                 }));
@@ -86,7 +127,7 @@ const resultPanels = computed(() => {
             panels.push({
                 id: String(category.id) + "-" + matchup.key,
                 category,
-                stage: category.stage ?? props.tournament?.stage ?? "",
+                stage: rounds[0]?.stage_label ?? "",
                 title:
                     rounds.length > 1
                         ? "RESULT"
@@ -157,7 +198,7 @@ const title = computed(() => resultPanels.value[0]?.title ?? "RESULT");
                 >
                     <ScoreItem
                         label="Accuracy"
-                        :max="4"
+                        :max="side.rounds[0]?.accuracyMax"
                         :value="side.rounds[0]?.accuracy"
                         :side="side.entry.side"
                         size="xxl"
@@ -169,7 +210,7 @@ const title = computed(() => resultPanels.value[0]?.title ?? "RESULT");
                     />
                     <ScoreItem
                         label="Presentation"
-                        :max="6"
+                        :max="side.rounds[0]?.presentationMax"
                         :value="side.rounds[0]?.presentation"
                         :side="side.entry.side"
                         size="xxl"
@@ -181,7 +222,7 @@ const title = computed(() => resultPanels.value[0]?.title ?? "RESULT");
                     />
                     <ScoreItem
                         label="Total Score"
-                        :max="10"
+                        :max="side.rounds[0]?.totalMax"
                         :value="side.rounds[0]?.total"
                         variant="total"
                         :side="side.entry.side"

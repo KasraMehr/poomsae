@@ -20,7 +20,7 @@
 | Standby | `Standby.vue` | نمایش **اجرای فعلی + Timer اجرا + state پایان** (`running` / `scoring`). بدون صف، بدون اجرای قبلی/بعدی. | با envelope واقعی `display.tournament` سازگار شد؛ route production هنوز به این صفحه وصل نیست |
 | LiveBoard | `LiveBoard.vue` | Broadcast board وضعیت **یک زمین**: `PREVIOUS ↓ CURRENT ↓ NEXT`. Timer اینجا مسئولیت اصلی نیست. | با envelope واقعی `display.tournament` سازگار شد؛ route production هنوز به این صفحه وصل نیست |
 | Scoring | `Scoring.vue` | صفحهٔ زندهٔ امتیازدهی؛ layout تک‌نفره، دوتایی یا فری‌استایل بر پایهٔ category و جزئیات نمرهٔ backend. | با envelope واقعی `display.tournament` سازگار شد؛ route production هنوز به این صفحه وصل نیست |
-| Result | `Result.vue` | نمایش نتیجهٔ boutهای تکمیل‌شدهٔ اجرای جاری؛ چیدمان یک یا دو راند بر اساس راندهای تکمیل‌شده، بدون برجسته‌سازی برنده. | متصل به snapshot |
+| Result | `Result.vue` | نمایش نتیجهٔ boutهای تکمیل‌شدهٔ اجرای جاری؛ چیدمان یک یا دو راند بر اساس راندهای تکمیل‌شده، بدون برجسته‌سازی برنده. | با envelope واقعی `display.tournament` سازگار شد؛ route production هنوز به این صفحه وصل نیست |
 | Ranking | `Ranking.vue` | نمایش رتبه، کشور، نام و امتیازهای `R-1` و `R-2` با `RankingTable` بر پایهٔ `category.placements[]`. | پیاده‌سازی فرانت؛ نیازمند تکمیل قرارداد Backend |
 | TopFour | `TopFour.vue` | چهار رتبهٔ برتر هر دسته با مدال، اطلاعات کشور و امتیاز نهایی مستقل از `placements[]`. | پیاده‌سازی فرانت؛ نیازمند تکمیل قرارداد Backend |
 | Draw | `Draw.vue` | قرعه‌کشی: فرم‌ها و ورزشکاران هر دسته. | متصل به snapshot (با TODO) |
@@ -112,10 +112,10 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 
 | دسته | موارد |
 | ---- | ----- |
-| **دادهٔ موجود** | boutهای `status=completed` پس از ثبت نمره‌ها؛ هر bout شامل دو `entries[]` با `id/name/side`، مقدارهای `accuracy_score/presentation_score` روی entryها و `totals` با کلید `entry_id`. Tournament می‌تواند همچنان `status=running` باشد. |
-| **منطق نمایش** | Result فقط boutهای تکمیل‌شده را می‌خواند و آن‌ها را درون category بر اساس همان دو `entry.id` گروه‌بندی می‌کند. یک bout تکمیل‌شده، چیدمان یک‌راند (`ROUND 1`) می‌دهد؛ دو bout تکمیل‌شده برای همان جفت، چیدمان دوراهه (`RESULT`) می‌دهد. تعداد راندهای category به‌تنهایی معیار نیست. در هر راند، Accuracy و Presentation از entry همان bout و Total از `bout.totals[entry_id]` می‌آیند؛ فرانت امتیازها را محاسبه نمی‌کند. |
-| **نمایش برنده** | `winner_entry_id` ممکن است در snapshot موجود باشد، اما فعلاً برای Result مصرف نمی‌شود و هیچ کادر/رنگ ویژه‌ای برای برنده نمایش داده نمی‌شود. |
-| **[Proposed]** | برای `AthleteInfo`: `entry.country/country_code/flag_url`؛ برای هدر: `category.stage` یا `tournament.stage` و `category.name`. اگر این فیلدهای هویتی/هدر در snapshot فعلی موجود نباشند، باید در قرارداد نهایی تأمین شوند. |
+| **دادهٔ موجود و محل مصرف** | `display.tournament.categories[].rounds[]` برای نتیجه‌های هر دسته؛ `round.stage_label/sequence/name` برای stage و عنوان راند؛ boutهای `status=completed` با دو `entries[]` شامل `id/name/side/country_code` برای matchup و هویت؛ `performances[].entry_id/detailed_scores` برای breakdown هر performance؛ `bout.totals[entry_id]` برای Total تجمیعی رسمی راند؛ `category.rules` و `detailed_scores.*_max` برای سقف امتیاز. `winner_entry_id` موجود است اما صفحه آن را برجسته نمی‌کند. |
+| **منطق نمایش** | Result boutهای تکمیل‌شده را درون category بر اساس جفت entryها گروه‌بندی می‌کند و roundها را با `round.sequence` مرتب می‌کند. یک bout برای جفت، چیدمان یک‌راند و دو bout چیدمان دوراهه می‌دهد. Total فقط از `bout.totals[entry_id]` می‌آید؛ فرانت امتیازها را محاسبه نمی‌کند. Accuracy/Presentation از `performance.detailed_scores` فقط وقتی یک performance برای هر entry در bout باشد قابل نمایش مستقیم است. |
+| **دادهٔ واقعاً غایب** | برای دسته‌های چندفرمی که هر entry در bout چند performance دارد، snapshot نتیجهٔ تجمیعی راند برای Accuracy و Presentation ارائه نمی‌دهد؛ فقط breakdown هر فرم و Total تجمیعی را دارد. صفحه از میانگین‌گیری فرمی خودداری می‌کند. `entry.country` و `entry.flag_url` نیز در bout وجود ندارند؛ `country_code` موجود است، ولی ممکن است از نام کوتاه لاتین باشگاه مشتق شده باشد. |
+| **نکتهٔ اتصال** | `Result.vue` می‌تواند snapshot مستقیم آزمایشگاه و envelope واقعی `display` را بخواند؛ route فعلی `scoreboard.show` هنوز `Competition/Scoreboard` را render می‌کند و این صفحه را فراخوانی نمی‌کند. در این مرحله wrapper فرانت‌اند تغییر نمی‌کند؛ بنابراین Result هنوز از route production قابل دسترسی نیست. |
 
 ### ۳.۵ Ranking
 
