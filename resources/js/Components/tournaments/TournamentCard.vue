@@ -9,6 +9,7 @@ const labels = {
     completed: "پایان‌یافته",
     archived: "آرشیو",
 };
+// Keep status styling mapped to Tailwind classes that Vite can discover.
 const statusClasses = {
     draft: "bg-[#f2f4ed] text-[#81896b]",
     ready: "bg-[#f2f4ed] text-[#81896b]",

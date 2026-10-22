@@ -1,7 +1,7 @@
 <script setup>
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import AppLayout from '../../Layouts/AppLayout.vue';
-import TournamentCard from '../../Components/TournamentCard.vue';
+import TournamentCard from '../../Components/tournaments/TournamentCard.vue';
 defineProps({ tournaments: Object, statusFilter: String, listUrls: Object });
 const page = usePage();
 const form = useForm({ name: '', venue: '', starts_on: '', ends_on: '', timezone: 'Asia/Tehran' });
@@ -17,4 +17,3 @@ const submit = () => form.post(page.props.urls.tournaments);
         <nav class="pagination" aria-label="صفحه‌بندی"><Link v-if="tournaments.prev_page_url" :href="tournaments.prev_page_url">صفحهٔ قبل</Link><span>{{ tournaments.current_page }} / {{ tournaments.last_page }}</span><Link v-if="tournaments.next_page_url" :href="tournaments.next_page_url">صفحهٔ بعد</Link></nav>
     </AppLayout>
 </template>
-
