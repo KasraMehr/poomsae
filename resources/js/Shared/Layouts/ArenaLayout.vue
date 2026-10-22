@@ -30,8 +30,9 @@ const dotClasses = {
                 </div>
             </Link>
             <div
-                class="flex items-center gap-[9px] rounded-[30px] border border-[#24364a] px-[14px] py-[7px] text-[9px] tracking-[1.5px] text-[#94a8bc] [direction:ltr] max-[900px]:hidden"
+                class="flex items-center gap-[9px] rounded-[30px] border border-[#24364a] px-[14px] py-[7px] text-[9px] tracking-[1.5px] text-[#94a8bc] [direction:ltr] max-[900px]:col-span-2 max-[900px]:row-start-2 max-[900px]:justify-self-end"
             >
+                <!-- Keep the direct layout's live status visible on small screens. -->
                 <i
                     class="h-2 w-2 rounded-full bg-[#6e7c8c]"
                     :class="dotClasses[connection]"
@@ -45,7 +46,7 @@ const dotClasses = {
                 }}</span>
             </div>
             <nav
-                class="flex items-center gap-2 justify-self-end [&_a]:rounded-lg [&_a]:border [&_a]:border-transparent [&_a]:px-[14px] [&_a]:py-[9px] [&_a]:text-[11px] [&_a]:text-[#9fb3c7] [&_a:hover]:border-[#2a4056] [&_a:hover]:bg-[#101d2c] [&_a:hover]:text-white max-[900px]:gap-[2px] max-[900px]:[&_a]:p-2 max-[560px]:[&_a]:text-[9px]"
+                class="flex items-center gap-2 justify-self-end [&_a]:rounded-lg [&_a]:border [&_a]:border-transparent [&_a]:px-[14px] [&_a]:py-[9px] [&_a]:text-[11px] [&_a]:text-[#9fb3c7] [&_a:hover]:border-[#2a4056] [&_a:hover]:bg-[#101d2c] [&_a:hover]:text-white max-[900px]:col-span-2 max-[900px]:row-start-3 max-[900px]:justify-self-stretch max-[900px]:justify-end max-[900px]:gap-[2px] max-[900px]:[&_a]:p-2 max-[560px]:[&_a]:text-[9px]"
             >
                 <slot name="actions" />
             </nav>
@@ -56,8 +57,9 @@ const dotClasses = {
             <slot />
         </main>
         <footer
-            class="flex justify-between border-t border-[#142236] px-[clamp(22px,4vw,64px)] py-5 text-[8px] tracking-[1.5px] text-[#4e6277] [direction:ltr] max-[900px]:hidden"
+            class="flex justify-between border-t border-[#142236] px-[clamp(22px,4vw,64px)] py-5 text-[8px] tracking-[1.5px] text-[#4e6277] [direction:ltr] max-[900px]:flex-wrap max-[900px]:gap-3 max-[900px]:px-5 max-[900px]:text-[7px]"
         >
+            <!-- Preserve the direct layout footer at compact breakpoints. -->
             <span>POOMSAE COMPETITION SYSTEM</span
             ><span>LAN FIRST · AUDITED SCORING · LIVE COURT</span>
         </footer>

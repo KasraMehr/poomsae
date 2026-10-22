@@ -3,7 +3,7 @@ import { useCompetitionUpdates } from '../../Shared/Composables/useCompetitionUp
 import { useJudgePresence } from '../../Shared/Composables/useJudgePresence';
 import { computed } from 'vue';
 import { Head, usePoll, usePage, Link } from '@inertiajs/vue3';
-import ArenaLayout from '../../Layouts/ArenaLayout.vue';
+import ArenaLayout from '../../Shared/Layouts/ArenaLayout.vue';
 import JudgeScoreForm from '../../Components/JudgeScoreForm.vue';
 const props = defineProps({ tournament: Object });
 const realtime = useCompetitionUpdates(props.tournament.id);

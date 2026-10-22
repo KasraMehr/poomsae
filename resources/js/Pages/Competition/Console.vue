@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 import { Head, Link, useForm, usePoll } from '@inertiajs/vue3';
-import ArenaLayout from '../../Layouts/ArenaLayout.vue';
+import ArenaLayout from '../../Shared/Layouts/ArenaLayout.vue';
 import CourtConsole from '../../Components/CourtConsole.vue';
 import BoutPanel from '../../Components/BoutPanel.vue';
 import FormErrors from '../../Shared/Components/FormErrors.vue';
