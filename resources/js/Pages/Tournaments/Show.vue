@@ -7,8 +7,8 @@ import CompetitionSetupPanel from '../../Components/tournaments/CompetitionSetup
 import CategoryRegistration from '../../Components/tournaments/CategoryRegistration.vue';
 import BoutPanel from '../../Components/competition/BoutPanel.vue';
 import FormErrors from '../../Shared/Components/FormErrors.vue';
-import TournamentDetailsEditor from '../../Components/TournamentDetailsEditor.vue';
-import CompetitionTimingSettings from '../../Components/CompetitionTimingSettings.vue';
+import TournamentDetailsEditor from '../../Components/tournaments/TournamentDetailsEditor.vue';
+import CompetitionTimingSettings from '../../Components/tournaments/CompetitionTimingSettings.vue';
 const props = defineProps({ tournament: Object, can: Object, competitionUrls: Object, ageCategories: Array, ageTableYear: Number });
 useCompetitionUpdates(props.tournament.id);
 const tab = ref('setup');
