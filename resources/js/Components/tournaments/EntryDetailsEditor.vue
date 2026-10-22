@@ -16,7 +16,7 @@ const save = () => form.put(props.base + '/entries/' + props.entry.id, { preserv
 <template>
     <!-- Keep entry editing styled with Tailwind utilities. -->
     <div class="[&_h3]:mb-3 [&_h3]:font-semibold [&_h3]:text-[#315747] [&_label]:mb-1 [&_label]:block [&_label]:text-xs [&_label]:font-semibold [&_label]:text-[#42664f] [&_input]:w-full [&_input]:rounded-lg [&_input]:border [&_input]:border-[#cfd9cc] [&_input]:bg-white [&_input]:px-3 [&_input]:py-2.5 [&_select]:w-full [&_select]:rounded-lg [&_select]:border [&_select]:border-[#cfd9cc] [&_select]:bg-white [&_select]:px-3 [&_select]:py-2.5 [&_button]:cursor-pointer [&_button]:hover:brightness-95">
-        <button v-if="!editing" type="button" class="inline-flex min-h-11 items-center justify-center rounded-lg border border-transparent bg-[#286957] px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-55 !bg-[#e8eee7] !text-[#42664f] min-h-[34px] px-3 py-1.5 text-[11px]" @click="beginEdit">ویرایش ورزشکار</button>
+        <button v-if="!editing" type="button" class="inline-flex min-h-[34px] items-center justify-center rounded-lg border border-transparent bg-[#e8eee7] px-3 py-1.5 text-[11px] font-semibold text-[#42664f] disabled:cursor-wait disabled:opacity-55" @click="beginEdit">ویرایش ورزشکار</button>
         <form v-else @submit.prevent="save" class="min-w-[360px] whitespace-normal p-3">
             <p v-if="category.registration_locked" class="my-3 text-xs leading-6 text-[#8b988a]">بعد از قرعه فقط نام و باشگاه قابل اصلاح است.</p>
             <div v-for="(member, index) in form.members" :key="member.id" class="grid grid-cols-1 gap-[18px] min-[761px]:grid-cols-2">
@@ -28,7 +28,7 @@ const save = () => form.put(props.base + '/entries/' + props.entry.id, { preserv
                 <div><label :for="`edit-club-${member.id}`">باشگاه</label><input :id="`edit-club-${member.id}`" v-model="member.club" maxlength="100"></div>
             </div>
             <FormErrors :errors="form.errors"/>
-            <div class="flex flex-wrap items-center gap-2.5"><button class="inline-flex min-h-11 items-center justify-center rounded-lg border border-transparent bg-[#286957] px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-55 min-h-[34px] px-3 py-1.5 text-[11px]" :disabled="form.processing">ذخیرهٔ ورزشکار</button><button type="button" class="inline-flex min-h-11 items-center justify-center rounded-lg border border-transparent bg-[#286957] px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-55 !bg-[#e8eee7] !text-[#42664f] min-h-[34px] px-3 py-1.5 text-[11px]" :disabled="form.processing" @click="editing = false">انصراف</button></div>
+            <div class="flex flex-wrap items-center gap-2.5"><button class="inline-flex min-h-[34px] items-center justify-center rounded-lg border border-transparent bg-[#286957] px-3 py-1.5 text-[11px] font-semibold text-white disabled:cursor-wait disabled:opacity-55" :disabled="form.processing">ذخیرهٔ ورزشکار</button><button type="button" class="inline-flex min-h-[34px] items-center justify-center rounded-lg border border-transparent bg-[#e8eee7] px-3 py-1.5 text-[11px] font-semibold text-[#42664f] disabled:cursor-wait disabled:opacity-55" :disabled="form.processing" @click="editing = false">انصراف</button></div>
         </form>
     </div>
 </template>

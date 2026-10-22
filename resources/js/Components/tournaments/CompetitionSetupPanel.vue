@@ -1,92 +1,44 @@
-﻿<script setup>
+<script setup>
 import { useForm } from '@inertiajs/vue3';
 import { computed, nextTick, ref, watch } from 'vue';
 import FormErrors from '../../Shared/Components/FormErrors.vue';
-
-const props = defineProps({
-    tournament: Object,
-    base: String,
-    ageCategories: Array,
-    ageTableYear: Number,
-});
-
+const props = defineProps({ tournament: Object, base: String, ageCategories: Array, ageTableYear: Number });
 const court = useForm({ name: '' });
 const editingCourtId = ref(null);
 const courtEdit = useForm({ name: '' });
-const beginCourtEdit = selected => {
-    editingCourtId.value = selected.id;
-    courtEdit.name = selected.name;
-    courtEdit.clearErrors();
-};
-const saveCourt = () => courtEdit.put(`${props.base}/courts/${editingCourtId.value}`, {
-    preserveScroll: true,
-    onSuccess: () => editingCourtId.value = null,
-});
-
+const beginCourtEdit = selected => { editingCourtId.value = selected.id; courtEdit.name = selected.name; courtEdit.clearErrors(); };
+const saveCourt = () => courtEdit.put(props.base + '/courts/' + editingCourtId.value, { preserveScroll: true, onSuccess: () => editingCourtId.value = null });
 const member = useForm({ name: '', email: '', password: '', role: 'judge' });
 const editingCategoryId = ref(null);
 const loadingCategory = ref(false);
 const editingCategory = computed(() => props.tournament.categories.find(item => item.id === editingCategoryId.value));
-const category = useForm({
-    name: '',
-    discipline: 'recognized',
-    entry_type: 'individual',
-    gender: 'male',
-    age_category: 'recognized_individual_under_12',
-    minimum_age: null,
-    maximum_age: null,
-    form_names: [],
-    selected_form_numbers: [2, 3, 4, 5, 6, 7, 8, 9],
-    format: 'knockout',
-    execution_mode: 'alternating',
-    performance_order: 'consecutive',
-    judge_count: 5,
-    accuracy_max: 400,
-    discard_each_end: 1,
-    rules_acknowledged: false,
-    planned_round_count: 1,
-    allow_form_repetition: true,
-    form_draw_timing: 'morning',
-    form_draw_time: '08:00',
-    draw_method: 'random',
-});
-const availableAgeCategories = computed(() => props.ageCategories.filter(ageCategory => (
-    ageCategory.discipline === category.discipline && ageCategory.entry_type === category.entry_type
-)));
+const category = useForm({ name: '', discipline: 'recognized', entry_type: 'individual', gender: 'male', age_category: 'recognized_individual_under_12', minimum_age: null, maximum_age: null, form_names: [], selected_form_numbers: [2, 3, 4, 5, 6, 7, 8, 9], format: 'knockout', execution_mode: 'alternating', performance_order: 'consecutive', judge_count: 5, accuracy_max: 400, discard_each_end: 1, rules_acknowledged: false, planned_round_count: 1, allow_form_repetition: true, form_draw_timing: 'morning', form_draw_time: '08:00', draw_method: 'random' });
+const availableAgeCategories = computed(() => props.ageCategories.filter(ageCategory => ageCategory.discipline === category.discipline && ageCategory.entry_type === category.entry_type));
 const selectedAgeCategory = computed(() => availableAgeCategories.value.find(ageCategory => ageCategory.id === category.age_category));
 let suggestedName = '';
 const suggestCategoryName = () => {
     if (loadingCategory.value || !selectedAgeCategory.value) return;
-    const name = `${selectedAgeCategory.value.label} · ${category.gender === 'female' ? 'بانوان' : 'آقایان'}`;
+    const name = selectedAgeCategory.value.label + ' · ' + (category.gender === 'female' ? 'بانوان' : 'آقایان');
     if (!category.name || category.name === suggestedName) category.name = name;
     suggestedName = name;
 };
 watch(availableAgeCategories, ageCategories => {
     if (loadingCategory.value) return;
-    if (!ageCategories.some(ageCategory => ageCategory.id === category.age_category)) {
-        category.age_category = ageCategories[0]?.id ?? '';
-    }
+    if (!ageCategories.some(ageCategory => ageCategory.id === category.age_category)) category.age_category = ageCategories[0]?.id ?? '';
 }, { immediate: true });
 watch(() => category.age_category, ageCategoryId => {
     if (loadingCategory.value) return;
     const ageCategory = availableAgeCategories.value.find(item => item.id === ageCategoryId);
-    if (ageCategory) {
-        category.selected_form_numbers = [...ageCategory.forms];
-    }
+    if (ageCategory) category.selected_form_numbers = [...ageCategory.forms];
 });
 watch([selectedAgeCategory, () => category.gender], suggestCategoryName, { immediate: true });
 watch(() => category.judge_count, (judgeCount) => {
     if (loadingCategory.value) return;
-    if (judgeCount === 3) {
-        category.discard_each_end = 0;
-    } else if (category.discard_each_end === 0 || judgeCount === 5) {
-        category.discard_each_end = 1;
-    }
+    if (judgeCount === 3) category.discard_each_end = 0;
+    else if (category.discard_each_end === 0 || judgeCount === 5) category.discard_each_end = 1;
 });
 watch(() => category.discipline, discipline => {
-    if (loadingCategory.value) {
-        return;
-    }
+    if (loadingCategory.value) return;
     category.entry_type = 'individual';
     category.accuracy_max = discipline === 'freestyle' ? 600 : 400;
     if (discipline === 'freestyle') {
@@ -102,6 +54,51 @@ const toggleForm = formNumber => {
         category.selected_form_numbers = [...category.selected_form_numbers, formNumber].sort((left, right) => left - right);
     }
 };
+const highFormNames = {
+    9: 'کوریو',
+    10: 'کومگانگ',
+    11: 'ته بک',
+    12: 'پیونگ وان',
+    13: 'شیپ جین',
+    14: 'جی ته',
+    15: 'چون کوان',
+    16: 'هانسو',
+    17: 'ایل یو',
+};
+const formLabel = number => highFormNames[number] || `فرم ${number.toLocaleString('fa-IR')}`;
+const formatFormsList = forms => {
+    if (!forms || !forms.length) return '—';
+    return forms.map(number => {
+        if (number <= 8) return number.toLocaleString('fa-IR');
+        return highFormNames[number] || `فرم ${number.toLocaleString('fa-IR')}`;
+    }).join('، ');
+};
+const formNameToNumber = name => {
+    if (!name) return null;
+    const map = {
+        'فرم ۱': 1, 'فرم 1': 1, '1': 1, '۱': 1,
+        'فرم ۲': 2, 'فرم 2': 2, '2': 2, '۲': 2,
+        'فرم ۳': 3, 'فرم 3': 3, '3': 3, '۳': 3,
+        'فرم ۴': 4, 'فرم 4': 4, '4': 4, '۴': 4,
+        'فرم ۵': 5, 'فرم 5': 5, '5': 5, '۵': 5,
+        'فرم ۶': 6, 'فرم 6': 6, '6': 6, '۶': 6,
+        'فرم ۷': 7, 'فرم 7': 7, '7': 7, '۷': 7,
+        'فرم ۸': 8, 'فرم 8': 8, '8': 8, '۸': 8,
+        'کوریو': 9, 'فرم ۹': 9, 'فرم 9': 9, '9': 9, '۹': 9,
+        'کومگانگ': 10, 'فرم ۱۰': 10, 'فرم 10': 10, '10': 10, '۱۰': 10,
+        'ته بک': 11, 'ته‌بک': 11, 'فرم ۱۱': 11, 'فرم 11': 11, '11': 11, '۱۱': 11,
+        'پیونگ وان': 12, 'پیونگ‌وان': 12, 'فرم ۱۲': 12, 'فرم 12': 12, '12': 12, '۱۲': 12,
+        'شیپ جین': 13, 'شیپ‌جین': 13, 'فرم ۱۳': 13, 'فرم 13': 13, '13': 13, '۱۳': 13,
+        'جی ته': 14, 'جی‌ته': 14, 'فرم ۱۴': 14, 'فرم 14': 14, '14': 14, '۱۴': 14,
+        'چون کوان': 15, 'چون‌کوان': 15, 'فرم ۱۵': 15, 'فرم 15': 15, '15': 15, '۱۵': 15,
+        'هانسو': 16, 'فرم ۱۶': 16, 'فرم 16': 16, '16': 16, '۱۶': 16,
+        'ایل یو': 17, 'ایل‌یو': 17, 'فرم ۱۷': 17, 'فرم 17': 17, '17': 17, '۱۷': 17,
+    };
+    const cleaned = String(name).trim().replace(/\s+/g, ' ');
+    if (map[cleaned] !== undefined) return map[cleaned];
+    const match = cleaned.match(/(\d+)/);
+    return match ? Number(match[1]) : null;
+};
 const loadCategory = async id => {
     loadingCategory.value = true;
     category.clearErrors();
@@ -115,17 +112,14 @@ const loadCategory = async id => {
         category.accuracy_max = selected.discipline === 'freestyle' ? 600 : 400;
         category.discard_each_end = selected.rules?.discard_each_end ?? 1;
         category.form_names = selected.form_pool.map(form => form.name);
-        category.selected_form_numbers = selected.form_pool.map(form => Number(form.name.replace(/^فرم\s+/, ''))).filter(Number.isFinite);
+        category.selected_form_numbers = selected.form_pool.map(form => formNameToNumber(form.name)).filter(Number.isFinite);
         category.rules_acknowledged = false;
     } else {
         category.reset();
     }
     await nextTick();
     loadingCategory.value = false;
-    if (!selected) {
-        category.selected_form_numbers = [...(selectedAgeCategory.value?.forms || [])];
-        suggestCategoryName();
-    }
+    if (!selected) { category.selected_form_numbers = [...(selectedAgeCategory.value?.forms || [])]; suggestCategoryName(); }
 };
 const submitCategory = () => {
     category.transform(data => {
@@ -146,42 +140,41 @@ const submitCategory = () => {
 };
 </script>
 <template>
-    <!-- Keep tournament setup controls styled with Tailwind utilities. -->
-    <div class="grid grid-cols-1 gap-5 lg:grid-cols-2 mb-6 [&_h2]:mb-4 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:text-[#1e352e] [&_h3]:mb-3 [&_h3]:font-semibold [&_h3]:text-[#315747] [&_p]:my-3 [&_p]:text-sm [&_p]:leading-6 [&_p]:text-slate-700 [&_form]:grid [&_form]:gap-4 [&_small]:mt-1 [&_small]:block [&_small]:text-[11px] [&_small]:text-slate-500 [&_input[type=checkbox]]:h-4 [&_input[type=checkbox]]:w-4 [&_input[type=checkbox]]:shrink-0 [&_input[type=checkbox]]:accent-[#286957] [&_table]:w-full [&_table]:border-collapse [&_th]:p-2 [&_td]:border-b [&_td]:border-slate-200 [&_td]:p-2 [&_td]:text-right [&_td]:text-sm [&_th]:text-right [&_th]:p-2 [&_th]:text-sm [&_th]:font-bold [&_button]:cursor-pointer [&_button]:hover:brightness-95 [&_label.check]:!mb-0">
-        <section class="mb-0 rounded-xl border border-[#e2e9df] bg-white p-5 min-[761px]:p-[27px]">
+    <div class="setup-grid">
+        <section class="panel">
             <h2>۱. زمین‌های مسابقه</h2>
-            <div v-for="selectedCourt in tournament.courts" :key="selectedCourt.id" class="mb-4 flex flex-wrap items-end justify-between gap-3"><span>{{ selectedCourt.name }}</span><button type="button" class="inline-flex min-h-11 items-center justify-center rounded-lg border border-transparent bg-[#286957] px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-55 !bg-[#e8eee7] !text-[#42664f] min-h-[34px] px-3 py-1.5 text-[11px]" :disabled="courtEdit.processing" @click="beginCourtEdit(selectedCourt)">ویرایش نام زمین</button></div>
-            <form v-if="editingCourtId" @submit.prevent="saveCourt"><label for="edit-court-name">نام جدید زمین</label><input id="edit-court-name" v-model="courtEdit.name" required maxlength="100"><FormErrors :errors="courtEdit.errors"/><div class="flex flex-wrap items-center gap-[10px]"><button class="inline-flex min-h-11 items-center justify-center rounded-lg border border-transparent bg-[#286957] px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-55" :disabled="courtEdit.processing">ذخیرهٔ نام زمین</button><button type="button" class="inline-flex min-h-11 items-center justify-center rounded-lg border border-transparent bg-[#286957] px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-55 !bg-[#e8eee7] !text-[#42664f]" :disabled="courtEdit.processing" @click="editingCourtId = null">انصراف</button></div></form>
+            <div v-for="selectedCourt in tournament.courts" :key="selectedCourt.id" class="section-heading"><span>{{ selectedCourt.name }}</span><button type="button" class="button secondary small" :disabled="courtEdit.processing" @click="beginCourtEdit(selectedCourt)">ویرایش نام زمین</button></div>
+            <form v-if="editingCourtId" @submit.prevent="saveCourt"><label for="edit-court-name">نام جدید زمین</label><input id="edit-court-name" v-model="courtEdit.name" required maxlength="100"><FormErrors :errors="courtEdit.errors"/><div class="row-actions"><button class="button" :disabled="courtEdit.processing">ذخیرهٔ نام زمین</button><button type="button" class="button secondary" :disabled="courtEdit.processing" @click="editingCourtId = null">انصراف</button></div></form>
             <form @submit.prevent="court.post(base + '/courts', { preserveScroll: true, onSuccess: () => court.reset() })">
                 <label for="court-name">نام زمین</label><input id="court-name" v-model="court.name" required maxlength="100" placeholder="زمین یک">
-                <FormErrors :errors="court.errors"/><button class="inline-flex min-h-11 items-center justify-center rounded-lg border border-transparent bg-[#286957] px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-55" :disabled="court.processing">افزودن زمین</button>
+                <FormErrors :errors="court.errors"/><button class="button" :disabled="court.processing">افزودن زمین</button>
             </form>
         </section>
-        <section class="mb-0 rounded-xl border border-[#e2e9df] bg-white p-5 min-[761px]:p-[27px]">
+        <section class="panel">
             <h2>۲. تیم برگزاری</h2>
-            <form @submit.prevent="member.post(base + '/members', { preserveScroll: true, onSuccess: () => member.reset() })" class="grid grid-cols-1 gap-5 min-[851px]:grid-cols-2">
+            <form @submit.prevent="member.post(base + '/members', { preserveScroll: true, onSuccess: () => member.reset() })" class="fields-two">
                 <div><label for="member-name">نام و نام خانوادگی</label><input id="member-name" v-model="member.name" required maxlength="100"></div>
                 <div><label for="member-role">نقش</label><select id="member-role" v-model="member.role"><option value="judge">داور</option><option value="operator">اپراتور</option></select></div>
                 <div><label for="member-email">ایمیل ورود</label><input id="member-email" v-model="member.email" type="email" dir="ltr" required autocomplete="off"></div>
                 <div><label for="member-password">رمز حساب جدید (۱۲ کاراکتر)</label><input id="member-password" v-model="member.password" type="password" dir="ltr" minlength="12" autocomplete="new-password"></div>
-                <p class="text-xs text-[#8b988a] col-span-full">اگر حساب وجود دارد، فقط نقش اضافه می‌شود و رمز آن تغییر نمی‌کند.</p>
-                <FormErrors class="col-span-full" :errors="member.errors"/><button class="inline-flex min-h-11 items-center justify-center rounded-lg border border-transparent bg-[#286957] px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-55" :disabled="member.processing">افزودن عضو</button>
+                <p class="subtle wide">اگر حساب وجود دارد، فقط نقش اضافه می‌شود و رمز آن تغییر نمی‌کند.</p>
+                <FormErrors class="wide" :errors="member.errors"/><button class="button" :disabled="member.processing">افزودن عضو</button>
             </form>
-            <div class="mt-6 max-h-[250px] overflow-auto [&>div]:flex [&>div]:items-center [&>div]:justify-between [&>div]:gap-3 [&>div]:border-t [&>div]:border-slate-100 [&>div]:py-2"><div v-for="(user,i) in tournament.members" :key="user.id + '-' + i"><span>{{ user.name }} <small dir="ltr">{{ user.email }}</small></span><span class="rounded-[5px] bg-[#f2f4ed] px-[9px] py-[3px] text-[10px] text-[#81896b]">{{ {judge:'داور',operator:'اپراتور',display:'نمایشگر',manager:'مدیر'}[user.role] || user.role }}</span></div></div>
+            <div class="member-list"><div v-for="(user,i) in tournament.members" :key="user.id + '-' + i"><span>{{ user.name }} <small dir="ltr">{{ user.email }}</small></span><span class="badge">{{ {judge:'داور',operator:'اپراتور',display:'نمایشگر',manager:'مدیر'}[user.role] || user.role }}</span></div></div>
         </section>
-        <section class="mb-0 rounded-xl border border-[#e2e9df] bg-white p-5 min-[761px]:p-[27px] col-span-full">
+        <section class="panel wide">
             <h2>۳. ردهٔ مسابقه</h2>
-            <div class="mb-4 flex flex-wrap items-end justify-between gap-3"><div><label for="edit-category-choice">ساخت یا ویرایش رده و قوانین</label><select id="edit-category-choice" :value="editingCategoryId || ''" :disabled="category.processing" @change="loadCategory(Number($event.target.value))"><option value="">ساخت ردهٔ جدید</option><option v-for="existing in tournament.categories" :key="existing.id" :value="existing.id">{{ existing.name }}</option></select></div></div>
-            <p v-if="editingCategory" class="text-xs text-[#8b988a]">نسخهٔ قوانین: {{ editingCategory.rule_version }}. با ذخیره، نسخهٔ جدید تأیید می‌شود.</p>
-            <p v-if="editingCategory && !editingCategory.settings_editable" class="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">ویرایش تنظیمات فقط قبل از قرعهٔ فرم‌ها و ساخت جدول، برای رده‌های محلی مجاز است.</p>
-            <form @submit.prevent="submitCategory" class="grid grid-cols-1 gap-[18px] min-[761px]:grid-cols-3">
-                <fieldset class="col-span-full grid grid-cols-1 gap-[18px] min-[761px]:grid-cols-3 m-0 min-w-0 border-0 p-0" :disabled="loadingCategory || Boolean(editingCategory && !editingCategory.settings_editable)">
+            <div class="section-heading"><div><label for="edit-category-choice">ساخت یا ویرایش رده و قوانین</label><select id="edit-category-choice" :value="editingCategoryId || ''" :disabled="category.processing" @change="loadCategory(Number($event.target.value))"><option value="">ساخت ردهٔ جدید</option><option v-for="existing in tournament.categories" :key="existing.id" :value="existing.id">{{ existing.name }}</option></select></div></div>
+            <p v-if="editingCategory" class="subtle">نسخهٔ قوانین: {{ editingCategory.rule_version }}. با ذخیره، نسخهٔ جدید تأیید می‌شود.</p>
+            <p v-if="editingCategory && !editingCategory.settings_editable" class="notice">ویرایش تنظیمات فقط قبل از قرعهٔ فرم‌ها و ساخت جدول، برای رده‌های محلی مجاز است.</p>
+            <form @submit.prevent="submitCategory" class="tournament-form">
+                <fieldset class="wide tournament-form category-fields" :disabled="loadingCategory || Boolean(editingCategory && !editingCategory.settings_editable)">
                 <div><label for="category-name">نام رده</label><input id="category-name" v-model="category.name" required maxlength="100" placeholder="انفرادی بزرگسالان"></div>
                 <div><label for="discipline">سبک</label><select id="discipline" v-model="category.discipline" :disabled="Boolean(editingCategory?.entries.length)"><option value="recognized">استاندارد</option><option value="freestyle">ابداعی</option></select></div>
-                <div><label for="entry-type">نوع شرکت</label><select id="entry-type" v-model="category.entry_type" :disabled="Boolean(editingCategory?.entries.length)"><option value="individual">انفرادی</option><option v-if="category.discipline === 'recognized'" value="team">تیمی سه‌نفره</option><option v-else value="pair">تیمی ابداعی دو نفره</option></select></div>
+                <div><label for="entry-type">نوع شرکت</label><select id="entry-type" v-model="category.entry_type" :disabled="Boolean(editingCategory?.entries.length)"><option value="individual">انفرادی</option><option value="pair">{{ category.discipline === 'recognized' ? 'دو نفره' : 'تیمی ابداعی دو نفره' }}</option><option v-if="category.discipline === 'recognized'" value="team">تیمی سه‌نفره</option></select></div>
                 <div><label for="gender">جنسیت</label><select id="gender" v-model="category.gender"><option value="female">بانوان</option><option value="male">آقایان</option></select></div>
                 <div><label for="age-category">ردهٔ سنی</label><select id="age-category" v-model="category.age_category" :required="!editingCategory"><option v-if="editingCategory && !editingCategory.rules?.age_category" value="">بازهٔ سنی فعلی رده</option><option v-for="ageCategory in availableAgeCategories" :key="ageCategory.id" :value="ageCategory.id">{{ ageCategory.label }}</option></select><small>مطابق جدول رده‌های سنی ایران، سال {{ ageTableYear.toLocaleString('fa-IR', { useGrouping: false }) }}</small></div>
-                <template v-if="editingCategory && !category.age_category"><div><label for="edit-min-age">حداقل سن</label><input id="edit-min-age" v-model.number="category.minimum_age" type="number" min="1" max="100"></div><div><label for="edit-max-age">حداکثر سن</label><input id="edit-max-age" v-model.number="category.maximum_age" type="number" min="1" max="100"></div><div v-if="category.discipline === 'recognized'" class="col-span-full"><label>فرم‌های مجاز</label><input v-for="(_, index) in category.form_names" :key="index" v-model="category.form_names[index]" required maxlength="100" :aria-label="`فرم ${index + 1}`"></div></template>
+                <template v-if="editingCategory && !category.age_category"><div><label for="edit-min-age">حداقل سن</label><input id="edit-min-age" v-model.number="category.minimum_age" type="number" min="1" max="100"></div><div><label for="edit-max-age">حداکثر سن</label><input id="edit-max-age" v-model.number="category.maximum_age" type="number" min="1" max="100"></div><div v-if="category.discipline === 'recognized'" class="wide"><label>فرم‌های مجاز</label><input v-for="(_, index) in category.form_names" :key="index" v-model="category.form_names[index]" required maxlength="100" :aria-label="`فرم ${index + 1}`"></div></template>
                 <div v-if="selectedAgeCategory"><label>تاریخ تولد مجاز (شمسی)</label><p>{{ selectedAgeCategory.birth_date_label }}</p></div>
                 <div><label for="format">مدل برگزاری</label><select id="format" v-model="category.format"><option value="knockout">تک‌حذفی</option><option value="round_robin">دورهای</option></select><small>تعداد شرکت‌کنندگان سقف ندارد.</small></div>
                 <div v-if="category.discipline === 'freestyle'"><label>ترتیب اجرای ابداعی</label><p>{{ category.format === 'knockout' ? 'نوبتی · ابتدا A، سپس B' : 'نوبتی · A، سپس B، سپس C و ...' }}</p><small>هر ورزشکار یا زوج در هر مرحله یک اجرا با موسیقی دارد. اعضای هر زوج با هم یک اجرا انجام می‌دهند.</small></div>
@@ -191,13 +184,13 @@ const submitCategory = () => {
                 <div v-if="category.format === 'knockout'"><label>تعداد مراحل</label><p>خودکار بر اساس تعداد ورودی‌های حاضر</p><small>پس از تعیین حضور و قبل از قرعه محاسبه می‌شود؛ مثلاً ۸ ورودی = ۳ مرحله و ۹ تا ۱۶ ورودی = ۴ مرحله. هر تیم یا زوج یک ورودی محسوب می‌شود.</small></div>
                 <div v-else><label for="stage-count">تعداد مراحل</label><input id="stage-count" v-model.number="category.planned_round_count" type="number" min="1" :max="category.discipline === 'recognized' && !category.allow_form_repetition ? 4 : undefined" required><small>نام مراحل خودکار است: مرحله 1، مرحله 2 و ... .</small></div>
                 <template v-if="category.discipline === 'recognized'">
-                    <div v-if="selectedAgeCategory" class="col-span-full"><h3>فرم‌های مجاز ردهٔ سنی</h3><div class="flex flex-wrap gap-2"><label v-for="number in selectedAgeCategory.forms" :key="number" class="!flex cursor-pointer items-center gap-2 text-xs rounded-[5px] bg-[#f2f4ed] px-[9px] py-[3px] text-[10px] text-[#81896b]"><input type="checkbox" :checked="category.selected_form_numbers.includes(number)" :disabled="category.selected_form_numbers.includes(number) && category.selected_form_numbers.length <= 2" @change="toggleForm(number)">فرم {{ number.toLocaleString('fa-IR') }}</label></div><p class="text-xs text-[#8b988a]">فرم‌ها ابتدا طبق جدول سنی انتخاب می‌شوند. می‌توانید فهرست را ویرایش کنید؛ حداقل دو فرم از همین فهرست مجاز باید باقی بماند.</p></div>
+                    <div v-if="selectedAgeCategory" class="wide"><h3>فرم‌های مجاز ردهٔ سنی</h3><div class="chips"><label v-for="number in selectedAgeCategory.forms" :key="number" class="check badge"><input type="checkbox" :checked="category.selected_form_numbers.includes(number)" :disabled="category.selected_form_numbers.includes(number) && category.selected_form_numbers.length <= 2" @change="toggleForm(number)">{{ formLabel(number) }}</label></div><p class="subtle">فرم‌ها ابتدا طبق جدول سنی انتخاب می‌شوند. می‌توانید فهرست را ویرایش کنید؛ حداقل دو فرم از همین فهرست مجاز باید باقی بماند.</p></div>
                     <div><label for="form-repetition">تکرار بین مراحل</label><select id="form-repetition" v-model="category.allow_form_repetition"><option :value="true">مجاز</option><option :value="false">غیرتکراری · حداکثر چهار مرحله</option></select></div>
                     <div><label for="form-draw-timing">زمان قرعهٔ پومسه‌ها</label><select id="form-draw-timing" v-model="category.form_draw_timing"><option value="day_before">روز قبل مسابقه · تمام مراحل</option><option value="morning">صبح مسابقه · تمام مراحل</option><option value="before_stage">قبل از شروع هر مرحله</option></select></div>
                     <div v-if="category.form_draw_timing !== 'before_stage'"><label for="form-draw-time">ساعت قرعه در منطقهٔ زمانی مسابقه</label><input id="form-draw-time" v-model="category.form_draw_time" type="time" required></div>
                 </template>
                 <div><label>ساختار امتیاز</label><p v-if="category.discipline === 'recognized'">دقت از ۴ با افزایش/کاهش ۰٫۱ و ۰٫۳؛ اجرا از ۶ در سه مؤلفهٔ ۲ نمره‌ای.</p><p v-else>دقت از ۶ در سه مؤلفهٔ ۲ نمره‌ای؛ اجرا از ۴ با افزایش/کاهش ۰٫۱ و ۰٫۳. یک اجرا با موسیقی.</p></div>
-                <div class="col-span-full rounded-[10px] border border-[#dccf9c] bg-[#faf7eb] p-5 col-span-full">
+                <div class="rules-summary wide">
                     <label for="discard-each-end">روش حذف نمره‌های داوران</label>
                     <select id="discard-each-end" v-model.number="category.discard_each_end">
                         <option v-if="category.judge_count === 3" :value="0">بدون حذف نمره · میانگین هر ۳ داور</option>
@@ -207,12 +200,21 @@ const submitCategory = () => {
                     <p v-if="category.discipline === 'recognized'">برای دقت و اجرا جداگانه اعمال می‌شود. داور کسرهای دقت و سه مؤلفهٔ اجرا را ثبت می‌کند؛ نتیجهٔ رقابت مجموع دو فرم است.</p>
                     <p v-else>دقت و اجرا جداگانه فیلتر و میانگین‌گیری می‌شوند؛ جمع دو میانگین، نتیجهٔ یک اجرای ابداعی از ۱۰ است.</p>
                     <p>در تساوی، ابتدا نمرهٔ اجرا مقایسه می‌شود؛ در صورت برابری نمرهٔ اجرا، نمره‌های حذف‌شده برمی‌گردند و میانگین همهٔ داوران معیار بعدی است. پذیرش هر ورزشکار بر اساس بازهٔ تاریخ تولد جدول ردهٔ انتخاب‌شده است.</p>
-                    <label class="!flex cursor-pointer items-center gap-2 text-xs"><input v-model="category.rules_acknowledged" type="checkbox" required>این روش محاسبه و شرایط رده را برای این رویداد تأیید می‌کنم.</label>
+                    <label class="check"><input v-model="category.rules_acknowledged" type="checkbox" required>این روش محاسبه و شرایط رده را برای این رویداد تأیید می‌کنم.</label>
                 </div>
-                <FormErrors class="col-span-full" :errors="category.errors"/><div class="flex flex-wrap items-center gap-[10px] col-span-full"><button class="inline-flex min-h-11 items-center justify-center rounded-lg border border-transparent bg-[#286957] px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-55" :disabled="category.processing || (!selectedAgeCategory && !editingCategory)">{{ editingCategory ? 'ذخیرهٔ رده و قوانین' : 'ساخت رده' }}</button><button v-if="editingCategory" type="button" class="inline-flex min-h-11 items-center justify-center rounded-lg border border-transparent bg-[#286957] px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-55 !bg-[#e8eee7] !text-[#42664f]" :disabled="category.processing" @click="loadCategory(null)">انصراف از ویرایش</button></div>
+                <FormErrors class="wide" :errors="category.errors"/><div class="row-actions wide"><button class="button" :disabled="category.processing || (!selectedAgeCategory && !editingCategory)">{{ editingCategory ? 'ذخیرهٔ رده و قوانین' : 'ساخت رده' }}</button><button v-if="editingCategory" type="button" class="button secondary" :disabled="category.processing" @click="loadCategory(null)">انصراف از ویرایش</button></div>
                 </fieldset>
             </form>
-            <details class="mt-6 [&_summary]:mb-4 [&_summary]:cursor-pointer [&_summary]:font-bold [&_th]:bg-[#f7e75a] [&_th]:text-[#181818] [&_td]:whitespace-nowrap"><summary>جدول رده‌های سنی و فرم‌های ایران · {{ ageTableYear.toLocaleString('fa-IR', { useGrouping: false }) }}</summary><div class="overflow-x-auto"><table><thead><tr><th>ردیف</th><th>ردهٔ سنی</th><th>تاریخ تولد</th><th>فرم</th></tr></thead><tbody><tr v-for="(ageCategory, index) in ageCategories" :key="ageCategory.id" :class="{ 'bg-[#fef9c3] text-[#181818]': category.age_category === ageCategory.id }"><td>{{ (index + 1).toLocaleString('fa-IR') }}</td><td>{{ ageCategory.label }}</td><td>{{ ageCategory.birth_date_label }}</td><td>{{ ageCategory.forms.length ? ageCategory.forms.map(number => number.toLocaleString('fa-IR')).join('–') : '—' }}</td></tr></tbody></table></div></details>
+            <details class="age-table"><summary>جدول رده‌های سنی و فرم‌های ایران · {{ ageTableYear.toLocaleString('fa-IR', { useGrouping: false }) }}</summary><div class="table-wrap"><table><thead><tr><th>ردیف</th><th>ردهٔ سنی</th><th>تاریخ تولد</th><th>پومسه‌های اجباری</th></tr></thead><tbody><tr v-for="(ageCategory, index) in ageCategories" :key="ageCategory.id" :class="{ 'selected-age-row': category.age_category === ageCategory.id }"><td>{{ (index + 1).toLocaleString('fa-IR') }}</td><td>{{ ageCategory.label }}</td><td>{{ ageCategory.birth_date_label }}</td><td>{{ formatFormsList(ageCategory.forms) }}</td></tr></tbody></table></div></details>
         </section>
     </div>
 </template>
+<style scoped>
+.category-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.chips { flex-wrap: wrap; }
+.age-table { margin-top: 1.5rem; }
+.age-table summary { cursor: pointer; font-weight: 700; margin-bottom: 1rem; }
+.age-table th { background: #f7e75a; color: #181818; }
+.age-table td { white-space: nowrap; }
+.selected-age-row { background: #fef9c3; color: #181818; }
+</style>
