@@ -6,13 +6,18 @@ import FormBadge from "../../Components/scoreboard/FormBadge.vue";
 import ScoreItem from "../../Components/scoreboard/ScoreItem.vue";
 
 const props = defineProps({
+    display: { type: Object, default: null },
     tournament: { type: Object, default: null },
 });
+
+const tournament = computed(
+    () => props.display?.tournament ?? props.tournament,
+);
 
 const completedWinnerBouts = computed(() => {
     const bouts = [];
 
-    for (const category of props.tournament?.categories ?? []) {
+    for (const category of tournament.value?.categories ?? []) {
         for (const round of category.rounds ?? []) {
             for (const bout of round.bouts ?? []) {
                 if (
@@ -48,63 +53,74 @@ const completedWinnerBouts = computed(() => {
 });
 
 const winner = computed(() => {
-    const currentResult = props.tournament?.current_result;
+    const currentResult = tournament.value?.current_result;
 
-    if (
-        currentResult?.status === "completed" &&
-        [1, 2].includes(Number(currentResult.round_count)) &&
-        currentResult.winner_entry_id != null &&
-        Array.isArray(currentResult.bout_ids) &&
-        currentResult.bout_ids.length === Number(currentResult.round_count)
-    ) {
-        const category = props.tournament?.categories?.find(
-            (item) =>
-                String(item.id) === String(currentResult.category_id),
-        );
-        const executionBouts = category?.rounds
-            ?.flatMap((round) =>
-                (round.bouts ?? []).map((bout) => ({ round, bout })),
-            )
-            .filter(
-                ({ bout }) =>
-                    bout.status === "completed" &&
-                    currentResult.bout_ids.some(
-                        (id) => String(id) === String(bout.id),
-                    ) &&
-                    Array.isArray(bout.entries) &&
-                    bout.entries.length === 2,
-            );
-        const winnerEntry =
-            executionBouts?.length === Number(currentResult.round_count)
-                ? executionBouts
-                      .flatMap(({ bout }) => bout.entries)
-                      .find(
-                          (entry) =>
-                              String(entry.id) ===
-                              String(currentResult.winner_entry_id),
-                      )
-                : null;
-
-        if (winnerEntry) {
-            return {
-                category,
-                winnerEntry,
-                executionBouts,
-                roundCount: Number(currentResult.round_count),
-                total: currentResult.winner_total ?? null,
-                totalMax: currentResult.total_max ?? 10,
-            };
+    if (currentResult != null) {
+        if (
+            currentResult.status !== "completed" ||
+            ![1, 2].includes(Number(currentResult.round_count)) ||
+            currentResult.winner_entry_id == null ||
+            !Array.isArray(currentResult.bout_ids) ||
+            currentResult.bout_ids.length !== Number(currentResult.round_count)
+        ) {
+            return null;
         }
-    }
 
-    const currentBoutId = props.tournament?.current_bout_id;
-
-    if (currentBoutId != null) {
-        return (
-            completedWinnerBouts.value.find(
-                ({ bout }) => String(bout.id) === String(currentBoutId),
-            ) ?? null
+        const category = tournament.value?.categories?.find(
+            (item) => String(item.id) === String(currentResult.category_id),
         );
+        const categoryBouts =
+            category?.rounds?.flatMap((round) =>
+                (round.bouts ?? []).map((bout) => ({ round, bout })),
+            ) ?? [];
+        const executionBouts = currentResult.bout_ids.map((id) =>
+            categoryBouts.find(({ bout }) => String(bout.id) === String(id)),
+        );
+        const hasValidExecutionBouts =
+            new Set(currentResult.bout_ids.map(String)).size ===
+                currentResult.bout_ids.length &&
+            executionBouts.every(
+                ({ bout } = {}) =>
+                    bout?.status === "completed" &&
+                    Array.isArray(bout.entries) &&
+                    bout.entries.length === 2 &&
+                    bout.entries.some(
+                        (entry) =>
+                            String(entry.id) ===
+                            String(currentResult.winner_entry_id),
+                    ),
+            );
+        const firstBoutEntries = executionBouts[0]?.bout?.entries ?? [];
+        const sameMatchup =
+            hasValidExecutionBouts &&
+            executionBouts.every(({ bout }) =>
+                firstBoutEntries.every((entry) =>
+                    bout.entries.some(
+                        (otherEntry) =>
+                            String(otherEntry.id) === String(entry.id),
+                    ),
+                ),
+            );
+        const winnerEntry = sameMatchup
+            ? executionBouts[0].bout.entries.find(
+                  (entry) =>
+                      String(entry.id) ===
+                      String(currentResult.winner_entry_id),
+              )
+            : null;
+
+        if (!winnerEntry) {
+            return null;
+        }
+
+        return {
+            category,
+            winnerEntry,
+            executionBouts,
+            roundCount: Number(currentResult.round_count),
+            total: currentResult.winner_total ?? null,
+            totalMax: currentResult.total_max ?? null,
+        };
     }
 
     return completedWinnerBouts.value.length === 1
@@ -114,17 +130,11 @@ const winner = computed(() => {
 
 const stage = computed(
     () =>
-        winner.value?.category?.stage ??
-        props.tournament?.stage ??
-        props.tournament?.categories?.[0]?.stage ??
+        winner.value?.executionBouts?.at(-1)?.round?.stage_label ??
+        winner.value?.round?.stage_label ??
         "",
 );
-const categoryLabel = computed(
-    () =>
-        winner.value?.category?.name ??
-        props.tournament?.categories?.[0]?.name ??
-        "",
-);
+const categoryLabel = computed(() => winner.value?.category?.name ?? "");
 
 const roundResults = computed(() => {
     const executionBouts =
@@ -134,29 +144,28 @@ const roundResults = computed(() => {
             : []);
 
     return executionBouts.map(({ round, bout }, index) => {
-        const roundName = String(round?.name ?? "").replace(/\s*-\s*/g, "-");
-        const roundNumber =
-            Number(roundName.match(/\d+/)?.[0]) ||
-            Number(round?.sequence) ||
-            index + 1;
-        const performance = bout.performances?.find(
-            (item) =>
-                String(item.entry_id) === String(winner.value.winnerEntry.id) &&
-                Number(item.form_number) === roundNumber,
-        );
+        const performances = (bout.performances ?? [])
+            .filter(
+                (item) =>
+                    String(item.entry_id) ===
+                    String(winner.value.winnerEntry.id),
+            )
+            .sort(
+                (left, right) =>
+                    Number(left.form_number) - Number(right.form_number),
+            );
 
         return {
             key: String(round?.id ?? bout.id),
-            roundLabel: /^R-\d+$/i.test(roundName)
-                ? roundName
-                : `R-${roundNumber}`,
-            formNumber: performance?.form_number ?? roundNumber,
-            symbolKey: performance?.symbol_key ?? null,
-            formName:
-                performance?.form_name ??
-                winner.value.category?.form_names?.[roundNumber - 1] ??
-                "",
+            roundLabel: `R-${index + 1}`,
+            forms: performances.map((performance) => ({
+                key: String(performance.id),
+                formNumber: performance.form_number,
+                symbolKey: performance.form_badge ?? null,
+                formName: performance.form_name ?? "",
+            })),
             total: bout.totals?.[winner.value.winnerEntry.id] ?? null,
+            totalMax: null,
         };
     });
 });
@@ -212,7 +221,7 @@ const isTwoRoundResult = computed(
             <template v-if="isTwoRoundResult">
                 <ScoreItem
                     label="Total Score"
-                    :max="winner.totalMax ?? 10"
+                    :max="winner.totalMax"
                     :value="winner.total"
                     variant="total"
                     :side="winner.winnerEntry.side ?? 'chung'"
@@ -228,16 +237,20 @@ const isTwoRoundResult = computed(
                         :key="round.key"
                         class="flex min-w-0 flex-col items-center justify-start gap-3"
                     >
-                        <FormBadge
-                            :round-label="round.roundLabel"
-                            :form-number="round.formNumber"
-                            :symbol-key="round.symbolKey"
-                            :form-name="round.formName"
-                            size="xxl"
-                        />
+                        <div class="flex flex-col items-center gap-3">
+                            <FormBadge
+                                v-for="form in round.forms"
+                                :key="form.key"
+                                :round-label="round.roundLabel"
+                                :form-number="form.formNumber"
+                                :symbol-key="form.symbolKey"
+                                :form-name="form.formName"
+                                size="xxl"
+                            />
+                        </div>
                         <ScoreItem
                             label="Round Total"
-                            :max="10"
+                            :max="round.totalMax"
                             :value="round.total"
                             variant="total"
                             :side="winner.winnerEntry.side ?? 'chung'"
@@ -251,7 +264,7 @@ const isTwoRoundResult = computed(
             <template v-else>
                 <ScoreItem
                     label="Total Score"
-                    :max="winner.totalMax ?? 10"
+                    :max="winner.totalMax"
                     :value="winner.total"
                     variant="total"
                     :side="winner.winnerEntry.side ?? 'chung'"
@@ -259,14 +272,20 @@ const isTwoRoundResult = computed(
                     class="h-[min(42vh,420px)] w-full max-w-[760px]"
                 />
 
-                <FormBadge
-                    v-if="roundResults[0]"
-                    :round-label="roundResults[0].roundLabel"
-                    :form-number="roundResults[0].formNumber"
-                    :symbol-key="roundResults[0].symbolKey"
-                    :form-name="roundResults[0].formName"
-                    size="xxxl"
-                />
+                <div
+                    v-if="roundResults[0]?.forms.length"
+                    class="flex flex-col items-center gap-3"
+                >
+                    <FormBadge
+                        v-for="form in roundResults[0].forms"
+                        :key="form.key"
+                        :round-label="roundResults[0].roundLabel"
+                        :form-number="form.formNumber"
+                        :symbol-key="form.symbolKey"
+                        :form-name="form.formName"
+                        size="xxxl"
+                    />
+                </div>
             </template>
         </section>
 
