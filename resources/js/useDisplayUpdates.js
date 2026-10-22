@@ -1,5 +1,5 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { getRealtime } from './realtime';
+import { getRealtime } from './Shared/Services/realtime';
 
 export function useDisplayUpdates(initialDisplay, endpoint) {
     const display = ref(initialDisplay);

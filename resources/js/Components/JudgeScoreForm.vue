@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue';
 import { useForm, usePage } from '@inertiajs/vue3';
 import FormErrors from './FormErrors.vue';
 import ScoreEntryFields from './ScoreEntryFields.vue';
-import { requestId } from '../requestId';
+import { requestId } from '../Shared/Services/requestId';
 import { hasScoreDetails, scoreComponentsComplete, scoreDetailFields, scorePayload } from '../scoring';
 const props = defineProps({ performance: Object, rules: Object, endpoint: String });
 const page = usePage();

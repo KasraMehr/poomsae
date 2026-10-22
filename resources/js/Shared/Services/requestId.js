@@ -1,3 +1,4 @@
+// Generate a unique request identifier for score submissions.
 export function requestId() {
     const bytes = crypto.getRandomValues(new Uint8Array(16));
     bytes[6] = (bytes[6] & 15) | 64;

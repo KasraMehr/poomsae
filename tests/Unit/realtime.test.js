@@ -10,7 +10,7 @@ async function loadUpdates(file, echo, reload = () => {}) {
     const imports = {
         vue: { onMounted: callback => mounted.push(callback), onUnmounted: callback => unmounted.push(callback), ref: value => ({ value }) },
         '@inertiajs/vue3': { router: { reload } },
-        './realtime': { getRealtime: () => echo },
+        './Shared/Services/realtime': { getRealtime: () => echo },
     };
     const module = new SourceTextModule(await readFile(new URL(`../../resources/js/${file}.js`, import.meta.url), 'utf8'), { context });
     await module.link(specifier => {

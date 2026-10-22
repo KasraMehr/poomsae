@@ -1,5 +1,5 @@
 import { onMounted, onUnmounted, ref } from 'vue';
-import { getRealtime } from './realtime';
+import { getRealtime } from './Shared/Services/realtime';
 
 export function useJudgePresence(tournamentId) {
     const onlineUserIds = ref([]);
