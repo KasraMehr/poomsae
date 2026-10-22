@@ -5,7 +5,7 @@ import { Head, Link, useForm, usePoll } from '@inertiajs/vue3';
 import AppLayout from '../../Shared/Layouts/AppLayout.vue';
 import CompetitionSetupPanel from '../../Components/CompetitionSetupPanel.vue';
 import CategoryRegistration from '../../Components/CategoryRegistration.vue';
-import BoutPanel from '../../Components/BoutPanel.vue';
+import BoutPanel from '../../Components/competition/BoutPanel.vue';
 import FormErrors from '../../Shared/Components/FormErrors.vue';
 import TournamentDetailsEditor from '../../Components/TournamentDetailsEditor.vue';
 import CompetitionTimingSettings from '../../Components/CompetitionTimingSettings.vue';
