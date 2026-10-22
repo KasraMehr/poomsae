@@ -591,7 +591,7 @@ API فعلی مدیریت کامل وب را تکرار نمی‌کند: مسی�
 
 ### ۱۳.۱. نمایشگر اصلی
 
-[Scoreboard.vue](../resources/js/Pages/Competition/Scoreboard.vue) و [DisplayBout.vue](../resources/js/Components/DisplayBout.vue) نمایش می‌دهند:
+[Scoreboard.vue](../resources/js/Pages/Competition/Scoreboard.vue) و [DisplayBout.vue](../resources/js/Components/scoreboard/DisplayBout.vue) نمایش می‌دهند:
 
 - نام مسابقه، رده، مرحله و کورت؛ نام شخص/زوج/تیم.
 - سمت و رنگ آبی/قرمز در تک‌حذفی.
@@ -631,7 +631,7 @@ RTDS اطلاعات برنامه را نمایش می‌دهد؛ صف آن جا�
 - قطع presence به تنهایی مجوز ثبت نمرهٔ جایگزین نیست.
 - اتصال Mercure در فرانت با `VITE_MERCURE_ENABLED` کنترل می‌شود.
 - endpoint نمایشگر revision را با آخرین Audit مقایسه می‌کند؛ در نبود تغییر، snapshot کامل دوباره ارسال نمی‌شود.
-- [useDisplayUpdates](../resources/js/useDisplayUpdates.js): پس از پاسخ موفق، درخواست بعدی با فاصلهٔ ۵۰۰ میلی‌ثانیه؛ بدون درخواست‌های همپوشان؛ دریافت event باعث درخواست فوری می‌شود.
+- [useDisplayUpdates](../resources/js/Shared/Composables/useDisplayUpdates.js): پس از پاسخ موفق، درخواست بعدی با فاصلهٔ ۵۰۰ میلی‌ثانیه؛ بدون درخواست‌های همپوشان؛ دریافت event باعث درخواست فوری می‌شود.
 - در خطای اتصال فاصلهٔ تلاش یک ثانیه می‌شود؛ timeout سه ثانیه و هشدار قدیمی‌شدن داده بعد از سه ثانیه وجود دارد.
 - داور و مرکز کنترل polling دوثانیه‌ای دارند؛ آماده‌سازی پنج‌ثانیه‌ای است. این‌ها با polling نیم‌ثانیه‌ای نمایشگر متفاوت‌اند.
 
