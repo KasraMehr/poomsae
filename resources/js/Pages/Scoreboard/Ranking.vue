@@ -5,28 +5,42 @@ import RankingTable from "../../Components/scoreboard/tables/RankingTable.vue";
 import { Head } from "@inertiajs/vue3";
 
 const props = defineProps({
+    display: { type: Object, default: null },
     tournament: { type: Object, default: null },
 });
 
+// Read the production Inertia envelope while keeping standalone lab snapshots supported.
+const tournament = computed(
+    () => props.tournament ?? props.display?.tournament ?? null,
+);
+
 const categories = computed(() =>
-    (props.tournament?.categories ?? []).map((category) => ({
+    (tournament.value?.categories ?? []).map((category) => ({
         id: category.id,
         name: category.name ?? "",
-        rows: (category.placements ?? []).map((placement) => ({
+        rows: (category.placements?.length
+            ? category.placements
+            : category.format === "round_robin"
+              ? (category.standings ?? []).filter(
+                    (standing) => standing.rank != null,
+                )
+              : []
+        ).map((placement) => ({
             rank: placement.rank,
             name: placement.name ?? "",
             country: placement.country ?? "",
             countryCode: placement.country_code ?? "",
             flagUrl: placement.flag_url ?? "",
-            roundScores: placement.round_scores ?? [],
+            roundScores:
+                placement.round_scores ?? [placement.r1 ?? null, placement.r2 ?? null],
         })),
     })),
 );
 
 const stage = computed(
     () =>
-        props.tournament?.categories?.[0]?.stage ??
-        props.tournament?.stage ??
+        tournament.value?.categories?.[0]?.stage ??
+        tournament.value?.stage ??
         "",
 );
 const categoryLabel = computed(
