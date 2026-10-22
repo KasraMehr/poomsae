@@ -157,24 +157,23 @@ const labTournament = {
                 {
                     id: 1,
                     name: "R - 1",
+                    form_names: drawSingle.forms.map((form) => form.form_name),
                     bouts: [
                         {
                             id: 1,
                             status: "running",
                             court_id: 1,
                             entries: drawSingle.entries,
-                            performances: [
-                                {
-                                    id: 1,
-                                    entry_id: drawSingle.entries[0]?.id,
-                                    status: "running",
-                                    form_number: 1,
-                                    symbol_key: null,
-                                    form_name: drawSingle.forms[0],
-                                    started_at: null,
-                                    ended_at: null,
-                                },
-                            ],
+                            performances: drawSingle.forms.map((form, index) => ({
+                                id: index + 1,
+                                entry_id: drawSingle.entries[0]?.id,
+                                status: index === 0 ? "running" : "pending",
+                                form_number: form.form_number,
+                                form_badge: form.symbol_key,
+                                form_name: form.form_name,
+                                started_at: null,
+                                ended_at: null,
+                            })),
                         },
                     ],
                 },
@@ -234,7 +233,7 @@ const resultFixture = (roundCount) => {
                             id: `winner-${200 + index}-${entry.id}-${form.form_number}`,
                             entry_id: entry.id,
                             form_number: form.form_number,
-                            symbol_key: form.symbol_key,
+                            form_badge: form.symbol_key,
                             form_name: form.form_name,
                             status: "approved",
                         })),
@@ -358,7 +357,7 @@ const scoringFixture = (mode) => {
         entry_id: entry.id,
         status: "scoring",
         form_number: 1,
-        symbol_key: 1,
+        form_badge: 1,
         form_name: "TAEGUK 5",
         detailed_scores: {
             discipline: isFreestyle ? "freestyle" : "recognized",
@@ -438,7 +437,50 @@ const activeTournament = computed(() => {
         return labTournamentDouble;
     }
 
+    if (selectedPage.value === "draw-single") {
+        return labTournamentSingle;
+    }
+
+    if (selectedPage.value === "draw-double") {
+        return labTournamentDouble;
+    }
+
     return labTournament;
+});
+
+// Match the Inertia page prop: every page receives one shared `display` snapshot.
+// The lab derives the broadcast court pointer from the same tournament fixture.
+const activeDisplay = computed(() => {
+    const tournament = activeTournament.value;
+    const bouts = (tournament.categories ?? []).flatMap((category) =>
+        (category.rounds ?? []).flatMap((round) =>
+            (round.bouts ?? []).map((bout) => ({ ...bout, category, round })),
+        ),
+    );
+    const currentBout = bouts.find((bout) =>
+        ["running", "scoring"].includes(bout.status) ||
+        bout.performances?.some((performance) =>
+            ["running", "scoring"].includes(performance.status),
+        ),
+    );
+
+    return {
+        tournament,
+        courts: (tournament.courts ?? []).map((court) => ({
+            ...court,
+            current: currentBout
+                ? {
+                      bout_id: currentBout.id,
+                      status: currentBout.status,
+                      entries: currentBout.entries,
+                      performances: currentBout.performances,
+                  }
+                : null,
+            upcoming: [],
+        })),
+        revision: 1,
+        generated_at: "2026-10-22T00:00:00Z",
+    };
 });
 
 const sections = [
@@ -538,13 +580,20 @@ const knockoutRows = placementsKnockout.map(toRankingRow);
                             }}.vue</code
                         >
                     </div>
+                    <details
+                        class="rounded-xl border border-rtds-border bg-rtds-bg-card px-4 py-3 text-xs"
+                    >
+                        <summary class="cursor-pointer text-rtds-text-secondary">
+                            Inertia props: <code>display</code>
+                        </summary>
+                        <pre class="mt-3 max-h-80 overflow-auto whitespace-pre-wrap text-rtds-text-muted">{{ JSON.stringify(activeDisplay, null, 2) }}</pre>
+                    </details>
                     <div
                         class="min-h-[70vh] overflow-hidden rounded-2xl border border-rtds-border bg-rtds-bg"
                     >
                         <component
                             :is="activePage.component"
-                            :draw="activePage.draw"
-                            :tournament="activeTournament"
+                            :display="activeDisplay"
                             :court-id="1"
                         />
                     </div>
