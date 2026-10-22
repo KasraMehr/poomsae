@@ -18,7 +18,7 @@
 | صفحه | فایل | هدف | وضعیت |
 | ------ | ---- | --- | ----- |
 | Standby | `Standby.vue` | نمایش **اجرای فعلی + Timer اجرا + state پایان** (`running` / `scoring`). بدون صف، بدون اجرای قبلی/بعدی. | با envelope واقعی `display.tournament` سازگار شد؛ route production هنوز به این صفحه وصل نیست |
-| LiveBoard | `LiveBoard.vue` | Broadcast board وضعیت **یک زمین**: `PREVIOUS ↓ CURRENT ↓ NEXT`. Timer اینجا مسئولیت اصلی نیست. | متصل به snapshot |
+| LiveBoard | `LiveBoard.vue` | Broadcast board وضعیت **یک زمین**: `PREVIOUS ↓ CURRENT ↓ NEXT`. Timer اینجا مسئولیت اصلی نیست. | با envelope واقعی `display.tournament` سازگار شد؛ route production هنوز به این صفحه وصل نیست |
 | Scoring | `Scoring.vue` | صفحهٔ زندهٔ امتیازدهی؛ layout تک‌نفره، دوتایی یا فری‌استایل بر پایهٔ category و جزئیات نمرهٔ backend. | پیاده‌سازی فرانت؛ هم‌ترازی قرارداد هنگام مرج |
 | Result | `Result.vue` | نمایش نتیجهٔ boutهای تکمیل‌شدهٔ اجرای جاری؛ چیدمان یک یا دو راند بر اساس راندهای تکمیل‌شده، بدون برجسته‌سازی برنده. | متصل به snapshot |
 | Ranking | `Ranking.vue` | نمایش رتبه، کشور، نام و امتیازهای `R-1` و `R-2` با `RankingTable` بر پایهٔ `category.placements[]`. | پیاده‌سازی فرانت؛ نیازمند تکمیل قرارداد Backend |
@@ -34,7 +34,7 @@
 | `NationalityBadge` | پرچم + کد سه‌حرفی انگلیسی کشور؛ دو جهت پرچم و placeholder وقتی پرچم نباشد. | داخل AthleteInfo (ردیف‌های Ranking/TopFour بلوک کشور خودشان را دارند — ارتفاع relative به ردیف) |
 | `FormBadge` | ردیف `[roundLabel] [symبل فرم] [formName]` (بدون کادر)، در سه سایز (`sm/md/lg`). | Standby, LiveBoard, Scoring, Draw |
 | `SymbolContainer` | نگه‌دارندهٔ یک تصویر سمبل (فرم یا مدال) در سه سایز؛ مسیر از `Shared/Services/symbols.js`. | داخل FormBadge |
-| `Timer` | **فقط نمایش** — شمارش معکوس از `execution_duration_seconds`. سه حالت کاملاً مشتق از props: `idle` (پیش از شروع، `startedAt` خالی) / `running` (`startedAt` هست، `endedAt` خالی) / `stopped` (هر دو هست). هیچ state تایمری در فرانت وجود ندارد؛ کنترل کامل از پنل اپراتور است. در صفر روی `00:00` می‌ایستد (نه قرمز، نه اعلام خودکار). دو سایز: `lg` در Standby، `sm` در LiveBoard. | Standby, LiveBoard |
+| `Timer` | **فقط نمایش** — شمارش معکوس از prop `durationSeconds` که در Standby و LiveBoard از `performance.live_timing.duration_seconds` پر می‌شود. سه حالت کاملاً مشتق از props: `idle` (پیش از شروع، `startedAt` خالی) / `running` (`startedAt` هست، `endedAt` خالی) / `stopped` (هر دو هست). هیچ state تایمری در فرانت وجود ندارد؛ کنترل کامل از پنل اپراتور است. در صفر روی `00:00` می‌ایستد (نه قرمز، نه اعلام خودکار). دو سایز: `lg` در Standby، `sm` در LiveBoard. | Standby, LiveBoard |
 | `ScoreCard` | بلوک امتیاز **یک ورزشکار**: سه آیتم عمودی + آینه‌سازی برای `hong` (قرمز) + کادر زرد `winner` فقط روی جعبهٔ total. آیتم‌ها از slot می‌آیند. | Result, Scoring |
 | `ScoreItem` | یک آیتم امتیاز: ردیف `label … /max` و عدد در جعبهٔ تیره زیرش. `variant="sub"` یا `variant="total"`; قالب ۲ رقم اعشار با ممیز لاتین و مقدار غایب `--`. Scoring از اندازه‌های `scoring` و `scoring-compact` استفاده می‌کند. | Result و Scoring |
 | `SingleScoringTable` | جدول تک‌نفره — **سطر = داور**، هدر ثابت انگلیسی `JUDGE / ACCURACY / EOE / S&P / R&P / PRESENTATION`. با `showSubScores=false` سه ستون ریزنمرات حذف می‌شوند و **عرض ستون‌های باقی تغییر نمی‌کند**. ستون/ردیف «مجموع» ندارد. | Scoring |
@@ -88,9 +88,11 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 
 | دسته | موارد |
 | ---- | ----- |
-| **دادهٔ موجود** | `bout.court_id` (فیلتر زمین)، `round.sequence/bout.sequence` (ترتیب)، `performance.status` (تشخیص current)، `bout.status=completed` + `winner_entry_id` + `totals` (previous)، `bout.status=pending` (next)، `entries[].name/side`، `form_name` |
-| **`[Proposed]`** | `courtId` به‌صورت **پارامتر رسمی صفحه** (query param) — الان fallback به اولین زمین، `timeline` سراسری `previous/current/next` (الان از ترتیب snapshot و **یک زمین** استخراج می‌شود؛ بین زمین‌ها ترتیب سراسری نداریم)، `entry.country/country_code/flag_url`، `logoUrl`، `execution_duration_seconds` |
-| **نکته** | در آینده می‌تواند به «همهٔ زمین‌ها» یا «یک Category» توسعه یابد؛ فعلاً فقط یک زمین. |
+| **دادهٔ موجود و محل مصرف** | `display.tournament.status/name/courts[]` برای هدر و انتخاب زمین؛ `display.courts[].current` منبع مرجع CURRENT و `display.courts[].upcoming[]` منبع مرجع NEXT است؛ اطلاعات تکمیلی bout با `bout_id` از `display.tournament.categories[].rounds[].bouts[]` پیدا می‌شود. `bout.completed/winner_entry_id/totals[entry_id]` و snapshot ترتیب دسته/راند/bout برای PREVIOUS؛ `round.name/sequence` و `bout.sequence` برای برچسب‌ها؛ `entries[].name/side/country_code` برای هویت؛ `performance.form_name/form_badge` برای عنوان و سمبل فرم؛ `started_at/ended_at` و `live_timing.duration_seconds` برای Timer. اگر مدت در `live_timing` نباشد، از `timing.maximum_duration_seconds` استفاده می‌شود؛ در نبود هر دو تایمر نمایش داده نمی‌شود. |
+| **محدودیت استنتاج ترتیب** | Backend برای هر زمین current و upcoming مرتب‌شده را می‌دهد و صفحه از آن‌ها برای دو بخش استفاده می‌کند. snapshot برای PREVIOUS فهرست تاریخچه یا timeline مرتب‌شدهٔ اجراهای گذشته نمی‌دهد؛ صفحه آخرین bout تکمیل‌شده را با ترتیب دسته/راند/bout داخل snapshot پیدا می‌کند. چون `sequence` در هر راند محلی است، در صورت تفاوت این ترتیب با برنامهٔ واقعی اجرا، previous قطعی نیست. |
+| **`[Proposed]` دادهٔ واقعاً غایب** | `courtId` به‌صورت query param/prop قابل اتکای route برای انتخاب زمین (در نبود آن صفحه اولین زمین snapshot را انتخاب می‌کند)؛ تاریخچه/previous مرتب‌شده برای همان زمین؛ `entry.country` و `entry.flag_url` برای نام کشور و تصویر پرچم واقعی؛ `logoUrl` برای نشان رویداد در هدر. `country_code` موجود است اما ممکن است از نام کوتاه لاتین باشگاه مشتق شده باشد. |
+| **داده‌هایی که لازم نیست از Backend اضافه شوند** | `execution_duration_seconds` جداگانه لازم نیست: snapshot فعلی `performance.live_timing.duration_seconds` را برای Timer دارد. `symbol_key` مستقل لازم نیست: برای فرم‌های شناخته‌شده، `performance.form_badge` کلید عددی سمبل است؛ `form_number` به‌عنوان کلید سمبل استفاده نمی‌شود. |
+| **نکتهٔ اتصال** | `LiveBoard.vue` می‌تواند هم snapshot مستقیم آزمایشگاه و هم envelope واقعی `display` را بخواند؛ بااین‌حال route فعلی `scoreboard.show` هنوز `Competition/Scoreboard` را render می‌کند و این صفحه را فراخوانی نمی‌کند. در این مرحله wrapper فرانت‌اند تغییر نمی‌کند؛ بنابراین LiveBoard هنوز از route production قابل دسترسی نیست و route نیز `courtId` را به‌عنوان prop نمی‌فرستد. |
 
 ### ۳.۳ Scoring
 
@@ -141,15 +143,15 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 
 ## ۴. خلاصهٔ فیلدهای `[Proposed Backend Contract]`
 
-> این فهرست مشترک هنوز برای همهٔ صفحات بازبینی نشده است. برای Standby، `entry.country_code`، `performance.form_number`، `performance.form_badge` و `performance.live_timing.duration_seconds` در پاسخ فعلی موجودند؛ آن‌ها را برای این صفحه دادهٔ غایب حساب نکنید.
+> این فهرست مشترک هنوز برای همهٔ صفحات بازبینی نشده است. برای Standby و LiveBoard، `entry.country_code`، `performance.form_number`، `performance.form_badge` و `performance.live_timing.duration_seconds` در پاسخ فعلی موجودند؛ آن‌ها را برای این دو صفحه دادهٔ غایب حساب نکنید.
 
 | # | فیلد | شکل پیشنهادی | مصرف‌کننده |
 | - | ---- | ------------ | ---------- |
 | 1 | `logoUrl` | `string \| null` روی snapshot | همهٔ صفحات (header) |
 | 2 | ~~`entry.photo_url`~~ | **حذف موقت** — تا اطلاع بعدی تأمین نشود (عکس ورزشکار در هیچ صفحه‌ای نمایش داده نمی‌شود) | — |
-| 3 | `entry.country` / `entry.flag_url` | رشته روی entry؛ `country_code` در snapshot فعلی برای Standby موجود است | هر جا نام کشور یا پرچم واقعی لازم باشد؛ سایر صفحات هنوز بررسی نشده‌اند |
+| 3 | `entry.country` / `entry.flag_url` | رشته روی entry؛ `country_code` در snapshot فعلی برای Standby و LiveBoard موجود است | هر جا نام کشور یا پرچم واقعی لازم باشد؛ سایر صفحات هنوز بررسی نشده‌اند |
 | 4 | `entry.number` | `int` روی entry | Scoring (هنوز بررسی نشده؛ Standby آن را نمایش نمی‌دهد) |
-| 5 | `execution_duration_seconds` | `int` روی تنظیمات مسابقه | LiveBoard (هنوز بررسی نشده؛ Standby از `performance.live_timing.duration_seconds` استفاده می‌کند) |
+| 5 | ~~`execution_duration_seconds`~~ | برای Standby و LiveBoard لازم نیست؛ مدت از `performance.live_timing.duration_seconds` می‌آید | — |
 | 6 | `category.discipline/format/execution_mode` | `recognized \| freestyle`; `knockout \| round_robin`; `alternating \| simultaneous` | Scoring (انتخاب layout) |
 | 7 | `performance.detailed_scores` | نتایج/سقف‌های هر اجرای فرم به‌همراه `judges[]` | Scoring |
 | 8 | `detailed_scores.judges[]` | breakdown داور و زیرامتیازها مطابق بخش ۳.۳ | Scoring (جدول‌ها) |
@@ -159,9 +161,9 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 | 12 | `Draw.output_snapshot` | خروجی قرعه (ترتیب اجرا/جفت‌ها) | Draw |
 | 13 | `entry_members[]` | `[{name, club, position}]` روی entry | Draw, Scoring (هنوز بررسی نشده‌اند) |
 | 14 | `draw_timing` | `timestamp` | Draw |
-| 15 | `symbol_key` | `int` `1..18` روی فرم — کلید سمبل تصویری فرم | `FormBadge` در Scoring, Result, Draw, LiveBoard (هنوز بررسی نشده‌اند؛ Standby از `form_badge` استفاده می‌کند) |
+| 15 | `symbol_key` | `int` `1..18` روی فرم — کلید سمبل تصویری فرم | `FormBadge` در Scoring, Result, Draw (هنوز بررسی نشده‌اند؛ Standby و LiveBoard از `form_badge` استفاده می‌کنند) |
 | 16 | `courtId` (LiveBoard) | query param رسمی | LiveBoard |
-| 17 | `timeline` (LiveBoard) | `previous/current/next` صریح با ترتیب سراسری بین زمین‌ها | LiveBoard |
+| 17 | `timeline.previous` (LiveBoard) | تاریخچهٔ مرتب‌شدهٔ boutهای همان زمین؛ current/upcoming هم‌اکنون در `display.courts[]` هستند | LiveBoard |
 | 18 | `detailed_scores.judges[].*_components/ *_penalties` | سه component برای Single/Double؛ Freestyle با قاعدهٔ ۴+۶ یا ۶+۴ | Scoring (ستون/سطر ریزنمرات) |
 
 **نکتهٔ `NationalityBadge` (کد کشور و پرچم):**
@@ -173,7 +175,7 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 
 **نکتهٔ سمبل فرم و مدال (asset های داخل مخزن):**
 
-- Backend **URL تصویر نمی‌دهد**؛ فقط کلید دامنه: `symbol_key` (۱..۱۸) برای سمبل فرم و `rank` (۱..۵) برای مدال.
+- Backend **URL تصویر نمی‌دهد**؛ snapshot فعلی برای فرم‌های شناخته‌شده `form_badge` (عدد قابل نگاشت به سمبل) می‌دهد؛ قراردادهای پیشنهادی صفحات دیگر از `symbol_key` (۱..۱۸) استفاده می‌کنند. کلید مدال از `rank` (۱..۵) می‌آید.
 - `form_number` معنای متفاوتی دارد و فقط ترتیب فرم در اجرای رقابت را مشخص می‌کند (`1..2`).
 - مسیر فایل‌ها در فرانت و در یک جا نگه‌داری می‌شود: `resources/js/Shared/Services/symbols.js` (`FORM_SYMBOLS`، `MEDAL_SYMBOLS`، `formSymbol()`، `medalSymbol()`)، و asset ها در `public/images/symbols/` و `public/images/medals/` قرار دارند.
 - افزودن فرم یا مدال جدید = افزودن فایل + یک خط در map؛ هیچ تغییری در کامپوننت‌ها و قرارداد لازم نیست.

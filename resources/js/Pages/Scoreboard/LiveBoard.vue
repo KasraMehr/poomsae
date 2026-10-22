@@ -24,9 +24,15 @@ import Timer from "../../Components/scoreboard/Timer.vue";
  * تا آن زمان prop اختیاری است و fallback به اولین زمین snapshot می‌رود.
  */
 const props = defineProps({
+    display: { type: Object, default: null },
     tournament: { type: Object, default: null },
     courtId: { type: [Number, String], default: null },
 });
+
+// Accept the production display envelope and the standalone lab snapshot.
+const tournament = computed(
+    () => props.tournament ?? props.display?.tournament ?? null,
+);
 
 const statusLabels = {
     draft: "پیش‌نویس",
@@ -35,33 +41,45 @@ const statusLabels = {
     completed: "پایان‌یافته",
 };
 
-const stage = computed(() => statusLabels[props.tournament?.status] ?? "");
+const stage = computed(() => statusLabels[tournament.value?.status] ?? "");
 
 // زمینِ انتخابی (fallback: اولین زمین snapshot — دادهٔ واقعی، نه mock)
 const court = computed(() => {
-    const courts = props.tournament?.courts ?? [];
+    const courts = tournament.value?.courts ?? [];
     if (props.courtId != null) {
-        return courts.find((c) => c.id === props.courtId)?.name ?? null;
+        return (
+            courts.find((c) => String(c.id) === String(props.courtId))?.name ??
+            null
+        );
     }
     return courts[0]?.name ?? null;
 });
 
 const courtId = computed(() => {
-    const courts = props.tournament?.courts ?? [];
+    const courts = tournament.value?.courts ?? [];
     if (props.courtId != null) {
-        return courts.find((c) => c.id === props.courtId)?.id ?? props.courtId;
+        return (
+            courts.find((c) => String(c.id) === String(props.courtId))?.id ??
+            props.courtId
+        );
     }
     return courts[0]?.id ?? null;
 });
 
-// همهٔ boutهای همین زمین، مرتب شده بر اساس ترتیب واقعی snapshot
+const displayCourt = computed(() =>
+    props.display?.courts?.find(
+        (court) => String(court.id) === String(courtId.value),
+    ) ?? null,
+);
+
+// Keep the snapshot's category, round, and bout iteration order for history.
 const courtBouts = computed(() => {
     if (courtId.value == null) return [];
     const out = [];
-    for (const category of props.tournament?.categories ?? []) {
-        for (const round of category.rounds) {
-            for (const bout of round.bouts) {
-                if (bout.court_id !== courtId.value) continue;
+    for (const category of tournament.value?.categories ?? []) {
+        for (const round of category.rounds ?? []) {
+            for (const bout of round.bouts ?? []) {
+                if (String(bout.court_id) !== String(courtId.value)) continue;
                 out.push({ ...bout, category, round });
             }
         }
@@ -69,10 +87,35 @@ const courtBouts = computed(() => {
     return out;
 });
 
+const findSnapshotBout = (boutId) =>
+    courtBouts.value.find((bout) => String(bout.id) === String(boutId)) ?? null;
+
 /**
  * CURRENT: اجرای در حال اجرا (running) یا اجرایی که تمام شده و منتظر نتیجه است (scoring).
  */
 const current = computed(() => {
+    if (displayCourt.value) {
+        const item = displayCourt.value.current;
+        if (!item) return null;
+
+        const bout = findSnapshotBout(item.bout_id);
+        if (!bout) return null;
+
+        const performance =
+            item.performances?.find((p) =>
+                ["running", "scoring"].includes(p.status),
+            ) ?? bout.performances[0];
+        if (!performance) return null;
+
+        return {
+            bout,
+            performance,
+            state: ["running", "scoring"].includes(item.status)
+                ? item.status
+                : "approved",
+        };
+    }
+
     const bout = courtBouts.value.find(
         (b) =>
             b.status === "running" ||
@@ -125,6 +168,12 @@ const previous = computed(() => {
  * NEXT: اولین bout در انتظار (pending) بعد از اجرای جاری در همین زمین.
  */
 const next = computed(() => {
+    if (displayCourt.value) {
+        const upcoming = displayCourt.value.upcoming?.[0];
+
+        return upcoming ? findSnapshotBout(upcoming.bout_id) : null;
+    }
+
     const index = courtBouts.value.findIndex(
         (b) => b.id === current.value?.bout.id,
     );
@@ -144,14 +193,11 @@ const stateClasses = {
     approved: "border-rtds-success text-rtds-success",
 };
 
-/**
- * مدت استاندارد اجرا به ثانیه — از تنظیمات مسابقه (execution_duration_seconds).
- * تا وقتی بک‌اند فیلد را ندهد، مقدار پیش‌فرض ۹۰ ثانیه استفاده می‌شود.
- */
-const DEFAULT_EXECUTION_SECONDS = 90;
-
 const durationSeconds = computed(
-    () => props.tournament?.execution_duration_seconds ?? DEFAULT_EXECUTION_SECONDS
+    () =>
+        current.value?.performance.live_timing?.duration_seconds ??
+        current.value?.performance.timing?.maximum_duration_seconds ??
+        null,
 );
 
 const score = (value) =>
@@ -165,13 +211,18 @@ const score = (value) =>
 const formNamesOf = (bout) =>
     bout.performances.map((p) => p.form_name).filter(Boolean);
 
+const formSymbolKeyOf = (bout, performance = bout.performances?.[0]) => {
+    if (bout.category?.discipline === "freestyle") return null;
+
+    return performance?.form_badge ?? null;
+};
+
 /*
- * TODO [Proposed Backend Contract] (مرحلهٔ بعد):
+ * TODO [Proposed Backend Contract]:
  * - courtId پارامتر رسمی صفحه (query param از Backend)
- * - timeline سراسری previous/current/next (الان از روی ترتیب snapshot و یک زمین استخراج می‌شود)
- * - entry country / country_code / flag_url
+ * - previous مرتب‌شده برای همان زمین (current/upcoming از display.courts موجود است)
+ * - entry.country / entry.flag_url
  * - logoUrl
- * - execution_duration_seconds (برای نمایش نسبی Timer؛ الان فقط مطلق داریم)
  */
 </script>
 
@@ -225,6 +276,7 @@ const formNamesOf = (bout) =>
                         <FormBadge
                             size="sm"
                             :round-label="previous.bout.round.name"
+                            :symbol-key="formSymbolKeyOf(previous.bout)"
                             :form-name="
                                 formNamesOf(previous.bout)[0] ??
                                 `رقابت ${previous.bout.sequence}`
@@ -235,6 +287,9 @@ const formNamesOf = (bout) =>
                                 size="sm"
                                 :name="previous.winner.name"
                                 :side="previous.winner.side"
+                                :country="previous.winner.country"
+                                :country-code="previous.winner.country_code"
+                                :flag-url="previous.winner.flag_url"
                         />
                         <b
                             v-if="previous.total != null"
@@ -289,29 +344,38 @@ const formNamesOf = (bout) =>
                             <FormBadge
                                 size="md"
                                 :round-label="current.bout.round.name"
+                                :symbol-key="
+                                    formSymbolKeyOf(current.bout, current.performance)
+                                "
                                 :form-name="
                                     current.performance.form_name ??
                                     `رقابت ${current.bout.sequence}`
                                 "
-                                :form-number="current.performance.form_number ?? null"
                             />
                             <AthleteInfo
                                 v-for="entry in current.bout.entries"
                                 :key="entry.id"
                                 layout="horizontal"
                                 size="md"
-                                :name="entry.name"
-                                :side="entry.side"
+                            :name="entry.name"
+                            :side="entry.side"
+                            :country="entry.country"
+                            :country-code="entry.country_code"
+                            :flag-url="entry.flag_url"
                             />
                         </div>
 
                         <!-- Timer کوچک؛ همان سه حالت Standby، کنترل از پنل اپراتور -->
                         <Timer
+                            v-if="durationSeconds != null"
                             size="sm"
                             :duration-seconds="durationSeconds"
                             :started-at="current.performance.started_at"
                             :ended-at="current.performance.ended_at"
                         />
+                        <span v-else class="text-sm text-rtds-text-secondary">
+                            Timer data unavailable
+                        </span>
                     </div>
                 </template>
                 <p v-else class="text-sm text-rtds-text-tertiary">
@@ -343,6 +407,7 @@ const formNamesOf = (bout) =>
                         <FormBadge
                             size="sm"
                             :round-label="next.round.name"
+                            :symbol-key="formSymbolKeyOf(next)"
                             :form-name="
                                 formNamesOf(next)[0] ??
                                 `رقابت ${next.sequence}`
@@ -353,8 +418,11 @@ const formNamesOf = (bout) =>
                             :key="entry.id"
                             layout="horizontal"
                             size="sm"
-                            :name="entry.name"
-                            :side="entry.side"
+                                :name="entry.name"
+                                :side="entry.side"
+                                :country="entry.country"
+                                :country-code="entry.country_code"
+                                :flag-url="entry.flag_url"
                         />
                     </div>
                 </template>
