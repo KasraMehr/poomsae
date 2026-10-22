@@ -1,7 +1,7 @@
 <script setup>
 import { useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
-import FormErrors from './FormErrors.vue';
+import FormErrors from '../Shared/Components/FormErrors.vue';
 
 const props = defineProps({ entry: Object, category: Object, tournament: Object, base: String });
 const editing = ref(false);

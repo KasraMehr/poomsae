@@ -1,7 +1,7 @@
 <script setup>
 import { useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
-import FormErrors from './FormErrors.vue';
+import FormErrors from '../Shared/Components/FormErrors.vue';
 import ScoreCorrectionForm from './ScoreCorrectionForm.vue';
 import PerformanceTiming from './PerformanceTiming.vue';
 import { restRemaining, usePerformanceClock } from '../usePerformanceTiming';

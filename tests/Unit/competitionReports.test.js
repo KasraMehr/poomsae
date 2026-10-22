@@ -32,7 +32,7 @@ async function loadReports(type = 'judges') {
         vue: { computed, watch },
         '@inertiajs/vue3': { Head: {}, Link: {}, router: { get() {} }, useForm, usePoll() {} },
         '../../Layouts/AppLayout.vue': { default: {} },
-        '../../Components/FormErrors.vue': { default: {} },
+        '../../Shared/Components/FormErrors.vue': { default: {} },
         '../../Components/AuditSnapshot.vue': { default: {} },
         '../../Shared/Composables/useCompetitionUpdates': {
             useCompetitionUpdates() {},

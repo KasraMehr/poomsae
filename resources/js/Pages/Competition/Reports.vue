@@ -2,7 +2,7 @@
 import { computed, watch } from 'vue';
 import { Head, Link, router, useForm, usePoll } from '@inertiajs/vue3';
 import AppLayout from '../../Layouts/AppLayout.vue';
-import FormErrors from '../../Components/FormErrors.vue';
+import FormErrors from '../../Shared/Components/FormErrors.vue';
 import AuditSnapshot from '../../Components/AuditSnapshot.vue';
 import { useCompetitionUpdates } from '../../Shared/Composables/useCompetitionUpdates';
 

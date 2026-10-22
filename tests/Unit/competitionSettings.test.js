@@ -21,7 +21,7 @@ async function loadEditor(file, props, exports) {
         return state;
     };
     const context = createContext({ defineProps: () => reactive(props) });
-    const imports = { vue: { computed, nextTick, ref, watch }, '@inertiajs/vue3': { useForm }, './FormErrors.vue': { default: {} } };
+    const imports = { vue: { computed, nextTick, ref, watch }, '@inertiajs/vue3': { useForm }, '../Shared/Components/FormErrors.vue': { default: {} } };
     const source = await readFile(new URL(`../../resources/js/Components/${file}.vue`, import.meta.url), 'utf8');
     const script = source.match(/<script setup>([\s\S]*?)<\/script>/)[1];
     const module = new SourceTextModule(`${script}\nexport { ${exports.join(', ')} };`, { context });

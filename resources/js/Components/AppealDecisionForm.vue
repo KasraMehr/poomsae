@@ -1,7 +1,7 @@
 <script setup>
 import { computed, reactive } from 'vue';
 import { useForm } from '@inertiajs/vue3';
-import FormErrors from './FormErrors.vue';
+import FormErrors from '../Shared/Components/FormErrors.vue';
 import ScoreEntryFields from './ScoreEntryFields.vue';
 import { scoreComponentsComplete, scoreDetailFields, scorePayload } from '../scoring';
 const props = defineProps({ appeal: Object, endpoint: String });

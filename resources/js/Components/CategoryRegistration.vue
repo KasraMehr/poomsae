@@ -1,7 +1,7 @@
 <script setup>
 import { useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
-import FormErrors from './FormErrors.vue';
+import FormErrors from '../Shared/Components/FormErrors.vue';
 import EntryDetailsEditor from './EntryDetailsEditor.vue';
 const props = defineProps({ category: Object, tournament: Object, base: String });
 const blankMember = () => ({ first_name: '', last_name: '', birth_date: '', gender: props.category.gender === 'female' ? 'female' : 'male', club: '' });

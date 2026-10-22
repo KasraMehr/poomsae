@@ -1,4 +1,5 @@
 <script setup>
+// Render server validation errors with the shared Tailwind style.
 defineProps({ errors: Object });
 </script>
 <template>

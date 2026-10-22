@@ -1,7 +1,7 @@
 <script setup>
 import { useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
-import FormErrors from './FormErrors.vue';
+import FormErrors from '../Shared/Components/FormErrors.vue';
 const props = defineProps({ category: Object, base: String });
 const existing = computed(() => props.category.timing || {});
 const freestyle = props.category.discipline === 'freestyle';

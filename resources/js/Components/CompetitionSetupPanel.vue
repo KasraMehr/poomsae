@@ -1,7 +1,7 @@
 <script setup>
 import { useForm } from '@inertiajs/vue3';
 import { computed, nextTick, ref, watch } from 'vue';
-import FormErrors from './FormErrors.vue';
+import FormErrors from '../Shared/Components/FormErrors.vue';
 const props = defineProps({ tournament: Object, base: String, ageCategories: Array, ageTableYear: Number });
 const court = useForm({ name: '' });
 const editingCourtId = ref(null);

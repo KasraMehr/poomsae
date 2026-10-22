@@ -6,7 +6,7 @@ import AppLayout from '../../Layouts/AppLayout.vue';
 import CompetitionSetupPanel from '../../Components/CompetitionSetupPanel.vue';
 import CategoryRegistration from '../../Components/CategoryRegistration.vue';
 import BoutPanel from '../../Components/BoutPanel.vue';
-import FormErrors from '../../Components/FormErrors.vue';
+import FormErrors from '../../Shared/Components/FormErrors.vue';
 import TournamentDetailsEditor from '../../Components/TournamentDetailsEditor.vue';
 import CompetitionTimingSettings from '../../Components/CompetitionTimingSettings.vue';
 const props = defineProps({ tournament: Object, can: Object, competitionUrls: Object, ageCategories: Array, ageTableYear: Number });
