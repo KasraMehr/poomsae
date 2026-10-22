@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
-import DisplayBout from '../../Components/DisplayBout.vue';
+import DisplayBout from '../../Components/scoreboard/DisplayBout.vue';
 import { useDisplayUpdates } from '../../useDisplayUpdates';
 import { connectionLabels, entryTotal, formatScore, statusLabels } from '../../display';
 const props = defineProps({ display: Object, displayUrls: Object });

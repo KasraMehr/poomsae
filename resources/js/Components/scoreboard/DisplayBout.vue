@@ -1,11 +1,12 @@
 <script setup>
-import { entryTotal, elapsed, formatScore, statusLabels } from '../display';
-import PerformanceTiming from './competition/PerformanceTiming.vue';
+import { entryTotal, elapsed, formatScore, statusLabels } from '../../display';
+import PerformanceTiming from '../competition/PerformanceTiming.vue';
 defineProps({ bout: Object, category: Object, round: Object, courtName: String, now: Number });
 const ranks = (category, round, entryId) => category.standings_round_id === round.id ? category.standings.find(entry => entry.id === entryId)?.rank : null;
 </script>
 
 <template>
+    <!-- Keep bout display grouped with scoreboard components. -->
     <section class="live-bout display-bout">
         <div class="section-heading"><div><span class="eyebrow">{{ courtName }} · {{ statusLabels[round.status] }}</span><h2>{{ category.name }} · {{ round.name }} · رقابت {{ bout.sequence }}</h2></div><span class="display-badge" :class="bout.status">{{ statusLabels[bout.status] }}</span></div>
         <div class="contestants" :class="{ solo: bout.entries.length === 1 }">
