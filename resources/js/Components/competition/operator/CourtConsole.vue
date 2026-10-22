@@ -2,6 +2,8 @@
 import { useForm } from "@inertiajs/vue3";
 import FormErrors from "../../../Shared/Components/FormErrors.vue";
 import ProxyScoreForm from "./ProxyScoreForm.vue";
+import PerformanceTiming from "../../PerformanceTiming.vue";
+import { restRemaining, usePerformanceClock } from "../../../usePerformanceTiming";
 
 const props = defineProps({
     court: Object,
@@ -10,6 +12,10 @@ const props = defineProps({
     onlineJudgeIds: Array,
 });
 const action = useForm({ command: "", expected_version: 1 });
+const confirmation = useForm({ expected_revision: 1 });
+const now = usePerformanceClock(
+    () => props.court.active?.server_now || props.court.queue[0]?.server_now,
+);
 const labels = {
     pending: "آمادهٔ فراخوان",
     running: "در حال اجرا",
@@ -19,6 +25,14 @@ const labels = {
 const commandLabel = {
     running: "پایان اجرا و باز کردن ثبت نمره",
     scoring: "تأیید نهایی و انتشار نتیجه",
+};
+// Keep proxy scores pending until an operator or administrator confirms them.
+const confirmProxyScore = (performance, score) => {
+    confirmation.expected_revision = score.revision;
+    confirmation.post(
+        `${props.base}/performances/${performance.id}/proxy-scores/${score.id}/confirm`,
+        { preserveScroll: true },
+    );
 };
 const badgeClasses = {
     pending: "bg-[#1b2b3c] text-[#adc0d2]",
@@ -73,18 +87,35 @@ const command = (performance, value) => {
         >
             <span class="mb-2 block text-xs text-[#55cfc8]"
                 >{{ court.active.category_name }} ·
-                {{ court.active.round_name }} · رقابت
+                {{ court.active.round_name }} ·
+                {{ court.active.score_based ? "اجرا" : "رقابت" }}
                 {{ court.active.bout_sequence }}</span
             >
             <h2
                 class="mb-[5px] text-[clamp(32px,4vw,54px)] leading-[1.35] text-white"
             >
                 {{ court.active.entry_name }}
+                <template
+                    v-if="court.active.paired_entry_name && court.active.status === 'running'"
+                >
+                    و {{ court.active.paired_entry_name }}
+                </template>
             </h2>
             <p class="text-xs text-[#778579]">
-                {{ court.active.form_name }} · فرم
-                {{ court.active.form_number }} از ۲
+                {{ court.active.form_name }}
+                <span v-if="court.active.forms_per_round > 1">
+                    · فرم {{ court.active.form_number }} از
+                    {{ court.active.forms_per_round }}
+                </span>
             </p>
+            <audio
+                v-if="court.active.music_url"
+                :src="court.active.music_url"
+                controls
+                preload="none"
+                class="my-3 w-full"
+            >پخش موسیقی پشتیبانی نمی‌شود.</audio>
+            <PerformanceTiming :performance="court.active" />
 
             <div
                 v-if="court.active.status === 'scoring'"
@@ -104,11 +135,14 @@ const command = (performance, value) => {
                         :key="judge.id"
                         :title="`${judge.name} · ${onlineJudgeIds.includes(judge.user_id) ? 'متصل' : 'بدون اتصال زنده'}`"
                         class="relative grid h-[43px] w-[43px] place-items-center rounded-full border border-[#63333b] bg-[#39242b] text-[14px] text-[#ff9a9f] max-[560px]:h-[35px] max-[560px]:w-[35px]"
-                        :class="
+                        :class="[
                             court.active.submitted_seats.includes(judge.seat)
                                 ? 'border-[#246b59] bg-[#123d35] text-[#5ae4b7]'
-                                : ''
-                        "
+                                : '',
+                            onlineJudgeIds.includes(judge.user_id)
+                                ? 'ring-1 ring-[#42dfa6]'
+                                : '',
+                        ]"
                         >{{ judge.seat
                         }}<i
                             class="absolute bottom-[-2px] left-[-2px] h-2 w-2 rounded-full border-2 border-[#09131f]"
@@ -126,6 +160,47 @@ const command = (performance, value) => {
                     >در انتظار صندلی‌های
                     {{ court.active.missing_seats.join("، ") }}</small
                 >
+                <small
+                    v-if="court.active.pending_review_seats.length"
+                    class="mt-2 block text-[11px] text-[#f5d56f]"
+                >
+                    نمرهٔ جایگزین صندلی‌های
+                    {{ court.active.pending_review_seats.join("، ") }}
+                    ثبت شده و در انتظار تأیید مدیر یا اپراتور است.
+                </small>
+            </div>
+
+            <div
+                v-if="court.active.pending_review_seats.length"
+                class="mt-5 rounded-[10px] border border-[#6b4a25] bg-[#2b2117] p-4"
+            >
+                <h3 class="font-bold text-[#ffbd68]">تأیید نمرهٔ جایگزین</h3>
+                <p class="my-2 text-xs text-[#d8b6a4]">
+                    ابتدا نمرهٔ هر صندلی را بررسی و تأیید کنید. سپس انتشار نتیجه فعال می‌شود.
+                </p>
+                <div
+                    v-for="score in court.active.scores.filter(score => score.submission_mode === 'operator_proxy' && score.status === 'draft')"
+                    :key="score.id"
+                    class="flex flex-wrap items-center justify-between gap-3 border-t border-[#59402a] py-3 text-xs"
+                >
+                    <span>
+                        صندلی {{ score.seat }} ·
+                        {{ (score.values.accuracy / 100).toFixed(2) }}
+                        <template v-if="rules.input_method !== 'single_score_v1'">
+                            + {{ (score.values.presentation / 100).toFixed(2) }}
+                        </template>
+                    </span>
+                    <button
+                        type="button"
+                        class="inline-flex min-h-9 items-center justify-center rounded-lg bg-[#263b51] px-3 py-2 text-[11px] text-[#b8c9da] disabled:cursor-wait disabled:opacity-55"
+                        :disabled="confirmation.processing"
+                        :aria-busy="confirmation.processing"
+                        @click="confirmProxyScore(court.active, score)"
+                    >
+                        {{ confirmation.processing ? "در حال تأیید…" : "تأیید نمرهٔ دستی" }}
+                    </button>
+                </div>
+                <FormErrors :errors="confirmation.errors" />
             </div>
 
             <button
@@ -141,12 +216,25 @@ const command = (performance, value) => {
                 :class="primaryAction"
                 :disabled="
                     action.processing ||
+                    confirmation.processing ||
                     court.active.submitted_count !== court.active.judge_count
                 "
+                :aria-busy="action.processing"
                 @click="command(court.active, 'approve')"
             >
-                {{ commandLabel.scoring }}
+                {{ action.processing ? "در حال انتشار نتیجه…" : commandLabel.scoring }}
             </button>
+            <p
+                v-if="
+                    court.active.status === 'scoring' &&
+                    court.active.submitted_count !== court.active.judge_count
+                "
+                class="mt-3 text-[11px] text-[#8fa3b8]"
+                role="status"
+            >
+                انتشار نتیجه غیرفعال است؛ نمرهٔ تأییدشدهٔ تمام
+                {{ court.active.judge_count }} داور لازم است.
+            </p>
             <ProxyScoreForm
                 v-if="court.active.status === 'scoring'"
                 :performance="court.active"
@@ -168,14 +256,21 @@ const command = (performance, value) => {
                 class="mb-[5px] text-[clamp(32px,4vw,54px)] leading-[1.35] text-white"
             >
                 {{ court.queue[0].entry_name }}
+                <template v-if="court.queue[0].paired_entry_name">
+                    و {{ court.queue[0].paired_entry_name }}
+                </template>
             </h2>
             <p class="text-xs text-[#778579]">
                 {{ court.queue[0].category_name }} ·
                 {{ court.queue[0].form_name }}
             </p>
+            <PerformanceTiming :performance="court.queue[0]" />
             <button
                 :class="primaryAction"
-                :disabled="action.processing"
+                :disabled="
+                    action.processing ||
+                    restRemaining(court.queue[0], now) > 0
+                "
                 @click="command(court.queue[0], 'start')"
             >
                 فراخوان و شروع اجرا
@@ -213,9 +308,12 @@ const command = (performance, value) => {
                     >{{ index + (court.active ? 1 : 2) }}</b
                 >
                 <div>
-                    <strong class="block text-xs">{{
-                        performance.entry_name
-                    }}</strong
+                    <strong class="block text-xs">
+                        {{ performance.entry_name }}
+                        <template v-if="performance.paired_entry_name">
+                            و {{ performance.paired_entry_name }}
+                        </template>
+                    </strong
                     ><small class="text-[10px] text-[#8297aa]"
                         >{{ performance.category_name }} ·
                         {{ performance.form_name }}</small

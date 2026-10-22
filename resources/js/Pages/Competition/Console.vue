@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import { Head, Link, useForm, usePoll } from '@inertiajs/vue3';
 import ArenaLayout from '../../Shared/Layouts/ArenaLayout.vue';
-import CourtConsole from '../../Components/CourtConsole.vue';
+import CourtConsole from '../../Components/competition/operator/CourtConsole.vue';
 import BoutPanel from '../../Components/competition/BoutPanel.vue';
 import FormErrors from '../../Shared/Components/FormErrors.vue';
 import { useCompetitionUpdates } from '../../Shared/Composables/useCompetitionUpdates';

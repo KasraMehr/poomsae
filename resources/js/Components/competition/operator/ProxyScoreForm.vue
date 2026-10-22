@@ -3,6 +3,12 @@ import { computed, watch } from "vue";
 import { useForm } from "@inertiajs/vue3";
 import { requestId } from "../../../Shared/Services/requestId";
 import FormErrors from "../../../Shared/Components/FormErrors.vue";
+import ScoreEntryFields from "../../ScoreEntryFields.vue";
+import {
+    scoreComponentsComplete,
+    scoreDetailFields,
+    scorePayload,
+} from "../../../scoring";
 
 const props = defineProps({
     performance: Object,
@@ -21,42 +27,44 @@ const form = useForm({
     expected_revision: 0,
     accuracy: "",
     presentation: "",
+    ...scoreDetailFields(props.rules.input_method),
     reason: "",
 });
+const canSubmit = computed(() => scoreComponentsComplete(form));
 watch(
     () => props.performance.version,
     (version) => (form.expected_version = version),
 );
 const submit = () =>
-    form
-        .transform((data) => ({
-            ...data,
-            accuracy: String(data.accuracy),
-            presentation: String(data.presentation),
-        }))
-        .post(props.endpoint, {
+    form.transform((data) => scorePayload(data, props.rules.input_method)).post(
+        props.endpoint,
+        {
             preserveScroll: true,
             onSuccess: () => {
                 form.reset(
                     "judge_assignment_id",
                     "accuracy",
                     "presentation",
+                    "accuracy_penalties",
+                    "presentation_components",
+                    "presentation_penalties",
+                    "accuracy_components",
                     "reason",
                 );
                 form.request_id = requestId();
                 form.expected_revision = 0;
                 form.expected_version = props.performance.version;
             },
-        });
+        },
+    );
 const labelClass = "mt-[13px] text-[#a8bbcc]";
 const fieldClass = "border-[#30465a] bg-[#09131f] text-[#f2f7fb]";
-const scoreInput =
-    "h-[58px] border-2 border-[#30465a] bg-[#09131f] text-center text-[25px] text-[#f2f7fb]";
 const dangerButton =
     "inline-flex min-h-11 items-center justify-center rounded-lg bg-[#d94752] px-[22px] py-[11px] text-[13px] font-bold text-white shadow-[0_7px_22px_#00a9a42e] disabled:cursor-wait disabled:opacity-55";
 </script>
 
 <template>
+    <!-- Keep emergency scoring compatible with every configured score method. -->
     <details
         v-if="missingJudges.length"
         class="mt-5 border-t border-[#2a3c4f] pt-[15px]"
@@ -95,44 +103,14 @@ const dangerButton =
                     صندلی {{ judge.seat }} · {{ judge.name }}
                 </option>
             </select>
-            <div class="my-[15px] grid grid-cols-2 gap-[12px]">
-                <div>
-                    <label
-                        :for="`proxy-accuracy-${performance.id}`"
-                        :class="[labelClass, 'text-[15px]']"
-                        >دقت · از {{ rules.accuracy_max / 100 }}</label
-                    ><input
-                        :id="`proxy-accuracy-${performance.id}`"
-                        v-model="form.accuracy"
-                        type="number"
-                        min="0"
-                        :max="rules.accuracy_max / 100"
-                        step="0.01"
-                        inputmode="decimal"
-                        :class="scoreInput"
-                        required
-                        dir="ltr"
-                    />
-                </div>
-                <div>
-                    <label
-                        :for="`proxy-presentation-${performance.id}`"
-                        :class="[labelClass, 'text-[15px]']"
-                        >اجرا · از {{ rules.presentation_max / 100 }}</label
-                    ><input
-                        :id="`proxy-presentation-${performance.id}`"
-                        v-model="form.presentation"
-                        type="number"
-                        min="0"
-                        :max="rules.presentation_max / 100"
-                        step="0.01"
-                        inputmode="decimal"
-                        :class="scoreInput"
-                        required
-                        dir="ltr"
-                    />
-                </div>
-            </div>
+            <ScoreEntryFields
+                :form="form"
+                :rules="rules"
+                :id-prefix="`proxy-${performance.id}`"
+                :disabled="form.processing"
+                :reset-key="form.request_id"
+                theme="dark"
+            />
             <label :for="`proxy-reason-${performance.id}`" :class="labelClass"
                 >دلیل و شرح قطعی ارتباط</label
             >
@@ -146,7 +124,10 @@ const dangerButton =
                 placeholder="مثال: تبلت صندلی ۳ از شبکه خارج شد و سرداور ثبت جایگزین را تأیید کرد."
             ></textarea>
             <FormErrors :errors="form.errors" />
-            <button :class="dangerButton" :disabled="form.processing">
+            <button
+                :class="dangerButton"
+                :disabled="form.processing || !canSubmit"
+            >
                 ثبت نمرهٔ جایگزین
             </button>
         </form>
