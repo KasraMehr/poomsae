@@ -22,7 +22,7 @@ class ScheduleRound
             $check = fn (bool $ok, string $message) => $this->setup->check($ok, $message);
             $check(in_array($category->management_source, [null, 'tkdhub'], true), 'برنامهٔ این رده از سیستم مدیریت مسابقات دریافت می‌شود.');
             $externalDraw = $category->management_source === 'tkdhub';
-            $check(($category->discipline === 'recognized' && in_array($category->entry_type, ['individual', 'team'], true) || $category->discipline === 'freestyle' && in_array($category->entry_type, ['individual', 'pair'], true)) && in_array($category->execution_mode, ['alternating', 'simultaneous'], true), 'نوع برگزاری این رده معتبر نیست.');
+            $check(($category->discipline === 'recognized' && in_array($category->entry_type, ['individual', 'pair', 'team'], true) || $category->discipline === 'freestyle' && in_array($category->entry_type, ['individual', 'pair'], true)) && in_array($category->execution_mode, ['alternating', 'simultaneous'], true), 'نوع برگزاری این رده معتبر نیست.');
             $check($category->format !== 'round_robin' || $category->execution_mode === 'alternating', 'اجرای همزمان فقط برای تک‌حذفی دوبل است.');
             $check($category->scoringRuleSet?->approved_at !== null && ($category->scoringRuleSet->definition['algorithm'] ?? null) === 'component_trimmed_mean_v1', 'تنظیمات محاسبهٔ این رده تأیید نشده است.');
             $forms = $category->form_sequence ?? [];
