@@ -1,8 +1,15 @@
 <script setup>
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useForm, usePage } from "@inertiajs/vue3";
 import FormErrors from "../../../Shared/Components/FormErrors.vue";
+import ScoreEntryFields from "../../ScoreEntryFields.vue";
 import { requestId } from "../../../Shared/Services/requestId";
+import {
+    hasScoreDetails,
+    scoreComponentsComplete,
+    scoreDetailFields,
+    scorePayload,
+} from "../../../scoring";
 const props = defineProps({
     performance: Object,
     rules: Object,
@@ -19,6 +26,13 @@ try {
 }
 const saved = ref(false);
 let suppressDraft = false;
+// Resume a draft only when its scoring method and performance version still match.
+const previousBreakdown = props.performance.own_score?.breakdown;
+const inputMethod =
+    !props.performance.own_score ||
+    previousBreakdown?.method === props.rules.input_method
+        ? props.rules.input_method
+        : null;
 const initial = {
     request_id: requestId(),
     expected_version: props.performance.version,
@@ -29,11 +43,14 @@ const initial = {
     presentation: props.performance.own_score
         ? (props.performance.own_score.values.presentation / 100).toFixed(2)
         : "",
+    ...scoreDetailFields(inputMethod, previousBreakdown),
     reason: "",
 };
-const form = useForm(
-    cached?.expected_version === props.performance.version ? cached : initial,
-);
+const usableDraft =
+    cached?.expected_version === props.performance.version &&
+    hasScoreDetails(cached, inputMethod);
+const form = useForm(usableDraft ? cached : initial);
+const canSubmit = computed(() => scoreComponentsComplete(form));
 const store = () => {
     try {
         localStorage.setItem(key, JSON.stringify(form.data()));
@@ -43,38 +60,45 @@ const store = () => {
     }
 };
 watch(
-    () => [form.accuracy, form.presentation, form.reason],
+    () => [
+        form.accuracy,
+        form.presentation,
+        form.accuracy_penalties,
+        form.presentation_components,
+        form.presentation_penalties,
+        form.accuracy_components,
+        form.reason,
+    ],
     () => {
         if (!suppressDraft) {
             form.request_id = requestId();
             store();
         }
     },
-    { flush: "sync" },
+    { flush: "sync", deep: true },
 );
 const submit = () => {
     store();
-    form.transform((data) => ({
-        ...data,
-        accuracy: String(data.accuracy),
-        presentation: String(data.presentation),
-    })).post(props.endpoint, {
-        preserveScroll: true,
-        onSuccess: () => {
-            suppressDraft = true;
-            try {
-                localStorage.removeItem(key);
-            } catch {}
-            saved.value = false;
-            form.request_id = requestId();
-            form.expected_revision =
-                props.performance.own_score?.revision ||
-                form.expected_revision + 1;
-            form.expected_version = props.performance.version;
-            form.reason = "";
-            suppressDraft = false;
+    form.transform((data) => scorePayload(data, props.rules.input_method)).post(
+        props.endpoint,
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                suppressDraft = true;
+                try {
+                    localStorage.removeItem(key);
+                } catch {}
+                saved.value = false;
+                form.request_id = requestId();
+                form.expected_revision =
+                    props.performance.own_score?.revision ||
+                    form.expected_revision + 1;
+                form.expected_version = props.performance.version;
+                form.reason = "";
+                suppressDraft = false;
+            },
         },
-    });
+    );
 };
 const reloadOwn = () => {
     form.accuracy = props.performance.own_score
@@ -83,15 +107,20 @@ const reloadOwn = () => {
     form.presentation = props.performance.own_score
         ? (props.performance.own_score.values.presentation / 100).toFixed(2)
         : "";
+    const breakdown = props.performance.own_score?.breakdown;
+    Object.assign(
+        form,
+        scoreDetailFields(
+            breakdown?.method ?? props.rules.input_method,
+            breakdown,
+        ),
+    );
     form.expected_revision = props.performance.own_score?.revision || 0;
     form.expected_version = props.performance.version;
     form.reason = "";
     form.clearErrors();
 };
 const notice = "mb-5 rounded-lg bg-[#12382f] px-[18px] py-3 text-[#75e0b7]";
-const scoreLabel = "text-[13px] text-[#a6bacb]";
-const scoreInput =
-    "h-[104px] rounded-[12px] border-2 border-[#1e5060] bg-[#050d17] text-center text-[44px] text-white focus:border-[#39d0c6] focus:outline-3 focus:outline-[#1b6d6838] max-[560px]:h-[85px] max-[560px]:text-[35px]";
 const actionButton =
     "inline-flex min-h-[58px] items-center justify-center rounded-lg bg-[#11b8b0] px-[22px] py-[11px] text-[15px] font-extrabold text-[#031817] disabled:cursor-wait disabled:opacity-55";
 </script>
@@ -102,46 +131,16 @@ const actionButton =
     >
         <p v-if="performance.own_score" :class="notice">
             نمرهٔ شما ثبت شده است · نسخه {{ performance.own_score.revision }}.
-            اصلاح تا پیش از تأیید اپراتور مجاز است.
+            اصلاح با ثبت دلیل مجاز است و در تاریخچه باقی می‌ماند.
         </p>
-        <div class="mb-5 grid grid-cols-2 gap-[25px] max-[850px]:gap-3">
-            <div>
-                <label :for="'accuracy-' + performance.id" :class="scoreLabel"
-                    >دقت · از {{ rules.accuracy_max / 100 }}</label
-                ><input
-                    :id="'accuracy-' + performance.id"
-                    v-model="form.accuracy"
-                    type="number"
-                    :disabled="form.processing"
-                    inputmode="decimal"
-                    min="0"
-                    :max="rules.accuracy_max / 100"
-                    step="0.01"
-                    :class="scoreInput"
-                    required
-                    dir="ltr"
-                />
-            </div>
-            <div>
-                <label
-                    :for="'presentation-' + performance.id"
-                    :class="scoreLabel"
-                    >اجرا · از {{ rules.presentation_max / 100 }}</label
-                ><input
-                    :id="'presentation-' + performance.id"
-                    v-model="form.presentation"
-                    type="number"
-                    :disabled="form.processing"
-                    inputmode="decimal"
-                    min="0"
-                    :max="rules.presentation_max / 100"
-                    step="0.01"
-                    :class="scoreInput"
-                    required
-                    dir="ltr"
-                />
-            </div>
-        </div>
+        <ScoreEntryFields
+            :form="form"
+            :rules="rules"
+            :id-prefix="`judge-${performance.id}`"
+            :disabled="form.processing"
+            :reset-key="form.request_id"
+            theme="dark"
+        />
         <div v-if="form.expected_revision > 0">
             <label :for="'correction-' + performance.id">دلیل اصلاح</label
             ><textarea
@@ -162,7 +161,10 @@ const actionButton =
         </p>
         <FormErrors :errors="form.errors" />
         <div class="mt-5 flex flex-wrap items-center gap-[10px]">
-            <button :class="actionButton" :disabled="form.processing">
+            <button
+                :class="actionButton"
+                :disabled="form.processing || !canSubmit"
+            >
                 {{
                     form.processing
                         ? "در حال ارسال…"
