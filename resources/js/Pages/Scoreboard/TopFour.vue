@@ -5,31 +5,55 @@ import ScoreboardLayout from "../../Shared/Layouts/ScoreboardLayout.vue";
 import TopFourTable from "../../Components/scoreboard/tables/TopFourTable.vue";
 
 const props = defineProps({
+    display: { type: Object, default: null },
     tournament: { type: Object, default: null },
 });
 
+// Read the production Inertia envelope while keeping standalone lab snapshots supported.
+const tournament = computed(
+    () => props.tournament ?? props.display?.tournament ?? null,
+);
+
 const categories = computed(() =>
-    (props.tournament?.categories ?? []).map((category) => ({
-        id: category.id,
-        name: category.name ?? "",
-        rows: [...(category.placements ?? [])]
-            .filter((placement) => Number(placement.rank) <= 4)
-            .sort((left, right) => Number(left.rank) - Number(right.rank))
-            .map((placement) => ({
-                rank: placement.rank,
-                name: placement.name ?? "",
-                country: placement.country ?? "",
-                countryCode: placement.country_code ?? "",
-                flagUrl: placement.flag_url ?? "",
-                score: placement.score ?? null,
-            })),
-    })),
+    (tournament.value?.categories ?? []).map((category) => {
+        const placements =
+            category.placements?.length > 0
+                ? category.placements
+                : category.format === "round_robin"
+                  ? category.standings ?? []
+                  : [];
+
+        return {
+            id: category.id,
+            name: category.name ?? "",
+            rows: [...placements]
+                .filter((placement) => {
+                    const rank = Number(placement.rank);
+
+                    return (
+                        placement.rank != null &&
+                        Number.isFinite(rank) &&
+                        rank >= 1 &&
+                        rank <= 4
+                    );
+                })
+                .sort((left, right) => Number(left.rank) - Number(right.rank))
+                .map((placement) => ({
+                    rank: placement.rank,
+                    name: placement.name ?? "",
+                    country: placement.country ?? "",
+                    countryCode: placement.country_code ?? "",
+                    flagUrl: placement.flag_url ?? "",
+                    score: placement.score ?? null,
+                })),
+        };
+    }),
 );
 
 const stage = computed(
     () =>
-        props.tournament?.categories?.[0]?.stage ??
-        props.tournament?.stage ??
+        tournament.value?.categories?.[0]?.stage ??
+        tournament.value?.stage ??
         "",
 );
 const categoryLabel = computed(() => categories.value[0]?.name ?? "");

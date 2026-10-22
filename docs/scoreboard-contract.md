@@ -22,7 +22,7 @@
 | Scoring | `Scoring.vue` | صفحهٔ زندهٔ امتیازدهی؛ layout تک‌نفره، دوتایی یا فری‌استایل بر پایهٔ category و جزئیات نمرهٔ backend. | با envelope واقعی `display.tournament` سازگار شد؛ route production هنوز به این صفحه وصل نیست |
 | Result | `Result.vue` | نمایش نتیجهٔ boutهای تکمیل‌شدهٔ اجرای جاری؛ چیدمان یک یا دو راند بر اساس راندهای تکمیل‌شده، بدون برجسته‌سازی برنده. | با envelope واقعی `display.tournament` سازگار شد؛ route production هنوز به این صفحه وصل نیست |
 | Ranking | `Ranking.vue` | نمایش رتبه، کشور، نام و امتیازهای `R-1` و `R-2` با `RankingTable`؛ از placements یا standings سازگار تغذیه می‌شود. | با envelope واقعی `display.tournament` و rankهای round-robin سازگار شد؛ کامل‌بودن داده‌ها نیازمند هماهنگی قرارداد است |
-| TopFour | `TopFour.vue` | چهار رتبهٔ برتر هر دسته با مدال، اطلاعات کشور و امتیاز نهایی مستقل از `placements[]`. | پیاده‌سازی فرانت؛ نیازمند تکمیل قرارداد Backend |
+| TopFour | `TopFour.vue` | چهار رتبهٔ برتر هر دسته با مدال، اطلاعات کشور و امتیاز نهایی؛ از placements یا standings سازگار تغذیه می‌شود. | با envelope واقعی `display.tournament` و داده‌های round-robin سازگار شد؛ برای knockout کمبود placement باقی است |
 | Draw | `Draw.vue` | قرعه‌کشی: فرم‌ها و ورزشکاران هر دسته. | متصل به snapshot (با TODO) |
 
 ### ۱.۲ کامپوننت‌ها (`Components/scoreboard/`)
@@ -132,9 +132,11 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 
 | دسته | موارد |
 | ---- | ----- |
-| **دادهٔ موجود** | `category.standings[]` فقط رتبه/برد/تعداد بازی را برای `round_robin` می‌دهد؛ snapshot فعلی نمرهٔ نهایی اجرای ورزشکار یا اطلاعات کشور را ندارد و برای knockout نیز placement ارائه نمی‌کند. |
-| **`[Proposed]`** | `category.placements[]` مشترک با Ranking شامل `{rank, entry_id, name, score, country, country_code, flag_url}` برای هر دو قالب. فرانت چهار placement با rankهای ۱ تا ۴ را نمایش می‌دهد؛ مدال از rank مشتق می‌شود و `score` همان نمرهٔ نهایی مستقل است، نه تعداد برد و نه `round_scores[1]`. |
-| **هدر و Lab** | `category.stage` (یا `tournament.stage`) و `category.name` برای هدر؛ Lab از چهار placement fixture با نمرهٔ مستقل استفاده می‌کند. `logoUrl` در مرجع تصویری استفاده نشده است. |
+| **دادهٔ موجود و محل مصرف** | envelope واقعی `display.tournament`; برای `format=round_robin`، `category.standings[]` شامل `rank/id/name/country_code/score` است و TopFour ردیف‌های rank 1 تا 4 را از آن می‌سازد. `score` در حالت score-based حاوی امتیاز نهایی اجرای athlete است؛ در حالت‌های دیگر ممکن است null بماند و UI همان مقدار خالی را نشان می‌دهد. |
+| **محدودیت knockout** | snapshot فقط `champion_id` را برای دستهٔ knockout کامل‌شده مشخص می‌کند و rank/score سه placement دیگر را نمی‌دهد. فرانت از bracket یا بردهای دورها رتبهٔ کامل استنتاج نمی‌کند. |
+| **دادهٔ واقعاً غایب** | `country` و `flag_url` در standings نیستند؛ `country_code` موجود است، اما ممکن است از club کوتاه لاتین مشتق شده باشد. `category.stage` و `tournament.stage` هم در snapshot فعلی نیستند. |
+| **`[Proposed]`** | `category.placements[]` مشترک برای هر دو قالب: `{rank, entry_id, name, score, country, country_code, flag_url}`؛ به‌ویژه برای رتبه‌بندی کامل knockout. `score` امتیاز نهایی مستقل است، نه تعداد برد و نه `round_scores[1]`. |
+| **هدر و Lab** | `category.name` موجود است؛ فیلد stage یکنواخت برای هدر تأمین نشده. Lab از چهار placement fixture با نمرهٔ مستقل استفاده می‌کند. `logoUrl` در مرجع تصویری استفاده نشده است. |
 
 ### ۳.۷ Draw
 
@@ -147,13 +149,13 @@ PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout
 
 ## ۴. خلاصهٔ فیلدهای `[Proposed Backend Contract]`
 
-> این فهرست مشترک هنوز برای همهٔ صفحات بازبینی نشده است. برای Standby، LiveBoard، Scoring و Ranking، `entry.country_code` در پاسخ فعلی موجود است؛ برای سه صفحهٔ اول، `performance.form_number` و `performance.form_badge` نیز موجودند؛ برای Standby و LiveBoard مدت Timer هم موجود است. آن‌ها را برای صفحات بررسی‌شده دادهٔ غایب حساب نکنید.
+> این فهرست مشترک هنوز برای همهٔ صفحات بازبینی نشده است. برای Standby، LiveBoard، Scoring، Ranking و TopFour، `country_code` در پاسخ فعلی موجود است؛ برای سه صفحهٔ اول، `performance.form_number` و `performance.form_badge` نیز موجودند؛ برای Standby و LiveBoard مدت Timer هم موجود است. آن‌ها را برای صفحات بررسی‌شده دادهٔ غایب حساب نکنید.
 
 | # | فیلد | شکل پیشنهادی | مصرف‌کننده |
 | - | ---- | ------------ | ---------- |
 | 1 | `logoUrl` | `string \| null` روی snapshot | همهٔ صفحات (header) |
 | 2 | ~~`entry.photo_url`~~ | **حذف موقت** — تا اطلاع بعدی تأمین نشود (عکس ورزشکار در هیچ صفحه‌ای نمایش داده نمی‌شود) | — |
-| 3 | `entry.country` / `entry.flag_url` | رشته روی entry؛ `country_code` در snapshot فعلی برای Standby، LiveBoard، Scoring و Ranking موجود است | هر جا نام کشور یا پرچم واقعی لازم باشد؛ سایر صفحات هنوز بررسی نشده‌اند |
+| 3 | `entry.country` / `entry.flag_url` | رشته روی entry؛ `country_code` در snapshot فعلی برای Standby، LiveBoard، Scoring، Ranking و TopFour موجود است | هر جا نام کشور یا پرچم واقعی لازم باشد؛ سایر صفحات هنوز بررسی نشده‌اند |
 | 4 | `entry.number` | `int` روی entry | در snapshot bout موجود نیست؛ `AthleteInfo` شماره را فعلاً رندر نمی‌کند |
 | 5 | ~~`execution_duration_seconds`~~ | برای Standby و LiveBoard لازم نیست؛ مدت از `performance.live_timing.duration_seconds` می‌آید | — |
 | 6 | `category.discipline/format/execution_mode` | `recognized \| freestyle`; `knockout \| round_robin`; `alternating \| simultaneous` | Scoring (انتخاب layout) |
