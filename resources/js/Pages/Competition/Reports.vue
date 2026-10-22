@@ -3,7 +3,7 @@ import { computed, watch } from 'vue';
 import { Head, Link, router, useForm, usePoll } from '@inertiajs/vue3';
 import AppLayout from '../../Shared/Layouts/AppLayout.vue';
 import FormErrors from '../../Shared/Components/FormErrors.vue';
-import AuditSnapshot from '../../Components/AuditSnapshot.vue';
+import AuditSnapshot from '../../Components/competition/AuditSnapshot.vue';
 import { useCompetitionUpdates } from '../../Shared/Composables/useCompetitionUpdates';
 
 const props = defineProps({ tournament: Object, type: String, title: String, report: Object, filters: Object, options: Object, canArchive: Boolean, reportUrls: Object });

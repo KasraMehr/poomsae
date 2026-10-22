@@ -23,11 +23,12 @@ const object = computed(() => parsed.value !== null && typeof parsed.value === '
 const display = (key, value) => ['accuracy', 'presentation'].includes(key) && typeof value === 'number' ? (value / 100).toFixed(2) : value;
 </script>
 <template>
+    <!-- Keep audit snapshots readable with Tailwind utilities. -->
     <div>
-    <dl v-if="object" class="audit-snapshot">
+    <dl v-if="object" class="grid gap-2 md:grid-cols-2 [&>div]:grid [&>div]:grid-cols-[minmax(8rem,auto)_1fr] [&>div]:gap-2 [&_dt]:font-semibold [&_dt]:text-slate-600 [&_dd]:m-0 [&_dd]:break-words">
         <div v-for="(value, key) in parsed" :key="key"><dt>{{ labels[key] || key }}</dt><dd><AuditSnapshot v-if="value !== null && typeof value === 'object'" :value="value" /><span v-else>{{ states[display(key, value)] ?? display(key, value) ?? '—' }}</span></dd></div>
     </dl>
-    <div v-else-if="Array.isArray(parsed)" class="audit-snapshot-list"><AuditSnapshot v-for="(value, index) in parsed" :key="index" :value="value" /></div>
+    <div v-else-if="Array.isArray(parsed)" class="grid gap-2"><AuditSnapshot v-for="(value, index) in parsed" :key="index" :value="value" /></div>
     <span v-else>{{ parsed === null || parsed === '' ? '—' : parsed }}</span>
     </div>
 </template>
