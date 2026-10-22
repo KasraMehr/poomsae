@@ -2,7 +2,7 @@
 import { useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import FormErrors from '../../Shared/Components/FormErrors.vue';
-import EntryDetailsEditor from '../EntryDetailsEditor.vue';
+import EntryDetailsEditor from './EntryDetailsEditor.vue';
 const props = defineProps({ category: Object, tournament: Object, base: String });
 const blankMember = () => ({ first_name: '', last_name: '', birth_date: '', gender: props.category.gender === 'female' ? 'female' : 'male', club: '' });
 const memberCount = computed(() => props.category.entry_type === 'team' ? 3 : props.category.entry_type === 'pair' ? 2 : 1);

@@ -27,8 +27,8 @@ async function loadEditor(file, props, exports) {
         '../Shared/Components/FormErrors.vue': { default: {} },
         '../../Shared/Components/FormErrors.vue': { default: {} },
     };
-    const componentPath = file === 'CompetitionSetupPanel'
-        ? 'tournaments/CompetitionSetupPanel'
+    const componentPath = ['CompetitionSetupPanel', 'EntryDetailsEditor'].includes(file)
+        ? `tournaments/${file}`
         : file;
     const source = await readFile(
         new URL(`../../resources/js/Components/${componentPath}.vue`, import.meta.url),
