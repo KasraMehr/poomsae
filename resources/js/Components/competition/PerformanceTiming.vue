@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from 'vue';
-import { elapsed } from '../../display';
+import { elapsed } from '../../Shared/Services/display';
 import { restRemaining, usePerformanceClock } from '../../Shared/Composables/usePerformanceTiming';
 
 const props = defineProps({ performance: Object });

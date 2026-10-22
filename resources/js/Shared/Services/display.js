@@ -1,3 +1,4 @@
+// Format competition display data shared across scoreboard views.
 export const statusLabels = {
     draft: 'آماده‌سازی', ready: 'آمادهٔ شروع', pending: 'در انتظار اجرا', running: 'در حال اجرا',
     scoring: 'در حال دریافت نمره', approved: 'نتیجهٔ تأییدشده', completed: 'پایان‌یافته',

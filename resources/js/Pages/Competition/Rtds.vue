@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
 import { useDisplayUpdates } from '../../Shared/Composables/useDisplayUpdates';
-import { connectionLabels, statusLabels } from '../../display';
+import { connectionLabels, statusLabels } from '../../Shared/Services/display';
 import PerformanceTiming from '../../Components/competition/PerformanceTiming.vue';
 const props = defineProps({ display: Object, displayUrls: Object });
 const { display, now, connection } = useDisplayUpdates(props.display, props.displayUrls.data);
