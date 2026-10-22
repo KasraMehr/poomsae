@@ -2,8 +2,8 @@
 import { computed } from "vue";
 import { useForm } from "@inertiajs/vue3";
 import FormErrors from "../../Shared/Components/FormErrors.vue";
-import ScoreCorrectionForm from "../ScoreCorrectionForm.vue";
-import PerformanceTiming from "../PerformanceTiming.vue";
+import ScoreCorrectionForm from "./ScoreCorrectionForm.vue";
+import PerformanceTiming from "./PerformanceTiming.vue";
 import { restRemaining, usePerformanceClock } from "../../usePerformanceTiming";
 const props = defineProps({
     bout: Object,

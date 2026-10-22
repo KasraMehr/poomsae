@@ -3,7 +3,7 @@ import { computed, ref } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
 import { useDisplayUpdates } from '../../useDisplayUpdates';
 import { connectionLabels, statusLabels } from '../../display';
-import PerformanceTiming from '../../Components/PerformanceTiming.vue';
+import PerformanceTiming from '../../Components/competition/PerformanceTiming.vue';
 const props = defineProps({ display: Object, displayUrls: Object });
 const { display, now, connection } = useDisplayUpdates(props.display, props.displayUrls.data);
 const courtId = ref('');

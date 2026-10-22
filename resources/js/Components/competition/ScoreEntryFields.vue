@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
-import { adjustPenalties, hasScoreDetails } from '../scoring';
+import { adjustPenalties, hasScoreDetails } from '../../scoring';
 
 const props = defineProps({
     form: Object,

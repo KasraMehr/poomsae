@@ -3,7 +3,7 @@ import { computed } from 'vue';
 import { Head, Link, router, useForm, usePage, usePoll } from '@inertiajs/vue3';
 import AppLayout from '../../Shared/Layouts/AppLayout.vue';
 import FormErrors from '../../Shared/Components/FormErrors.vue';
-import AppealDecisionForm from '../../Components/AppealDecisionForm.vue';
+import AppealDecisionForm from '../../Components/competition/AppealDecisionForm.vue';
 import { useCompetitionUpdates } from '../../Shared/Composables/useCompetitionUpdates';
 const props = defineProps({ tournament: Object, appeals: Object, candidates: Array, statusFilter: String, canFile: Boolean, canApply: Boolean, urls: Object });
 const page = usePage();

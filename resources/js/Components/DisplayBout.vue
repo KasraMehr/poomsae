@@ -1,6 +1,6 @@
 <script setup>
 import { entryTotal, elapsed, formatScore, statusLabels } from '../display';
-import PerformanceTiming from './PerformanceTiming.vue';
+import PerformanceTiming from './competition/PerformanceTiming.vue';
 defineProps({ bout: Object, category: Object, round: Object, courtName: String, now: Number });
 const ranks = (category, round, entryId) => category.standings_round_id === round.id ? category.standings.find(entry => entry.id === entryId)?.rank : null;
 </script>

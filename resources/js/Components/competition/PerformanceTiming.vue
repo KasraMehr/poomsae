@@ -1,13 +1,22 @@
 <script setup>
 import { computed } from 'vue';
-import { elapsed } from '../display';
-import { restRemaining, usePerformanceClock } from '../usePerformanceTiming';
+import { elapsed } from '../../display';
+import { restRemaining, usePerformanceClock } from '../../usePerformanceTiming';
+
 const props = defineProps({ performance: Object });
 const now = usePerformanceClock(() => props.performance.server_now);
 const timing = computed(() => props.performance.timing || {});
-const seconds = computed(() => props.performance.started_at ? Math.max(0, ((props.performance.ended_at ? Date.parse(props.performance.ended_at) : now.value) - Date.parse(props.performance.started_at)) / 1000) : 0);
+const seconds = computed(() => props.performance.started_at
+    ? Math.max(0, (
+        (props.performance.ended_at ? Date.parse(props.performance.ended_at) : now.value)
+        - Date.parse(props.performance.started_at)
+    ) / 1000)
+    : 0);
 const rest = computed(() => restRemaining(props.performance, now.value));
-const overtime = computed(() => timing.value.maximum_duration_seconds != null && seconds.value > timing.value.maximum_duration_seconds);
+const overtime = computed(() => (
+    timing.value.maximum_duration_seconds != null
+    && seconds.value > timing.value.maximum_duration_seconds
+));
 </script>
 <template>
     <!-- Keep timing presentation in Tailwind so it works in shared views. -->

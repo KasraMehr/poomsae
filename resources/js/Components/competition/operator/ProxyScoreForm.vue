@@ -3,7 +3,7 @@ import { computed, watch } from "vue";
 import { useForm } from "@inertiajs/vue3";
 import { requestId } from "../../../Shared/Services/requestId";
 import FormErrors from "../../../Shared/Components/FormErrors.vue";
-import ScoreEntryFields from "../../ScoreEntryFields.vue";
+import ScoreEntryFields from "../ScoreEntryFields.vue";
 import {
     scoreComponentsComplete,
     scoreDetailFields,
