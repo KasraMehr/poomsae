@@ -4,6 +4,7 @@ namespace Tests;
 
 use App\Actions\CalculateScore;
 use App\Actions\CompetitionSetup;
+use App\Actions\CompetitionTiming;
 use App\Actions\RunCompetition;
 use App\Actions\ScheduleRound;
 use App\Actions\SubmitScore;
@@ -52,8 +53,18 @@ trait CreatesCompetition
 
     protected function startScoring(array $fixture, Performance $performance): void
     {
+        $category = $fixture['category']->fresh();
+        if ($category && $category->minimum_rest_seconds > 0) {
+            $readyAt = app(CompetitionTiming::class)->readyAt($performance, $category);
+            if ($readyAt && now()->lessThan($readyAt)) {
+                $this->travelTo($readyAt);
+            }
+        }
         $run = app(RunCompetition::class);
         $run->command($fixture['admin'], $fixture['tournament'], $performance, ['command' => 'start', 'expected_version' => $performance->fresh()->version]);
+        if ($category && $category->minimum_duration_seconds > 0) {
+            $this->travel($category->minimum_duration_seconds)->seconds();
+        }
         $run->command($fixture['admin'], $fixture['tournament'], $performance, ['command' => 'finish', 'expected_version' => $performance->fresh()->version]);
     }
 

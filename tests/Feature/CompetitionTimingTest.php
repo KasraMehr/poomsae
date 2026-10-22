@@ -5,11 +5,13 @@ namespace Tests\Feature;
 use App\Actions\CalculateScore;
 use App\Actions\CompetitionConsole;
 use App\Actions\CompetitionDisplay;
+use App\Actions\CompetitionSetup;
 use App\Actions\CompetitionTiming;
 use App\Actions\CompetitionView;
 use App\Actions\RunCompetition;
 use App\Models\Bout;
 use App\Models\Performance;
+use App\Models\Tournament;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -225,9 +227,10 @@ class CompetitionTimingTest extends TestCase
         $first = $this->competition();
         $second = $this->competition();
         $this->actingAs($first['admin'])->put(route('operations.category.timing', [$first['tournament'], $second['category']]), [
-            'enabled' => true, 'minimum_duration_seconds' => 0, 'maximum_duration_seconds' => 90, 'minimum_rest_seconds' => 30, 'time_penalty_hundredths' => 30,
+            'enabled' => true, 'minimum_duration_seconds' => 0, 'maximum_duration_seconds' => 120, 'minimum_rest_seconds' => 45, 'time_penalty_hundredths' => 30,
         ])->assertNotFound();
-        $this->assertNull($second['category']->fresh()->maximum_duration_seconds);
+        $this->assertSame(90, $second['category']->fresh()->maximum_duration_seconds);
+        $this->assertSame(30, $second['category']->fresh()->minimum_rest_seconds);
     }
 
     public function test_live_timing_provides_countdown_remaining_time_and_elapsed_display(): void
@@ -353,5 +356,136 @@ class CompetitionTimingTest extends TestCase
         foreach ($secondForms as $form) {
             $this->assertSame('cancelled', $form->status);
         }
+    }
+
+    public function test_category_defaults_to_standard_and_freestyle_timing_rules(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $tournament = Tournament::factory()->create(['created_by' => $admin->id]);
+        $setup = app(CompetitionSetup::class);
+
+        // Standard Recognized Poomsae: max 90s, rest 30s
+        $recognized = $setup->category($admin, $tournament, [
+            'name' => 'استاندارد', 'discipline' => 'recognized', 'gender' => 'male',
+            'minimum_age' => 10, 'maximum_age' => 30, 'format' => 'knockout', 'judge_count' => 5,
+            'discard_each_end' => 1, 'rules_acknowledged' => true, 'form_names' => ['Taegeuk 1', 'Taegeuk 2'],
+        ]);
+        $this->assertNull($recognized->minimum_duration_seconds);
+        $this->assertSame(90, $recognized->maximum_duration_seconds);
+        $this->assertSame(30, $recognized->minimum_rest_seconds);
+        $this->assertSame(30, $recognized->time_penalty_hundredths);
+
+        // Freestyle Poomsae: 90s to 100s, rest 30s
+        $freestyle = $setup->category($admin, $tournament, [
+            'name' => 'فری‌استایل', 'discipline' => 'freestyle', 'gender' => 'male',
+            'minimum_age' => 10, 'maximum_age' => 30, 'format' => 'knockout', 'judge_count' => 5,
+            'discard_each_end' => 1, 'rules_acknowledged' => true, 'planned_round_count' => 1,
+        ]);
+        $this->assertSame(90, $freestyle->minimum_duration_seconds);
+        $this->assertSame(100, $freestyle->maximum_duration_seconds);
+        $this->assertSame(30, $freestyle->minimum_rest_seconds);
+        $this->assertSame(30, $freestyle->time_penalty_hundredths);
+    }
+
+    public function test_manager_can_customize_timing_when_creating_or_updating_category(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $tournament = Tournament::factory()->create(['created_by' => $admin->id]);
+        $setup = app(CompetitionSetup::class);
+
+        // Manager overrides defaults at creation
+        $category = $setup->category($admin, $tournament, [
+            'name' => 'سفارشی', 'discipline' => 'recognized', 'gender' => 'male',
+            'minimum_age' => 10, 'maximum_age' => 30, 'format' => 'knockout', 'judge_count' => 5,
+            'discard_each_end' => 1, 'rules_acknowledged' => true, 'form_names' => ['Taegeuk 1', 'Taegeuk 2'],
+            'minimum_duration_seconds' => 30, 'maximum_duration_seconds' => 75,
+            'minimum_rest_seconds' => 45, 'time_penalty_hundredths' => 50,
+        ]);
+        $this->assertSame(30, $category->minimum_duration_seconds);
+        $this->assertSame(75, $category->maximum_duration_seconds);
+        $this->assertSame(45, $category->minimum_rest_seconds);
+        $this->assertSame(50, $category->time_penalty_hundredths);
+    }
+
+    public function test_referee_or_operator_can_waive_timing_penalty_restoring_deducted_score(): void
+    {
+        $this->freezeSecond();
+        $fixture = $this->competition();
+        $this->schedule($fixture);
+        $this->configure($fixture, ['minimum_duration_seconds' => 0, 'maximum_duration_seconds' => 90]);
+        $performance = Performance::orderBy('id')->firstOrFail();
+
+        // Run 95 seconds (overtime penalty of 0.30 applied)
+        $this->command($fixture, $performance, 'start');
+        $this->travel(95)->seconds();
+        $this->command($fixture, $performance, 'finish');
+        $this->scoreAll($fixture, $performance);
+
+        $this->assertSame(30, $performance->fresh()->timing_snapshot['penalty_hundredths']);
+        $this->assertSame('too_long', $performance->fresh()->timing_snapshot['violation']);
+
+        // Waive penalty before approval (setting penalty to 0)
+        $url = route('operations.performance.timing-penalty', [$fixture['tournament'], $performance]);
+        $response = $this->actingAs($fixture['admin'])->post($url, [
+            'penalty_hundredths' => 0,
+            'violation' => 'waived',
+            'reason' => 'داور تشخیص داد که تاخیر به دلیل مشکل فنی سیستم بوده است.',
+            'expected_version' => $performance->fresh()->version,
+        ]);
+        $response->assertRedirect()->assertSessionHasNoErrors();
+
+        $snapshot = $performance->fresh()->timing_snapshot;
+        $this->assertSame(0, $snapshot['penalty_hundredths']);
+        $this->assertSame('waived', $snapshot['violation']);
+        $this->assertSame(30, $snapshot['original_penalty_hundredths']);
+
+        // Now approve performance and verify restored score (8.500000 instead of 8.200000)
+        $this->command($fixture, $performance, 'approve');
+        $result = $performance->result()->firstOrFail();
+        $this->assertSame('8.500000', $result->score);
+        $this->assertSame(0, $result->calculation_snapshot['timing']['penalty_hundredths']);
+    }
+
+    public function test_referee_can_adjust_timing_penalty_after_approval_recalculating_result(): void
+    {
+        $this->freezeSecond();
+        $fixture = $this->competition();
+        $this->schedule($fixture);
+        $this->configure($fixture, ['minimum_duration_seconds' => 0, 'maximum_duration_seconds' => 90]);
+        $performance = Performance::orderBy('id')->firstOrFail();
+
+        // 95 seconds -> 30 hundredths penalty
+        $this->command($fixture, $performance, 'start');
+        $this->travel(95)->seconds();
+        $this->command($fixture, $performance, 'finish');
+        $this->scoreAll($fixture, $performance);
+        $this->command($fixture, $performance, 'approve');
+
+        $result = $performance->result()->firstOrFail();
+        $this->assertSame('8.200000', $result->score);
+
+        // Operator waives penalty on approved performance -> score increases back to 8.500000
+        $url = route('operations.performance.timing-penalty', [$fixture['tournament'], $performance]);
+        $response = $this->actingAs($fixture['admin'])->post($url, [
+            'penalty_hundredths' => 0,
+            'violation' => 'waived',
+            'reason' => 'بازگشت نمره کسر شده پس از بازبینی فیلم توسط سرداور',
+            'expected_version' => $performance->fresh()->version,
+        ]);
+        $response->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertSame('8.500000', $performance->result()->firstOrFail()->score);
+
+        // Operator increases penalty (e.g. 50 hundredths = 0.50) -> score decreases to 8.000000
+        $response = $this->actingAs($fixture['admin'])->post($url, [
+            'penalty_hundredths' => 50,
+            'violation' => 'too_long',
+            'reason' => 'اعمال جریمه تاخیر مضاعف پس از بررسی هیئت ژوری',
+            'expected_version' => $performance->fresh()->version,
+        ]);
+        $response->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertSame('8.000000', $performance->result()->firstOrFail()->score);
+        $this->assertSame(50, $performance->result()->firstOrFail()->calculation_snapshot['timing']['penalty_hundredths']);
     }
 }

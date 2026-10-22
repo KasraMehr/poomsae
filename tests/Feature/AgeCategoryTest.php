@@ -79,7 +79,7 @@ class AgeCategoryTest extends TestCase
         ])->assertSessionHasNoErrors();
 
         $category = $tournament->categories()->firstOrFail();
-        $this->assertSame(['فرم 4', 'فرم 7', 'ته بک'], $category->forms()->orderBy('poomsae_forms.id')->pluck('name')->all());
+        $this->assertSame(['Taegeuk 4', 'Taegeuk 7', 'Taebaek'], $category->forms()->orderBy('poomsae_forms.id')->pluck('name')->all());
     }
 
     public function test_category_creation_rejects_a_form_outside_the_age_table(): void
@@ -174,8 +174,8 @@ class AgeCategoryTest extends TestCase
         $this->actingAs($fixture['admin'])->get('/tournaments/'.$fixture['tournament']->id.'/setup')
             ->assertOk()->assertInertia(fn (AssertableInertia $page) => $page->component('Tournaments/Show')
             ->where('ageTableYear', 1405)->has('ageCategories', $expectedCount)
-            ->where('ageCategories.0.label', 'زیر ۱۲ سال')
-            ->where('ageCategories.'.($expectedCount - 1).'.label', 'تیمی ابداعی دو نفره بالای ۱۸ سال')
+            ->where('ageCategories.0.label', 'Individual Under 12')
+            ->where('ageCategories.'.($expectedCount - 1).'.label', 'Freestyle Pair Over 18')
             ->where('tournament.categories.0.rules.age_category.birth_date_label', 'متولدین ۱۳۹۰/۱۰/۱۱ الی ۱۳۹۳/۱۰/۱۰'));
     }
 
@@ -210,6 +210,6 @@ class AgeCategoryTest extends TestCase
 
         $this->assertDatabaseCount('entries', 0);
         $this->assertSame(0, $fixture['category']->fresh()->management_version);
-        $this->assertSame(['فرم 4', 'فرم 5', 'فرم 6', 'فرم 7', 'فرم 8', 'کوریو', 'کومگانگ', 'ته بک'], $fixture['category']->forms()->orderBy('poomsae_forms.id')->pluck('name')->all());
+        $this->assertSame(['Taegeuk 4', 'Taegeuk 5', 'Taegeuk 6', 'Taegeuk 7', 'Taegeuk 8', 'Koryo', 'Keumgang', 'Taebaek'], $fixture['category']->forms()->orderBy('poomsae_forms.id')->pluck('name')->all());
     }
 }

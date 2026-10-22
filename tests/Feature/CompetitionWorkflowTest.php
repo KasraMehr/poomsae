@@ -290,6 +290,7 @@ class CompetitionWorkflowTest extends TestCase
             $this->scoreAll($fixture, $performance, '2.50', $performance->id === $firstForms[0]->id ? '6.00' : '5.00');
             $runner->command($fixture['admin'], $fixture['tournament'], $performance, ['command' => 'approve', 'expected_version' => $performance->fresh()->version]);
         }
+        $this->travel(30)->seconds();
         $runner->command($fixture['admin'], $fixture['tournament'], $secondForms[0], ['command' => 'start', 'expected_version' => 1]);
         $runner->command($fixture['admin'], $fixture['tournament'], $secondForms[0], ['command' => 'finish', 'expected_version' => 2]);
         foreach ($secondForms as $performance) {

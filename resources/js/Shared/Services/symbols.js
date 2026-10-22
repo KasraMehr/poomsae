@@ -55,6 +55,17 @@ export const setAssetResolver = (resolver) => {
 };
 
 export const POOMSAE_NAME_TO_KEY = {
+    "taegeuk 1": 1, "taeguk 1": 1, "taegeuk 1 jang": 1, "taeguk 1 jang": 1,
+    "taegeuk 2": 2, "taeguk 2": 2, "taegeuk 2 jang": 2, "taeguk 2 jang": 2,
+    "taegeuk 3": 3, "taeguk 3": 3, "taegeuk 3 jang": 3, "taeguk 3 jang": 3,
+    "taegeuk 4": 4, "taeguk 4": 4, "taegeuk 4 jang": 4, "taeguk 4 jang": 4,
+    "taegeuk 5": 5, "taeguk 5": 5, "taegeuk 5 jang": 5, "taeguk 5 jang": 5,
+    "taegeuk 6": 6, "taeguk 6": 6, "taegeuk 6 jang": 6, "taeguk 6 jang": 6,
+    "taegeuk 7": 7, "taeguk 7": 7, "taegeuk 7 jang": 7, "taeguk 7 jang": 7,
+    "taegeuk 8": 8, "taeguk 8": 8, "taegeuk 8 jang": 8, "taeguk 8 jang": 8,
+    "koryo": 9, "keumgang": 10, "taebaek": 11, "pyongwon": 12,
+    "shipjin": 13, "sipjin": 13, "jitae": 14, "chonkwon": 15,
+    "hansu": 16, "ilyo": 17,
     "فرم ۱": 1, "فرم 1": 1, "1": 1, "۱": 1,
     "فرم ۲": 2, "فرم 2": 2, "2": 2, "۲": 2,
     "فرم ۳": 3, "فرم 3": 3, "3": 3, "۳": 3,
@@ -76,7 +87,9 @@ export const POOMSAE_NAME_TO_KEY = {
 
 /** مسیر سمبل فرم؛ اگر کلید ناشناخته باشد null (کامپوننت چیزی رندر نمی‌کند). */
 export const formSymbol = (key) => {
-    const resolvedKey = FORM_SYMBOLS[key] ? key : (POOMSAE_NAME_TO_KEY[String(key).trim()] ?? null);
+    if (key == null) return null;
+    const str = String(key).trim();
+    const resolvedKey = FORM_SYMBOLS[key] ? key : (POOMSAE_NAME_TO_KEY[str.toLowerCase()] ?? POOMSAE_NAME_TO_KEY[str] ?? null);
     return (resolvedKey && FORM_SYMBOLS[resolvedKey]) ? resolveAsset(FORM_SYMBOLS[resolvedKey]) : null;
 };
 

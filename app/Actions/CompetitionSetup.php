@@ -160,6 +160,13 @@ class CompetitionSetup
             $expectedFormCount = $discipline === 'freestyle' ? 0 : ($ageCategory !== null ? count($data['form_names']) : ($plannedRoundCount === null ? 2 : 8));
             $this->check($discipline === 'freestyle' || count(array_unique($formIds)) === $expectedFormCount, $ageCategory !== null ? 'فهرست فرم‌های انتخابی معتبر نیست.' : ($plannedRoundCount === null ? 'دو فرم متفاوت وارد کنید.' : 'هشت پومسهٔ متفاوت برای این ردهٔ سنی وارد کنید.'));
             $this->check($discipline === 'freestyle' || $allowRepetition || $plannedRoundCount === null || $plannedRoundCount <= intdiv(count($formIds), 2), 'با حالت غیرتکراری، برای هر مرحله دو فرم جدا لازم است؛ تعداد مراحل را با فهرست فرم‌های انتخابی هماهنگ کنید.');
+            $defaultTiming = config("poomsae.default_timing.{$discipline}") ?? [
+                'minimum_duration_seconds' => $discipline === 'freestyle' ? 90 : null,
+                'maximum_duration_seconds' => $discipline === 'freestyle' ? 100 : 90,
+                'minimum_rest_seconds' => 30,
+                'time_penalty_hundredths' => 30,
+            ];
+
             $fields = [
                 'name' => $data['name'], 'gender' => $data['gender'], 'minimum_age' => $data['minimum_age'] ?? null, 'maximum_age' => $data['maximum_age'] ?? null,
                 'format' => $data['format'], 'judge_count' => (string) $data['judge_count'],
@@ -168,6 +175,10 @@ class CompetitionSetup
                 'forms_per_round' => $discipline === 'freestyle' ? 1 : 2, 'draw_timing' => 'day_start', 'scoring_rule_set_id' => $rule->id, 'form_sequence' => $plannedRoundCount === null ? $formIds : [],
                 'planned_round_count' => $plannedRoundCount, 'allow_form_repetition' => $allowRepetition,
                 'form_draw_timing' => $data['form_draw_timing'] ?? 'morning', 'form_draw_time' => $data['form_draw_time'] ?? '08:00',
+                'minimum_duration_seconds' => array_key_exists('minimum_duration_seconds', $data) ? $data['minimum_duration_seconds'] : ($category?->minimum_duration_seconds ?? $defaultTiming['minimum_duration_seconds']),
+                'maximum_duration_seconds' => array_key_exists('maximum_duration_seconds', $data) ? $data['maximum_duration_seconds'] : ($category?->maximum_duration_seconds ?? $defaultTiming['maximum_duration_seconds']),
+                'minimum_rest_seconds' => array_key_exists('minimum_rest_seconds', $data) ? (int) $data['minimum_rest_seconds'] : ($category?->minimum_rest_seconds ?? $defaultTiming['minimum_rest_seconds']),
+                'time_penalty_hundredths' => array_key_exists('time_penalty_hundredths', $data) ? (int) $data['time_penalty_hundredths'] : ($category?->time_penalty_hundredths ?? $defaultTiming['time_penalty_hundredths']),
             ];
             $before = $category?->toArray();
             if ($category) {

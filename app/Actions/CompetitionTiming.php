@@ -2,11 +2,14 @@
 
 namespace App\Actions;
 
+use App\Models\Bout;
 use App\Models\Category;
 use App\Models\Performance;
 use App\Models\Tournament;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 
 class CompetitionTiming
 {
@@ -57,7 +60,7 @@ class CompetitionTiming
         $now ??= CarbonImmutable::now();
         $rules = $performance->timing_snapshot ?? $this->rules($category);
         $maxDuration = $rules['maximum_duration_seconds'] ?? ($category->discipline === 'freestyle' ? 100 : 90);
-        $minDuration = $rules['minimum_duration_seconds'] ?? null;
+        $minDuration = $rules['minimum_duration_seconds'] ?? ($category->discipline === 'freestyle' ? 90 : null);
         $startedAtMs = $rules['started_at_milliseconds'] ?? $performance->started_at?->getTimestampMs();
 
         if ($startedAtMs === null) {
@@ -141,5 +144,49 @@ class CompetitionTiming
 
         return [...$calculation, 'gross_score' => $calculation['score'], 'timing' => $timing,
             'score' => $this->calculator->format(max(0, $this->calculator->micros($calculation['score']) - $penalty))];
+    }
+
+    /** @param array{penalty_hundredths:int, violation?:?string, reason:string, expected_version:int} $data */
+    public function adjustPerformancePenalty(User $actor, Tournament $tournament, Performance $performance, array $data, RunCompetition $run): void
+    {
+        Gate::forUser($actor)->authorize('operate', $tournament);
+        DB::transaction(function () use ($actor, $tournament, $performance, $data, $run): void {
+            $tournament = Tournament::lockForUpdate()->findOrFail($tournament->id);
+            $performance = Performance::lockForUpdate()->findOrFail($performance->id);
+            $bout = Bout::lockForUpdate()->findOrFail($performance->bout_id);
+            $category = Category::lockForUpdate()->findOrFail($bout->category_id);
+            abort_unless($category->tournament_id === $tournament->id, 404);
+            abort_unless($performance->version === (int) $data['expected_version'], 409, 'وضعیت اجرا تغییر کرده؛ صفحه را تازه کنید.');
+            $this->setup->check(in_array($performance->status, ['scoring', 'approved'], true), 'جریمهٔ زمان فقط پس از ثبت زمان پایان اجرا قابل ویرایش است.');
+
+            $penaltyHundredths = (int) $data['penalty_hundredths'];
+            $timing = $performance->timing_snapshot ?? $this->rules($category);
+            $violation = $data['violation'] ?? ($penaltyHundredths === 0 ? ($timing['violation'] ? 'waived' : null) : ($timing['violation'] ?? 'too_long'));
+
+            $newTiming = [
+                ...$timing,
+                'penalty_hundredths' => $penaltyHundredths,
+                'violation' => $violation,
+                'adjusted_by' => $actor->id,
+                'adjusted_at' => now()->toIso8601String(),
+                'adjustment_reason' => trim($data['reason']),
+                'original_penalty_hundredths' => $timing['original_penalty_hundredths'] ?? ($timing['penalty_hundredths'] ?? 0),
+            ];
+
+            $before = $performance->toArray();
+            $performance->update([
+                'timing_snapshot' => $newTiming,
+                'version' => $performance->version + 1,
+            ]);
+
+            $this->setup->audit($actor, $tournament, 'performance.timing_penalty_adjusted', 'performance', $performance->id, [
+                'timing_snapshot' => $newTiming,
+                'reason' => trim($data['reason']),
+            ], $before);
+
+            if ($performance->status === 'approved' && $performance->result !== null) {
+                $run->recalculateApprovedResult($actor, $tournament, $performance, trim($data['reason']));
+            }
+        }, 3);
     }
 }

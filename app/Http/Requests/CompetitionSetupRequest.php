@@ -56,6 +56,10 @@ class CompetitionSetupRequest extends FormRequest
                 'form_names.*' => ['required', 'string', 'max:100', 'distinct'],
                 'selected_form_numbers' => [$this->filled('age_category') && $discipline === 'recognized' ? 'sometimes' : 'prohibited', 'array', 'list', 'min:2', 'distinct'],
                 'selected_form_numbers.*' => ['required', 'integer', 'min:1', 'max:16'],
+                'minimum_duration_seconds' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:3600'],
+                'maximum_duration_seconds' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:3600', 'gte:minimum_duration_seconds'],
+                'minimum_rest_seconds' => ['sometimes', 'integer', 'min:0', 'max:3600'],
+                'time_penalty_hundredths' => ['sometimes', 'integer', 'min:0', 'max:1000'],
             ],
             'entry' => [
                 'first_name' => [$memberCount === 1 ? 'required' : 'prohibited', 'string', 'max:100'],

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Actions\CompetitionConsole;
 use App\Actions\CompetitionDisplay;
 use App\Actions\CompetitionSetup;
+use App\Actions\CompetitionTiming;
 use App\Actions\CompetitionView;
 use App\Actions\DrawRoundForms;
 use App\Actions\RunCompetition;
@@ -29,6 +30,7 @@ class MultiCourtCompetitionTest extends TestCase
     private function multiCourtCompetition(int $entryCount = 8, string $format = 'knockout', ?int $stageCount = null): array
     {
         $fixture = $this->competition(3, $entryCount, $format, 0, $stageCount);
+        $fixture['category']->update(['minimum_rest_seconds' => 0, 'maximum_duration_seconds' => null]);
         $panels = [['court_id' => $fixture['tournament']->courts()->firstOrFail()->id, 'judge_ids' => $fixture['judges']->pluck('id')->all()]];
         for ($number = 2; $number <= 4; $number++) {
             app(CompetitionSetup::class)->court($fixture['admin'], $fixture['tournament'], ['name' => 'زمین '.$number]);
@@ -53,6 +55,13 @@ class MultiCourtCompetitionTest extends TestCase
     {
         $runner = app(RunCompetition::class);
         if ($performance->fresh()->status === 'pending') {
+            $category = $fixture['category']->fresh();
+            if ($category && $category->minimum_rest_seconds > 0) {
+                $readyAt = app(CompetitionTiming::class)->readyAt($performance, $category);
+                if ($readyAt && now()->lessThan($readyAt)) {
+                    $this->travelTo($readyAt);
+                }
+            }
             $runner->command($fixture['admin'], $fixture['tournament'], $performance, ['command' => 'start', 'expected_version' => $performance->fresh()->version]);
         }
         if ($performance->fresh()->status === 'running') {

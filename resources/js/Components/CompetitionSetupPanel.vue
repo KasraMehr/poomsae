@@ -55,27 +55,38 @@ const toggleForm = formNumber => {
     }
 };
 const highFormNames = {
-    9: 'کوریو',
-    10: 'کومگانگ',
-    11: 'ته بک',
-    12: 'پیونگ وان',
-    13: 'شیپ جین',
-    14: 'جی ته',
-    15: 'چون کوان',
-    16: 'هانسو',
-    17: 'ایل یو',
+    9: 'Koryo',
+    10: 'Keumgang',
+    11: 'Taebaek',
+    12: 'Pyongwon',
+    13: 'Shipjin',
+    14: 'Jitae',
+    15: 'Chonkwon',
+    16: 'Hansu',
+    17: 'Ilyo',
 };
-const formLabel = number => highFormNames[number] || `فرم ${number.toLocaleString('fa-IR')}`;
+const formLabel = number => highFormNames[number] || `Taegeuk ${number}`;
 const formatFormsList = forms => {
     if (!forms || !forms.length) return '—';
     return forms.map(number => {
-        if (number <= 8) return number.toLocaleString('fa-IR');
-        return highFormNames[number] || `فرم ${number.toLocaleString('fa-IR')}`;
-    }).join('، ');
+        if (number <= 8) return `Taegeuk ${number}`;
+        return highFormNames[number] || `Taegeuk ${number}`;
+    }).join(', ');
 };
 const formNameToNumber = name => {
     if (!name) return null;
     const map = {
+        'taegeuk 1': 1, 'taeguk 1': 1, 'taegeuk 1 jang': 1, 'taeguk 1 jang': 1,
+        'taegeuk 2': 2, 'taeguk 2': 2, 'taegeuk 2 jang': 2, 'taeguk 2 jang': 2,
+        'taegeuk 3': 3, 'taeguk 3': 3, 'taegeuk 3 jang': 3, 'taeguk 3 jang': 3,
+        'taegeuk 4': 4, 'taeguk 4': 4, 'taegeuk 4 jang': 4, 'taeguk 4 jang': 4,
+        'taegeuk 5': 5, 'taeguk 5': 5, 'taegeuk 5 jang': 5, 'taeguk 5 jang': 5,
+        'taegeuk 6': 6, 'taeguk 6': 6, 'taegeuk 6 jang': 6, 'taeguk 6 jang': 6,
+        'taegeuk 7': 7, 'taeguk 7': 7, 'taegeuk 7 jang': 7, 'taeguk 7 jang': 7,
+        'taegeuk 8': 8, 'taeguk 8': 8, 'taegeuk 8 jang': 8, 'taeguk 8 jang': 8,
+        'koryo': 9, 'keumgang': 10, 'taebaek': 11, 'pyongwon': 12,
+        'shipjin': 13, 'sipjin': 13, 'jitae': 14, 'chonkwon': 15,
+        'hansu': 16, 'ilyo': 17,
         'فرم ۱': 1, 'فرم 1': 1, '1': 1, '۱': 1,
         'فرم ۲': 2, 'فرم 2': 2, '2': 2, '۲': 2,
         'فرم ۳': 3, 'فرم 3': 3, '3': 3, '۳': 3,
@@ -95,6 +106,7 @@ const formNameToNumber = name => {
         'ایل یو': 17, 'ایل‌یو': 17, 'فرم ۱۷': 17, 'فرم 17': 17, '17': 17, '۱۷': 17,
     };
     const cleaned = String(name).trim().replace(/\s+/g, ' ');
+    if (map[cleaned.toLowerCase()] !== undefined) return map[cleaned.toLowerCase()];
     if (map[cleaned] !== undefined) return map[cleaned];
     const match = cleaned.match(/(\d+)/);
     return match ? Number(match[1]) : null;

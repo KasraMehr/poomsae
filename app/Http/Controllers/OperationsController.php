@@ -8,6 +8,7 @@ use App\Actions\DrawRoundForms;
 use App\Actions\RunCompetition;
 use App\Actions\ScheduleRound;
 use App\Actions\UpdateCompetitionSettings;
+use App\Http\Requests\AdjustPerformanceTimingPenaltyRequest;
 use App\Http\Requests\AssignRoundFormsRequest;
 use App\Http\Requests\CompetitionSetupRequest;
 use App\Http\Requests\PerformanceCommandRequest;
@@ -113,6 +114,13 @@ class OperationsController extends Controller
         $run->command($request->user(), $tournament, $performance, $request->validated());
 
         return back()->with('success', 'وضعیت اجرا به‌روزرسانی شد.');
+    }
+
+    public function adjustTimingPenalty(AdjustPerformanceTimingPenaltyRequest $request, Tournament $tournament, Performance $performance, CompetitionTiming $timing, RunCompetition $run): RedirectResponse
+    {
+        $timing->adjustPerformancePenalty($request->user(), $tournament, $performance, $request->validated(), $run);
+
+        return back()->with('success', 'جریمهٔ زمانی اجرا ویرایش شد.');
     }
 
     public function music(Request $request, Tournament $tournament, Performance $performance): BinaryFileResponse

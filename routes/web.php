@@ -45,6 +45,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('/categories/{category}/forms/draw', [OperationsController::class, 'drawForms'])->name('operations.forms.draw');
         Route::post('/categories/{category}/forms/assign', [OperationsController::class, 'assignForms'])->name('operations.forms.assign');
         Route::post('/performances/{performance}/command', [OperationsController::class, 'command'])->name('operations.command');
+        Route::post('/performances/{performance}/timing-penalty', [OperationsController::class, 'adjustTimingPenalty'])->name('operations.performance.timing-penalty');
         Route::get('/performances/{performance}/music', [OperationsController::class, 'music'])->name('operations.performance.music');
         Route::post('/performances/{performance}/proxy-scores', ProxyScoreController::class)->name('operations.proxy-score');
         Route::post('/performances/{performance}/proxy-scores/{scoreSheet}/confirm', [ProxyScoreController::class, 'confirm'])->name('operations.proxy-score.confirm');
