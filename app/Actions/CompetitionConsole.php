@@ -34,6 +34,8 @@ class CompetitionConsole
                             'discipline' => $category['discipline'],
                             'format' => $category['format'],
                             'execution_mode' => $category['execution_mode'],
+                            'scoring_mode' => $category['scoring_mode'] ?? 'SINGLE',
+                            'scoring_table_mode' => $category['scoring_table_mode'] ?? 'SINGLE',
                             'performance_order' => $category['performance_order'],
                             'score_based' => $category['score_based'],
                             'round_id' => $round['id'],

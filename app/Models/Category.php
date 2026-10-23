@@ -15,6 +15,14 @@ class Category extends Model
 {
     use HasFactory;
 
+    public const SCORING_MODE_SINGLE = 'SINGLE';
+
+    public const SCORING_MODE_DOUBLE = 'DOUBLE';
+
+    public const SCORING_MODE_FREESTYLE = 'SINGLE-FREESTYLE';
+
+    protected $appends = ['scoring_mode'];
+
     protected function casts(): array
     {
         return ['minimum_duration_seconds' => 'integer', 'maximum_duration_seconds' => 'integer', 'minimum_rest_seconds' => 'integer', 'time_penalty_hundredths' => 'integer', 'judge_count' => 'integer', 'forms_per_round' => 'integer', 'form_sequence' => 'array', 'planned_round_count' => 'integer', 'allow_form_repetition' => 'boolean', 'management_version' => 'integer', 'management_snapshot' => 'array', 'synced_at' => 'datetime'];
@@ -31,6 +39,23 @@ class Category extends Model
     {
         return Attribute::make(
             get: fn (?string $value, array $attributes): string => ($attributes['discipline'] ?? null) === 'freestyle' ? 'consecutive' : ($value ?? 'consecutive'),
+        );
+    }
+
+    protected function scoringMode(): Attribute
+    {
+        return Attribute::make(
+            get: function (?string $value, array $attributes): string {
+                if (($attributes['discipline'] ?? null) === 'freestyle') {
+                    return self::SCORING_MODE_FREESTYLE;
+                }
+
+                if (($attributes['format'] ?? null) === 'knockout' && ($attributes['execution_mode'] ?? null) === 'simultaneous') {
+                    return self::SCORING_MODE_DOUBLE;
+                }
+
+                return self::SCORING_MODE_SINGLE;
+            },
         );
     }
 

@@ -90,6 +90,7 @@ class CompetitionView
 
                     return [
                         'id' => $bout->id, 'sequence' => $bout->sequence, 'court_id' => $bout->court_id, 'status' => $bout->status, 'winner_entry_id' => $bout->winner_entry_id, 'resolution_reason' => $bout->resolution_reason,
+                        'scoring_mode' => $category->scoring_mode,
                         'entries' => $bout->entries->map(function ($entry) {
                             $firstAthlete = $entry->athletes->first();
                             $countryCode = $firstAthlete?->country_code ?? ($firstAthlete?->club && strlen(trim($firstAthlete->club)) <= 4 && preg_match('/^[A-Za-z]+$/', trim($firstAthlete->club)) ? strtoupper(trim($firstAthlete->club)) : null);
@@ -325,7 +326,7 @@ class CompetitionView
                 'id' => $category->id, 'name' => $category->name,
                 'display_label' => strtoupper(($category->gender === 'male' ? 'MALE' : ($category->gender === 'female' ? 'FEMALE' : $category->gender)).($category->maximum_age ? '-UNDER '.$category->maximum_age : ($category->minimum_age ? '-OVER '.$category->minimum_age : ''))),
                 'gender' => $category->gender, 'minimum_age' => $category->minimum_age, 'maximum_age' => $category->maximum_age,
-                'format' => $category->format, 'discipline' => $category->discipline, 'entry_type' => $category->entry_type, 'forms_per_round' => $category->forms_per_round, 'execution_mode' => $category->execution_mode, 'performance_order' => $category->performance_order, 'score_based' => $scoreBased, 'judge_count' => $category->judge_count, 'rules' => $category->scoringRuleSet?->definition, 'form_names' => $category->form_sequence ? collect($category->form_sequence)->map(fn ($id) => $category->forms->firstWhere('id', $id)?->name)->all() : [],
+                'format' => $category->format, 'discipline' => $category->discipline, 'entry_type' => $category->entry_type, 'forms_per_round' => $category->forms_per_round, 'execution_mode' => $category->execution_mode, 'scoring_mode' => $category->scoring_mode, 'scoring_table_mode' => $category->scoring_mode, 'performance_order' => $category->performance_order, 'score_based' => $scoreBased, 'judge_count' => $category->judge_count, 'rules' => $category->scoringRuleSet?->definition, 'form_names' => $category->form_sequence ? collect($category->form_sequence)->map(fn ($id) => $category->forms->firstWhere('id', $id)?->name)->all() : [],
                 'entries' => $category->entries->map(fn ($e) => [
                     'id' => $e->id,
                     'name' => $e->display_name,

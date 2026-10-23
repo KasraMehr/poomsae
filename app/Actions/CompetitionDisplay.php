@@ -38,6 +38,8 @@ class CompetitionDisplay
                             $items[] = [
                                 'id' => $performance['id'], 'court_id' => $bout['court_id'],
                                 'category_id' => $category['id'], 'category_name' => $category['name'], 'format' => $category['format'],
+                                'scoring_mode' => $category['scoring_mode'] ?? 'SINGLE',
+                                'scoring_table_mode' => $category['scoring_table_mode'] ?? 'SINGLE',
                                 'round_id' => $round['id'], 'round_name' => $round['name'], 'round_sequence' => $round['sequence'], 'round_status' => $round['status'],
                                 'bout_id' => $bout['id'], 'bout_sequence' => $bout['sequence'], 'bout_status' => $bout['status'],
                                 'form_number' => $performance['form_number'], 'form_name' => $performance['form_name'],
@@ -52,7 +54,10 @@ class CompetitionDisplay
                         if ($bout['status'] === 'running' && collect($bout['performances'])->isNotEmpty() && collect($bout['performances'])->every(fn (array $performance) => $performance['status'] === 'approved')) {
                             $decisions[] = ['id' => 'decision-'.$bout['id'], 'court_id' => $bout['court_id'], 'category_id' => $category['id'],
                                 'category_name' => $category['name'], 'round_name' => $round['name'], 'round_sequence' => $round['sequence'], 'round_status' => $round['status'],
-                                'bout_id' => $bout['id'], 'bout_sequence' => $bout['sequence'], 'format' => $category['format'], 'entries' => collect($bout['entries'])->all(),
+                                'bout_id' => $bout['id'], 'bout_sequence' => $bout['sequence'], 'format' => $category['format'],
+                                'scoring_mode' => $category['scoring_mode'] ?? 'SINGLE',
+                                'scoring_table_mode' => $category['scoring_table_mode'] ?? 'SINGLE',
+                                'entries' => collect($bout['entries'])->all(),
                                 'status' => 'decision', 'form_name' => 'تعیین نتیجهٔ رقابت', 'performances' => [], 'ready' => false];
                         }
                     }
