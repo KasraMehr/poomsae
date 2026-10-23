@@ -16,7 +16,7 @@ class JudgingController extends Controller
 {
     public function index(Request $request, Tournament $tournament, CompetitionView $view): Response
     {
-        abort_unless($request->user()->hasTournamentRole($tournament, ['judge']), 403);
+        abort_unless($request->user()->hasTournamentRole($tournament, ['judge', 'head_referee']), 403);
 
         return Inertia::render('Competition/Judge', ['tournament' => $view->snapshot($tournament, $request->user())]);
     }

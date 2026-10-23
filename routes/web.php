@@ -46,6 +46,9 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('/categories/{category}/forms/assign', [OperationsController::class, 'assignForms'])->name('operations.forms.assign');
         Route::post('/performances/{performance}/command', [OperationsController::class, 'command'])->name('operations.command');
         Route::post('/performances/{performance}/timing-penalty', [OperationsController::class, 'adjustTimingPenalty'])->name('operations.performance.timing-penalty');
+        Route::post('/performances/{performance}/boundary-penalty', [OperationsController::class, 'adjustBoundaryPenalty'])->name('operations.performance.boundary-penalty');
+        Route::post('/performances/{performance}/referee-penalty', [OperationsController::class, 'adjustRefereePenalty'])->name('operations.performance.referee-penalty');
+        Route::post('/performances/{performance}/restart', [OperationsController::class, 'recordRestart'])->name('operations.performance.restart');
         Route::get('/performances/{performance}/music', [OperationsController::class, 'music'])->name('operations.performance.music');
         Route::post('/performances/{performance}/proxy-scores', ProxyScoreController::class)->name('operations.proxy-score');
         Route::post('/performances/{performance}/proxy-scores/{scoreSheet}/confirm', [ProxyScoreController::class, 'confirm'])->name('operations.proxy-score.confirm');

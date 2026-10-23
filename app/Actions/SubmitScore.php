@@ -19,7 +19,7 @@ class SubmitScore
 
     public function handle(User $actor, Tournament $tournament, Performance $performance, array $data, bool $proxy = false, ?CompetitionAppeal $approvedAppeal = null): array
     {
-        abort_unless($actor->hasTournamentRole($tournament, $proxy ? ['manager', 'operator'] : ['judge']), 403);
+        abort_unless($actor->hasTournamentRole($tournament, $proxy ? ['manager', 'operator', 'head_referee'] : ['judge', 'head_referee']), 403);
 
         return DB::transaction(function () use ($actor, $tournament, $performance, $data, $proxy, $approvedAppeal): array {
             $tournament = Tournament::lockForUpdate()->findOrFail($tournament->id);
@@ -107,14 +107,14 @@ class SubmitScore
             || (array_key_exists('presentation_penalties', $data) && array_key_exists('accuracy_components', $data)), 'برای ابداعی ثبت سه مؤلفهٔ دقت و کسرهای اجرا الزامی است.');
         $freestyleComponents = ($rules['input_method'] ?? null) === 'freestyle_components_v1';
         $this->setup->check(! $freestyleComponents
-            || (array_key_exists('accuracy_components', $data) && array_key_exists('presentation_components', $data)), 'برای ابداعی ثبت چهار مؤلفهٔ دقت و شش مؤلفهٔ اجرا الزامی است.');
+            || (array_key_exists('accuracy_components', $data) && array_key_exists('presentation_components', $data)), 'برای ابداعی ثبت شش مؤلفهٔ دقت و چهار مؤلفهٔ اجرا الزامی است.');
 
         if ($freestyleComponents && (array_key_exists('accuracy_components', $data) || array_key_exists('presentation_components', $data))) {
-            $this->setup->check(is_array($data['accuracy_components'] ?? null) && is_array($data['presentation_components'] ?? null), 'چهار مؤلفهٔ دقت و شش مؤلفهٔ اجرا را با هم ثبت کنید.');
+            $this->setup->check(is_array($data['accuracy_components'] ?? null) && is_array($data['presentation_components'] ?? null), 'شش مؤلفهٔ دقت و چهار مؤلفهٔ اجرا را با هم ثبت کنید.');
             try {
                 $detailed = $this->calculator->freestyleComponentsInput($data['accuracy_components'], $data['presentation_components'], $rules);
             } catch (InvalidArgumentException) {
-                $this->setup->check(false, 'چهار مؤلفهٔ دقت یا شش مؤلفهٔ اجرا معتبر نیست.');
+                $this->setup->check(false, 'شش مؤلفهٔ دقت یا چهار مؤلفهٔ اجرا معتبر نیست.');
             }
             $this->setup->check($values['accuracy'] === $detailed['accuracy'] && $values['presentation'] === $detailed['presentation'], 'مجموع نمره با جزئیات دقت و اجرا برابر نیست.');
             $breakdown = $detailed['breakdown'];

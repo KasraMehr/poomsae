@@ -17,8 +17,9 @@ class BatchScoreRequest extends FormRequest
      */
     public function rules(): array
     {
-        $method = $this->route('performance')?->bout?->category?->scoringRuleSet?->definition['input_method'] ?? null;
-        $scoreRules = SubmitProxyScoreRequest::scoreRules($method);
+        $definition = $this->route('performance')?->bout?->category?->scoringRuleSet?->definition ?? [];
+        $method = $definition['input_method'] ?? null;
+        $scoreRules = SubmitProxyScoreRequest::scoreRules($method, $definition);
 
         $rules = [
             'expected_version' => ['required', 'integer', 'min:1'],

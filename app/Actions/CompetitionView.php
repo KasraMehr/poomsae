@@ -169,8 +169,10 @@ class CompetitionView
                                 $totalScore = $calculationSnapshot['score'] ?? null;
 
                                 $ruleDef = $category->scoringRuleSet->definition ?? [];
-                                $accuracyMax = ($ruleDef['accuracy_max'] ?? 400) / 100;
-                                $presentationMax = ($ruleDef['presentation_max'] ?? 600) / 100;
+                                $defaultAccMax = $category->discipline === 'freestyle' ? 600 : 400;
+                                $defaultPresMax = $category->discipline === 'freestyle' ? 400 : 600;
+                                $accuracyMax = ($ruleDef['accuracy_max'] ?? $defaultAccMax) / 100;
+                                $presentationMax = ($ruleDef['presentation_max'] ?? $defaultPresMax) / 100;
 
                                 $detailedScores = [
                                     'discipline' => $category->discipline,
@@ -182,6 +184,8 @@ class CompetitionView
                                     'presentation_max' => number_format($presentationMax, 1, '.', ''),
                                     'total' => $totalScore !== null ? number_format((float) $totalScore, 2, '.', '') : null,
                                     'total_max' => number_format($accuracyMax + $presentationMax, 1, '.', ''),
+                                    'technical_components' => $category->discipline === 'freestyle' ? ($ruleDef['technical_components'] ?? config('poomsae.freestyle_scoring.technical.components')) : null,
+                                    'presentation_components' => $category->discipline === 'freestyle' ? ($ruleDef['presentation_components'] ?? config('poomsae.freestyle_scoring.presentation.components')) : null,
                                 ];
                             }
 

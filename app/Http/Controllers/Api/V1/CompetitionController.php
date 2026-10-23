@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\CompetitionDisplay;
 use App\Actions\CompetitionSetup;
+use App\Actions\CompetitionTiming;
 use App\Actions\CompetitionView;
 use App\Actions\ConfirmProxyScore;
 use App\Actions\ImportManagementSnapshot;
@@ -11,6 +12,9 @@ use App\Actions\RunCompetition;
 use App\Actions\SubmitScore;
 use App\Events\CompetitionDomainUpdated;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\AdjustPerformanceBoundaryPenaltyRequest;
+use App\Http\Requests\AdjustPerformanceRefereePenaltyRequest;
+use App\Http\Requests\AdjustPerformanceTimingPenaltyRequest;
 use App\Http\Requests\BatchScoreRequest;
 use App\Http\Requests\CompetitionSetupRequest;
 use App\Http\Requests\ConfirmProxyScoreRequest;
@@ -148,6 +152,66 @@ class CompetitionController extends Controller
         $confirm->handle($request->user(), $tournament, $performance, $scoreSheet, $request->integer('expected_revision'));
 
         return response()->json(['message' => 'نمرهٔ دستی تأیید شد.']);
+    }
+
+    public function refereePenalty(AdjustPerformanceRefereePenaltyRequest $request, Tournament $tournament, Performance $performance, CompetitionTiming $timing, RunCompetition $run): JsonResponse
+    {
+        $timing->adjustRefereePenalty($request->user(), $tournament, $performance, $request->validated(), $run);
+        $performance->refresh();
+        $performance->load('result');
+
+        return response()->json([
+            'message' => 'کسر نمرهٔ داور با موفقیت ثبت شد.',
+            'data' => [
+                'performance_id' => $performance->id,
+                'timing' => $performance->timing_snapshot,
+                'version' => $performance->version,
+                'result' => $performance->result ? [
+                    'score' => $performance->result->calculation_snapshot['score'] ?? $performance->result->score,
+                    'calculation' => $performance->result->calculation_snapshot,
+                ] : null,
+            ],
+        ]);
+    }
+
+    public function timingPenalty(AdjustPerformanceTimingPenaltyRequest $request, Tournament $tournament, Performance $performance, CompetitionTiming $timing, RunCompetition $run): JsonResponse
+    {
+        $timing->adjustPerformancePenalty($request->user(), $tournament, $performance, $request->validated(), $run);
+        $performance->refresh();
+        $performance->load('result');
+
+        return response()->json([
+            'message' => 'جریمهٔ زمانی اجرا ویرایش شد.',
+            'data' => [
+                'performance_id' => $performance->id,
+                'timing' => $performance->timing_snapshot,
+                'version' => $performance->version,
+                'result' => $performance->result ? [
+                    'score' => $performance->result->calculation_snapshot['score'] ?? $performance->result->score,
+                    'calculation' => $performance->result->calculation_snapshot,
+                ] : null,
+            ],
+        ]);
+    }
+
+    public function boundaryPenalty(AdjustPerformanceBoundaryPenaltyRequest $request, Tournament $tournament, Performance $performance, CompetitionTiming $timing, RunCompetition $run): JsonResponse
+    {
+        $timing->adjustBoundaryPenalty($request->user(), $tournament, $performance, $request->validated(), $run);
+        $performance->refresh();
+        $performance->load('result');
+
+        return response()->json([
+            'message' => 'جریمهٔ خروج از خط مرزی ویرایش شد.',
+            'data' => [
+                'performance_id' => $performance->id,
+                'timing' => $performance->timing_snapshot,
+                'version' => $performance->version,
+                'result' => $performance->result ? [
+                    'score' => $performance->result->calculation_snapshot['score'] ?? $performance->result->score,
+                    'calculation' => $performance->result->calculation_snapshot,
+                ] : null,
+            ],
+        ]);
     }
 
     public function result(Request $request, Tournament $tournament, Performance $performance): JsonResponse

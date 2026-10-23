@@ -49,8 +49,20 @@ class CalculateScore
         }
 
         $penalties = [];
-        foreach ($deductions as $penalty) {
-            if (! in_array($penalty, ['0.10', '0.30'], true)) {
+        $restarted = false;
+        $activeDeductions = $deductions;
+
+        if (! $freestyle) {
+            $restartIndex = array_search('0.60', $deductions, true);
+            if ($restartIndex !== false) {
+                $restarted = true;
+                // Ignore all deductions before the restart:
+                $activeDeductions = array_slice($deductions, $restartIndex);
+            }
+        }
+
+        foreach ($activeDeductions as $penalty) {
+            if (! in_array($penalty, $freestyle ? ['0.10', '0.30'] : ['0.10', '0.30', '0.60'], true)) {
                 throw new InvalidArgumentException('Invalid score deduction.');
             }
             $penalties[] = $this->hundredths($penalty);
@@ -83,6 +95,9 @@ class CalculateScore
                 ($freestyle ? 'accuracy_components_hundredths' : 'presentation_components_hundredths') => $components,
                 'accuracy_hundredths' => $accuracy,
                 'presentation_hundredths' => $presentation,
+                'restarted' => $restarted,
+                'restart_penalty_hundredths' => $restarted ? 60 : 0,
+                'accuracy_base_hundredths' => $restarted ? 340 : 400,
             ],
         ];
     }
@@ -96,13 +111,19 @@ class CalculateScore
     public function freestyleComponentsInput(array $accuracyComponents, array $presentationComponents, array $rules): array
     {
         $method = $rules['input_method'] ?? null;
+        $accMax = (int) ($rules['accuracy_max'] ?? 600);
+        $presMax = (int) ($rules['presentation_max'] ?? 400);
+        $expectedAccCount = (int) ($rules['accuracy_component_count'] ?? ($accMax === 600 ? 6 : 4));
+        $expectedPresCount = (int) ($rules['presentation_component_count'] ?? ($presMax === 400 ? 4 : 6));
+
         if (! in_array($method, ['freestyle_components_v1', 'components_and_deductions_v1'], true)
-            || (int) ($rules['accuracy_max'] ?? 0) !== 400
-            || (int) ($rules['presentation_max'] ?? 0) !== 600
+            || ! in_array($accMax, [400, 600], true)
+            || ! in_array($presMax, [400, 600], true)
+            || ($accMax + $presMax) !== 1000
             || ! array_is_list($accuracyComponents)
-            || count($accuracyComponents) !== 4
+            || count($accuracyComponents) !== $expectedAccCount
             || ! array_is_list($presentationComponents)
-            || count($presentationComponents) !== 6) {
+            || count($presentationComponents) !== $expectedPresCount) {
             throw new InvalidArgumentException('Invalid freestyle components scoring rules or fields.');
         }
 
@@ -189,7 +210,11 @@ class CalculateScore
 
         $rules = [...$calculationSnapshot['rules'], 'discard_each_end' => 0];
 
-        return max(0, $this->micros($this->calculate($scores, $rules, $judgeCount)['score']) - (int) ($calculationSnapshot['timing']['penalty_hundredths'] ?? 0) * 10000);
+        $totalPenalty = ((int) ($calculationSnapshot['timing']['penalty_hundredths'] ?? 0)
+            + (int) ($calculationSnapshot['timing']['boundary_penalty_hundredths'] ?? 0)
+            + (int) ($calculationSnapshot['timing']['referee_penalty_hundredths'] ?? 0)) * 10000;
+
+        return max(0, $this->micros($this->calculate($scores, $rules, $judgeCount)['score']) - $totalPenalty);
     }
 
     /** @param array<int,array{accuracy:int,presentation:int}> $scores */

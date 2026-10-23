@@ -488,4 +488,143 @@ class CompetitionTimingTest extends TestCase
         $this->assertSame('8.000000', $performance->result()->firstOrFail()->score);
         $this->assertSame(50, $performance->result()->firstOrFail()->calculation_snapshot['timing']['penalty_hundredths']);
     }
+
+    public function test_head_referee_role_can_be_assigned_and_operate_competitions(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $tournament = Tournament::factory()->create(['created_by' => $admin->id]);
+        $refereeUser = User::factory()->create();
+
+        // Assign head referee role
+        $this->actingAs($admin)->post(route('operations.member', $tournament), [
+            'name' => $refereeUser->name,
+            'email' => $refereeUser->email,
+            'role' => 'head_referee',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertTrue($refereeUser->fresh()->hasTournamentRole($tournament, ['head_referee']));
+        $this->assertTrue($refereeUser->fresh()->can('operate', $tournament));
+    }
+
+    public function test_boundary_crossing_penalty_deducts_thirty_hundredths_per_foul_from_final_score(): void
+    {
+        $this->freezeSecond();
+        $fixture = $this->competition();
+        $this->schedule($fixture);
+        $performance = Performance::orderBy('id')->firstOrFail();
+
+        $this->command($fixture, $performance, 'start');
+        $this->travel(60)->seconds();
+        $this->command($fixture, $performance, 'finish');
+        $this->scoreAll($fixture, $performance);
+
+        // Record 2 boundary fouls (2 * 0.3 = 0.60 deduction from final score)
+        $url = route('operations.performance.boundary-penalty', [$fixture['tournament'], $performance]);
+        $response = $this->actingAs($fixture['admin'])->post($url, [
+            'foul_count' => 2,
+            'judge_votes' => [1, 2, 2, 2, 1], // Head referee & judges vote
+            'reason' => 'رأی اکثریت داوران و سرداور برای ۲ بار خروج کامل هر دو پا از خط مرزی',
+            'expected_version' => $performance->fresh()->version,
+        ]);
+        $response->assertRedirect()->assertSessionHasNoErrors();
+
+        $snapshot = $performance->fresh()->timing_snapshot;
+        $this->assertSame(2, $snapshot['boundary_foul_count']);
+        $this->assertSame(60, $snapshot['boundary_penalty_hundredths']);
+
+        // Approve and verify: 8.500000 gross - 0.600000 boundary penalty = 7.900000
+        $this->command($fixture, $performance, 'approve');
+        $result = $performance->result()->firstOrFail();
+        $this->assertSame('7.900000', $result->score);
+        $this->assertSame(60, $result->calculation_snapshot['timing']['boundary_penalty_hundredths']);
+    }
+
+    public function test_boundary_penalty_is_not_deducted_in_simultaneous_side_by_side_matches(): void
+    {
+        $this->freezeSecond();
+        $fixture = $this->competition(5, 2, 'knockout');
+        $fixture['category']->update(['execution_mode' => 'simultaneous']);
+        $this->schedule($fixture);
+        $performance = Performance::orderBy('id')->firstOrFail();
+
+        $this->command($fixture, $performance, 'start');
+        $this->travel(60)->seconds();
+        $this->command($fixture, $performance, 'finish');
+        $this->scoreAll($fixture, $performance);
+
+        // Attempting to deduct boundary penalty in simultaneous mode is not allowed
+        $url = route('operations.performance.boundary-penalty', [$fixture['tournament'], $performance]);
+        $response = $this->actingAs($fixture['admin'])->post($url, [
+            'foul_count' => 1,
+            'penalty_hundredths' => 30,
+            'reason' => 'خروج از خط مرزی در اجرای همزمان',
+            'expected_version' => $performance->fresh()->version,
+        ]);
+        $response->assertSessionHasErrors('operation');
+
+        // Setting foul count with 0 penalty succeeds (exemption applied)
+        $response = $this->actingAs($fixture['admin'])->post($url, [
+            'foul_count' => 1,
+            'penalty_hundredths' => 0,
+            'reason' => 'عدم کسر جریمهٔ خط در اجرای همزمان طبق قوانین',
+            'expected_version' => $performance->fresh()->version,
+        ]);
+        $response->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame(0, $performance->fresh()->timing_snapshot['boundary_penalty_hundredths']);
+    }
+
+    public function test_restart_deducts_point_six_from_accuracy_and_ignores_previous_deductions(): void
+    {
+        $calculator = app(CalculateScore::class);
+        $rules = [
+            'input_method' => 'deductions_and_components_v1',
+            'accuracy_max' => 400,
+            'presentation_max' => 600,
+        ];
+
+        // Before restart: two 0.10 deductions.
+        // Restart occurs: 0.60 deduction.
+        // After restart: one 0.30 deduction (e.g. omitted movement).
+        // Rule: Previous deductions are ignored, base accuracy becomes 3.4 (4.0 - 0.6 = 3.4).
+        // Final accuracy = 3.4 - 0.3 = 3.1 (310 hundredths).
+        $result = $calculator->detailedInput(
+            ['0.10', '0.10', '0.60', '0.30'],
+            ['2.00', '2.00', '2.00'], // 6.00 presentation
+            $rules
+        );
+
+        $this->assertSame(310, $result['accuracy']);
+        $this->assertSame(600, $result['presentation']);
+        $this->assertTrue($result['breakdown']['restarted']);
+        $this->assertSame(60, $result['breakdown']['restart_penalty_hundredths']);
+        $this->assertSame(340, $result['breakdown']['accuracy_base_hundredths']);
+        $this->assertSame([60, 30], $result['breakdown']['accuracy_penalties_hundredths']);
+    }
+
+    public function test_operator_or_head_referee_can_record_restart_on_performance(): void
+    {
+        $this->freezeSecond();
+        $fixture = $this->competition();
+        $this->schedule($fixture);
+        $performance = Performance::orderBy('id')->firstOrFail();
+
+        $this->command($fixture, $performance, 'start');
+        $startedAtBefore = $performance->fresh()->started_at;
+
+        $this->travel(15)->seconds();
+
+        // Record restart while running
+        $url = route('operations.performance.restart', [$fixture['tournament'], $performance]);
+        $response = $this->actingAs($fixture['admin'])->post($url, [
+            'reason' => 'ورزشکار پومسه را متوقف کرد و از ابتدا شروع کرد',
+            'expected_version' => $performance->fresh()->version,
+        ]);
+        $response->assertRedirect()->assertSessionHasNoErrors();
+
+        $snapshot = $performance->fresh()->timing_snapshot;
+        $this->assertTrue($snapshot['restarted']);
+        $this->assertSame(1, $snapshot['restart_count']);
+        // Timer was reset for the new execution
+        $this->assertNotSame($startedAtBefore->toISOString(), $performance->fresh()->started_at->toISOString());
+    }
 }

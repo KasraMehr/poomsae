@@ -28,6 +28,9 @@ Route::prefix('v1')->group(function () {
             Route::post('/tournaments/{tournament}/performances/{performance}/scores/batch', [CompetitionController::class, 'batchScores']);
             Route::post('/tournaments/{tournament}/performances/{performance}/proxy-scores', [CompetitionController::class, 'proxyScore']);
             Route::post('/tournaments/{tournament}/performances/{performance}/proxy-scores/{scoreSheet}/confirm', [CompetitionController::class, 'confirmProxyScore']);
+            Route::post('/tournaments/{tournament}/performances/{performance}/referee-penalty', [CompetitionController::class, 'refereePenalty']);
+            Route::post('/tournaments/{tournament}/performances/{performance}/timing-penalty', [CompetitionController::class, 'timingPenalty']);
+            Route::post('/tournaments/{tournament}/performances/{performance}/boundary-penalty', [CompetitionController::class, 'boundaryPenalty']);
         });
         Route::put('/tournaments/{tournament}/categories/{category}/management-snapshot', [CompetitionController::class, 'import'])->scopeBindings()->middleware('abilities:competition:manage');
         Route::post('/tournaments/{tournament}/categories', [CompetitionController::class, 'category'])->middleware('abilities:competition:manage');

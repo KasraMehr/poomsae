@@ -90,7 +90,8 @@ class TournamentController extends Controller
         return [
             'manage' => $request->user()->can('update', $tournament),
             'operate' => $tournament->status !== 'archived' && $request->user()->can('operate', $tournament),
-            'judge' => $request->user()->hasTournamentRole($tournament, ['judge']),
+            'judge' => $request->user()->hasTournamentRole($tournament, ['judge', 'head_referee']),
+            'head_referee' => $request->user()->hasTournamentRole($tournament, ['head_referee']),
         ];
     }
 

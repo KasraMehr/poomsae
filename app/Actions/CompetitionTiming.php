@@ -140,10 +140,72 @@ class CompetitionTiming
     public function applyPenalty(array $calculation, Performance $performance): array
     {
         $timing = $performance->timing_snapshot;
-        $penalty = (int) ($timing['penalty_hundredths'] ?? 0) * 10000;
+        $timePenalty = (int) ($timing['penalty_hundredths'] ?? 0);
+        $boundaryPenalty = (int) ($timing['boundary_penalty_hundredths'] ?? 0);
+        $refereePenalty = (int) ($timing['referee_penalty_hundredths'] ?? 0);
+        $totalPenaltyHundredths = $timePenalty + $boundaryPenalty + $refereePenalty;
+        $penalty = $totalPenaltyHundredths * 10000;
 
-        return [...$calculation, 'gross_score' => $calculation['score'], 'timing' => $timing,
-            'score' => $this->calculator->format(max(0, $this->calculator->micros($calculation['score']) - $penalty))];
+        return [
+            ...$calculation,
+            'gross_score' => $calculation['score'],
+            'timing' => [
+                ...($timing ?? []),
+                'time_penalty_hundredths' => $timePenalty,
+                'boundary_penalty_hundredths' => $boundaryPenalty,
+                'referee_penalty_hundredths' => $refereePenalty,
+                'total_penalty_hundredths' => $totalPenaltyHundredths,
+            ],
+            'score' => $this->calculator->format(max(0, $this->calculator->micros($calculation['score']) - $penalty)),
+        ];
+    }
+
+    /** @param array{penalty_hundredths?:?int, penalty?:?string, reason?:?string, expected_version:int} $data */
+    public function adjustRefereePenalty(User $actor, Tournament $tournament, Performance $performance, array $data, RunCompetition $run): void
+    {
+        Gate::forUser($actor)->authorize('operate', $tournament);
+        DB::transaction(function () use ($actor, $tournament, $performance, $data, $run): void {
+            $tournament = Tournament::lockForUpdate()->findOrFail($tournament->id);
+            $performance = Performance::lockForUpdate()->findOrFail($performance->id);
+            $bout = Bout::lockForUpdate()->findOrFail($performance->bout_id);
+            $category = Category::lockForUpdate()->findOrFail($bout->category_id);
+            abort_unless($category->tournament_id === $tournament->id, 404);
+            abort_unless($performance->version === (int) $data['expected_version'], 409, 'وضعیت اجرا تغییر کرده؛ صفحه را تازه کنید.');
+            $this->setup->check(in_array($performance->status, ['running', 'scoring', 'approved'], true), 'کسر نمرهٔ داور فقط پس از شروع یا ثبت اجرا قابل ثبت است.');
+
+            $penaltyHundredths = isset($data['penalty_hundredths'])
+                ? (int) $data['penalty_hundredths']
+                : (isset($data['penalty']) ? $this->calculator->hundredths((string) $data['penalty']) : 0);
+
+            $this->setup->check($penaltyHundredths >= 0 && $penaltyHundredths <= 1000, 'میزان کسر نمره باید بین ۰ تا ۱۰ نمره باشد.');
+
+            $timing = $performance->timing_snapshot ?? $this->rules($category);
+            $reason = trim($data['reason'] ?? 'کسر نمره به دستور داور/سرداور');
+
+            $newTiming = [
+                ...$timing,
+                'referee_penalty_hundredths' => $penaltyHundredths,
+                'referee_penalty_adjusted_by' => $actor->id,
+                'referee_penalty_adjusted_at' => now()->toIso8601String(),
+                'referee_penalty_reason' => $reason,
+            ];
+
+            $before = $performance->toArray();
+            $performance->update([
+                'timing_snapshot' => $newTiming,
+                'version' => $performance->version + 1,
+            ]);
+
+            $this->setup->audit($actor, $tournament, 'performance.referee_penalty_adjusted', 'performance', $performance->id, [
+                'timing_snapshot' => $newTiming,
+                'reason' => $reason,
+                'penalty_hundredths' => $penaltyHundredths,
+            ], $before);
+
+            if ($performance->status === 'approved' && $performance->result !== null) {
+                $run->recalculateApprovedResult($actor, $tournament, $performance, $reason);
+            }
+        }, 3);
     }
 
     /** @param array{penalty_hundredths:int, violation?:?string, reason:string, expected_version:int} $data */
@@ -187,6 +249,104 @@ class CompetitionTiming
             if ($performance->status === 'approved' && $performance->result !== null) {
                 $run->recalculateApprovedResult($actor, $tournament, $performance, trim($data['reason']));
             }
+        }, 3);
+    }
+
+    /** @param array{foul_count:int, penalty_hundredths?:?int, judge_votes?:?array<int>, reason:string, expected_version:int} $data */
+    public function adjustBoundaryPenalty(User $actor, Tournament $tournament, Performance $performance, array $data, RunCompetition $run): void
+    {
+        Gate::forUser($actor)->authorize('operate', $tournament);
+        DB::transaction(function () use ($actor, $tournament, $performance, $data, $run): void {
+            $tournament = Tournament::lockForUpdate()->findOrFail($tournament->id);
+            $performance = Performance::lockForUpdate()->findOrFail($performance->id);
+            $bout = Bout::lockForUpdate()->findOrFail($performance->bout_id);
+            $category = Category::lockForUpdate()->findOrFail($bout->category_id);
+            abort_unless($category->tournament_id === $tournament->id, 404);
+            abort_unless($performance->version === (int) $data['expected_version'], 409, 'وضعیت اجرا تغییر کرده؛ صفحه را تازه کنید.');
+            $this->setup->check(in_array($performance->status, ['scoring', 'approved'], true), 'جریمهٔ خط فقط پس از ثبت زمان پایان اجرا قابل ثبت است.');
+
+            $isSimultaneous = $category->execution_mode === 'simultaneous';
+            $foulCount = (int) $data['foul_count'];
+            $requestedPenalty = isset($data['penalty_hundredths']) ? (int) $data['penalty_hundredths'] : null;
+
+            if ($isSimultaneous) {
+                $this->setup->check($requestedPenalty === null || $requestedPenalty === 0, 'برای مسابقات اجرای همزمان (side by side)، کسر نمرهٔ خروج از خط مرزی اعمال نمی‌شود.');
+                $penaltyHundredths = 0;
+            } else {
+                $penaltyHundredths = $requestedPenalty ?? ($foulCount * 30);
+            }
+
+            $timing = $performance->timing_snapshot ?? $this->rules($category);
+            $newTiming = [
+                ...$timing,
+                'boundary_foul_count' => $foulCount,
+                'boundary_penalty_hundredths' => $penaltyHundredths,
+                'boundary_judge_votes' => $data['judge_votes'] ?? null,
+                'boundary_adjusted_by' => $actor->id,
+                'boundary_adjusted_at' => now()->toIso8601String(),
+                'boundary_adjustment_reason' => trim($data['reason']),
+            ];
+
+            $before = $performance->toArray();
+            $performance->update([
+                'timing_snapshot' => $newTiming,
+                'version' => $performance->version + 1,
+            ]);
+
+            $this->setup->audit($actor, $tournament, 'performance.boundary_penalty_adjusted', 'performance', $performance->id, [
+                'timing_snapshot' => $newTiming,
+                'reason' => trim($data['reason']),
+            ], $before);
+
+            if ($performance->status === 'approved' && $performance->result !== null) {
+                $run->recalculateApprovedResult($actor, $tournament, $performance, trim($data['reason']));
+            }
+        }, 3);
+    }
+
+    /** @param array{reason:string, expected_version:int} $data */
+    public function recordRestart(User $actor, Tournament $tournament, Performance $performance, array $data): void
+    {
+        Gate::forUser($actor)->authorize('operate', $tournament);
+        DB::transaction(function () use ($actor, $tournament, $performance, $data): void {
+            $tournament = Tournament::lockForUpdate()->findOrFail($tournament->id);
+            $performance = Performance::lockForUpdate()->findOrFail($performance->id);
+            $bout = Bout::lockForUpdate()->findOrFail($performance->bout_id);
+            $category = Category::lockForUpdate()->findOrFail($bout->category_id);
+            abort_unless($category->tournament_id === $tournament->id, 404);
+            abort_unless($performance->version === (int) $data['expected_version'], 409, 'وضعیت اجرا تغییر کرده؛ صفحه را تازه کنید.');
+            $this->setup->check(in_array($performance->status, ['running', 'scoring'], true), 'شروع مجدد فقط برای اجرای در حال اجرا یا در انتظار نمره قابل ثبت است.');
+
+            $timing = $performance->timing_snapshot ?? $this->rules($category);
+            $now = CarbonImmutable::now();
+
+            $newTiming = [
+                ...$timing,
+                'restarted' => true,
+                'restart_count' => ($timing['restart_count'] ?? 0) + 1,
+                'restarted_at' => $now->toIso8601String(),
+                'restart_reason' => trim($data['reason']),
+                'restart_recorded_by' => $actor->id,
+            ];
+
+            $updateData = [
+                'timing_snapshot' => $newTiming,
+                'version' => $performance->version + 1,
+            ];
+
+            if ($performance->status === 'running') {
+                $updateData['started_at'] = $now;
+                $newTiming['started_at_milliseconds'] = $now->getTimestampMs();
+                $updateData['timing_snapshot'] = $newTiming;
+            }
+
+            $before = $performance->toArray();
+            $performance->update($updateData);
+
+            $this->setup->audit($actor, $tournament, 'performance.restarted', 'performance', $performance->id, [
+                'timing_snapshot' => $newTiming,
+                'reason' => trim($data['reason']),
+            ], $before);
         }, 3);
     }
 }

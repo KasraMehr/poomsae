@@ -35,6 +35,32 @@ return [
             'time_penalty_hundredths' => 30,
         ],
     ],
+    'freestyle_scoring' => [
+        'technical' => [
+            'max' => 600,
+            'component_count' => 6,
+            'component_max' => 100,
+            'components' => [
+                ['key' => 'side_kick', 'name' => 'Side Kick', 'abbr' => 'S', 'max' => 100],
+                ['key' => 'front_kick', 'name' => 'Front Kick', 'abbr' => 'F', 'max' => 100],
+                ['key' => 'spin_gradient', 'name' => 'Spin Gradient', 'abbr' => 'G', 'max' => 100],
+                ['key' => 'sparring', 'name' => 'Sparring', 'abbr' => 'S', 'max' => 100],
+                ['key' => 'acrobatic', 'name' => 'Acrobatic', 'abbr' => 'A', 'max' => 100],
+                ['key' => 'basic_movements', 'name' => 'Basic Movements', 'abbr' => 'B', 'max' => 100],
+            ],
+        ],
+        'presentation' => [
+            'max' => 400,
+            'component_count' => 4,
+            'component_max' => 100,
+            'components' => [
+                ['key' => 'creativity', 'name' => 'Creativity', 'abbr' => 'C', 'max' => 100],
+                ['key' => 'harmony', 'name' => 'Harmony', 'abbr' => 'H', 'max' => 100],
+                ['key' => 'expression_of_energy', 'name' => 'Expression of Energy', 'abbr' => 'E', 'max' => 100],
+                ['key' => 'music', 'name' => 'Music', 'abbr' => 'M', 'max' => 100],
+            ],
+        ],
+    ],
     'age_categories' => [
         'recognized_individual_under_12' => [
             'label' => 'Individual Under 12', 'discipline' => 'recognized', 'entry_type' => 'individual', 'minimum_age' => null, 'maximum_age' => 11,

@@ -8,10 +8,13 @@ use App\Actions\DrawRoundForms;
 use App\Actions\RunCompetition;
 use App\Actions\ScheduleRound;
 use App\Actions\UpdateCompetitionSettings;
+use App\Http\Requests\AdjustPerformanceBoundaryPenaltyRequest;
+use App\Http\Requests\AdjustPerformanceRefereePenaltyRequest;
 use App\Http\Requests\AdjustPerformanceTimingPenaltyRequest;
 use App\Http\Requests\AssignRoundFormsRequest;
 use App\Http\Requests\CompetitionSetupRequest;
 use App\Http\Requests\PerformanceCommandRequest;
+use App\Http\Requests\RecordPerformanceRestartRequest;
 use App\Http\Requests\ResolveBoutRequest;
 use App\Http\Requests\ScheduleRoundRequest;
 use App\Http\Requests\UpdateCompetitionSettingsRequest;
@@ -121,6 +124,27 @@ class OperationsController extends Controller
         $timing->adjustPerformancePenalty($request->user(), $tournament, $performance, $request->validated(), $run);
 
         return back()->with('success', 'جریمهٔ زمانی اجرا ویرایش شد.');
+    }
+
+    public function adjustBoundaryPenalty(AdjustPerformanceBoundaryPenaltyRequest $request, Tournament $tournament, Performance $performance, CompetitionTiming $timing, RunCompetition $run): RedirectResponse
+    {
+        $timing->adjustBoundaryPenalty($request->user(), $tournament, $performance, $request->validated(), $run);
+
+        return back()->with('success', 'جریمهٔ خروج از خط مرزی ویرایش شد.');
+    }
+
+    public function adjustRefereePenalty(AdjustPerformanceRefereePenaltyRequest $request, Tournament $tournament, Performance $performance, CompetitionTiming $timing, RunCompetition $run): RedirectResponse
+    {
+        $timing->adjustRefereePenalty($request->user(), $tournament, $performance, $request->validated(), $run);
+
+        return back()->with('success', 'کسر نمرهٔ داور ذخیره شد.');
+    }
+
+    public function recordRestart(RecordPerformanceRestartRequest $request, Tournament $tournament, Performance $performance, CompetitionTiming $timing): RedirectResponse
+    {
+        $timing->recordRestart($request->user(), $tournament, $performance, $request->validated());
+
+        return back()->with('success', 'شروع مجدد اجرا ثبت شد.');
     }
 
     public function music(Request $request, Tournament $tournament, Performance $performance): BinaryFileResponse

@@ -96,7 +96,7 @@ class ScheduleRound
         foreach ($courtPanels as $panel) {
             $judgeIds = $panel['judge_ids'];
             $this->setup->check(count($judgeIds) === $category->judge_count && count(array_unique($judgeIds)) === $category->judge_count, 'تعداد داورهای متفاوت هر زمین باید دقیقاً برابر تنظیمات رده باشد.');
-            $this->setup->check($tournament->users()->wherePivot('role', 'judge')->where('is_active', true)->whereIn('users.id', $judgeIds)->count() === $category->judge_count, 'تمام داورها باید عضو فعال همین مسابقه باشند.');
+            $this->setup->check($tournament->users()->wherePivotIn('role', ['judge', 'head_referee'])->where('is_active', true)->whereIn('users.id', $judgeIds)->count() === $category->judge_count, 'تمام داورها باید عضو فعال همین مسابقه باشند.');
             $this->setup->check(array_intersect($allJudgeIds, $judgeIds) === [], 'زمین‌های همزمان باید پنل داوری مستقل داشته باشند.');
             $allJudgeIds = [...$allJudgeIds, ...$judgeIds];
         }
