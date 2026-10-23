@@ -40,7 +40,7 @@ class ScheduleRound
                     $check($bouts->count() > 1, 'فینال پایان یافته است.');
                     $ids = $bouts->pluck('winner_entry_id')->all();
                 } else {
-                    $ids = $bouts->filter(fn ($bout) => $bout->resolution_reason === null || ! str_starts_with($bout->resolution_reason, 'انصراف'))->flatMap(fn ($bout) => $bout->entries()->pluck('entries.id'))->all();
+                    $ids = $this->advancingRoundRobinEntries($category, $previous, ($previous->sequence ?? 0) + 1, isset($data['advancing_count']) ? (int) $data['advancing_count'] : null);
                 }
                 $seed = 'previous-round-'.$previous->id;
             } else {
@@ -140,5 +140,156 @@ class ScheduleRound
         }
         $round->update(['scheduled_at' => now(), 'schedule_version' => $round->schedule_version + 1]);
         $this->setup->audit($actor, $tournament, 'round.scheduled', 'competition_round', $round->id, ['draw_id' => $draw->id, 'bout_count' => count($pairs), 'schedule_version' => $round->schedule_version]);
+    }
+
+    /**
+     * Determine advancing entries for Round Robin (Cut-off system) according to WT standards:
+     * - Preliminary (20 or more contestants): Top 50% advance to Semi-final (rounded up).
+     * - Semi-final (9 to 19 contestants): Top 8 advance to Final.
+     * - Final (8 or fewer contestants): All advance to the final.
+     * In case of ties at the cut-off boundary, all contestants with tied scores advance.
+     *
+     * @return array<int, int>
+     */
+    public function advancingRoundRobinEntries(Category $category, CompetitionRound $previous, int $nextSequence, ?int $customAdvancingCount = null): array
+    {
+        $bouts = $previous->bouts()
+            ->with(['entries', 'performances.result'])
+            ->orderBy('sequence')
+            ->get();
+
+        $calculator = app(CalculateScore::class);
+        $aggregation = $category->scoringRuleSet?->definition['aggregation'] ?? ($category->discipline === 'freestyle' ? 'single_performance' : 'mean_two_forms');
+
+        $candidates = [];
+
+        foreach ($bouts as $bout) {
+            if ($bout->resolution_reason !== null && str_starts_with($bout->resolution_reason, 'انصراف')) {
+                continue;
+            }
+
+            $entry = $bout->entries->first();
+            if (! $entry) {
+                continue;
+            }
+
+            $approvedPerformances = $bout->performances->where('status', 'approved');
+            $forms = $approvedPerformances->where('entry_id', $entry->id);
+
+            $scoreMicros = null;
+            $presentationMicros = null;
+            $restoredMicros = null;
+
+            if ($forms->count() === $category->forms_per_round && $forms->every(fn ($p) => $p->result?->published_at !== null)) {
+                $sum = $forms->sum(fn ($p) => $calculator->micros($p->result->score));
+                $scoreMicros = ($aggregation === 'mean_two_forms' ? intdiv($sum + 1, 2) : $sum);
+
+                $presentationSum = 0;
+                $hasPresentation = true;
+                foreach ($forms as $p) {
+                    if (is_array($p->result?->calculation_snapshot)) {
+                        try {
+                            $presentationSum += $calculator->presentationMicros($p->result->calculation_snapshot);
+                        } catch (\Throwable) {
+                            $hasPresentation = false;
+                        }
+                    } else {
+                        $hasPresentation = false;
+                    }
+                }
+                if ($hasPresentation) {
+                    $presentationMicros = ($aggregation === 'mean_two_forms' ? intdiv($presentationSum + 1, 2) : $presentationSum);
+                }
+
+                $restoredFormScores = [];
+                $hasRestored = true;
+                foreach ($forms as $p) {
+                    if (is_array($p->result?->calculation_snapshot)) {
+                        try {
+                            $restored = $calculator->restoredMeanMicros($p->result->calculation_snapshot);
+                            if ($restored === null) {
+                                $hasRestored = false;
+                            } else {
+                                $restoredFormScores[] = $restored;
+                            }
+                        } catch (\Throwable) {
+                            $hasRestored = false;
+                        }
+                    } else {
+                        $hasRestored = false;
+                    }
+                }
+                if ($hasRestored && count($restoredFormScores) === $forms->count()) {
+                    $restoredSum = array_sum($restoredFormScores);
+                    $restoredMicros = ($aggregation === 'mean_two_forms' ? intdiv($restoredSum + 1, 2) : $restoredSum);
+                }
+            }
+
+            $candidates[] = [
+                'id' => $entry->id,
+                'score_micros' => $scoreMicros,
+                'presentation_micros' => $presentationMicros,
+                'restored_micros' => $restoredMicros,
+                'bout_sequence' => $bout->sequence,
+            ];
+        }
+
+        if ($candidates === []) {
+            return [];
+        }
+
+        // Sort candidates based on scores according to official tie-break rules:
+        usort($candidates, function (array $left, array $right): int {
+            $primaryComparison = ($right['score_micros'] ?? PHP_INT_MIN) <=> ($left['score_micros'] ?? PHP_INT_MIN);
+            if ($primaryComparison !== 0) {
+                return $primaryComparison;
+            }
+
+            $presentationComparison = ($right['presentation_micros'] ?? PHP_INT_MIN) <=> ($left['presentation_micros'] ?? PHP_INT_MIN);
+            if ($presentationComparison !== 0) {
+                return $presentationComparison;
+            }
+
+            $restoredComparison = ($right['restored_micros'] ?? PHP_INT_MIN) <=> ($left['restored_micros'] ?? PHP_INT_MIN);
+            if ($restoredComparison !== 0) {
+                return $restoredComparison;
+            }
+
+            return $left['bout_sequence'] <=> $right['bout_sequence'];
+        });
+
+        $count = count($candidates);
+        $isNextRoundFinal = ($category->planned_round_count !== null && $nextSequence === $category->planned_round_count);
+
+        if ($customAdvancingCount !== null && $customAdvancingCount > 0) {
+            $advancingCount = min($customAdvancingCount, $count);
+        } elseif ($count <= 8) {
+            $advancingCount = $count;
+        } elseif ($isNextRoundFinal) {
+            $advancingCount = min(8, $count);
+        } elseif ($count >= 20) {
+            $advancingCount = (int) ceil($count / 2);
+        } else {
+            // Between 9 and 19 contestants: top 8 advance
+            $advancingCount = min(8, $count);
+        }
+
+        $advancing = array_slice($candidates, 0, $advancingCount);
+        $lastAdvancing = end($advancing);
+
+        if ($lastAdvancing !== false && $lastAdvancing['score_micros'] !== null) {
+            for ($i = $advancingCount; $i < $count; $i++) {
+                $candidate = $candidates[$i];
+                if ($candidate['score_micros'] === $lastAdvancing['score_micros']
+                    && $candidate['presentation_micros'] === $lastAdvancing['presentation_micros']
+                    && $candidate['restored_micros'] === $lastAdvancing['restored_micros']) {
+                    $advancing[] = $candidate;
+                } else {
+                    break;
+                }
+            }
+        }
+
+        return array_column($advancing, 'id');
     }
 }

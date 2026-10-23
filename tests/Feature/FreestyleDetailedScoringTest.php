@@ -31,6 +31,20 @@ class FreestyleDetailedScoringTest extends TestCase
             'judge_count' => 5, 'accuracy_max' => 600, 'discard_each_end' => 1, 'rules_acknowledged' => true,
         ]);
         $fixture['category'] = $fixture['tournament']->categories()->where('discipline', 'freestyle')->firstOrFail();
+        $fixture['category']->scoringRuleSet->update([
+            'definition' => [
+                'algorithm' => 'component_trimmed_mean_v1',
+                'accuracy_max' => 600,
+                'presentation_max' => 400,
+                'accuracy_component_max' => 200,
+                'presentation_deduction_options' => [10, 30],
+                'input_method' => 'components_and_deductions_v1',
+                'discard_each_end' => 1,
+                'aggregation' => 'single_performance',
+                'tie_break' => 'restore_all_judges_mean_then_operator',
+                'age_basis' => 'birthday_on_start_date',
+            ],
+        ]);
         foreach (range(1, 2) as $index) {
             $setup->entry($fixture['admin'], $fixture['tournament'], $fixture['category'], [
                 'first_name' => 'Athlete '.$index, 'last_name' => 'Test', 'birth_date' => '2005-01-01',

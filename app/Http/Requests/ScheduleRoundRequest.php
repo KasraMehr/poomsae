@@ -22,6 +22,7 @@ class ScheduleRoundRequest extends FormRequest
             'courts.*.court_id' => ['required', 'integer', 'min:1', 'distinct'],
             'courts.*.judge_ids' => ['required', 'array', 'list'],
             'courts.*.judge_ids.*' => ['required', 'integer', 'min:1', 'distinct'],
+            'advancing_count' => ['sometimes', 'nullable', 'integer', 'min:1'],
         ];
     }
 }

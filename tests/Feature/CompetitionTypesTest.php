@@ -105,11 +105,14 @@ class CompetitionTypesTest extends TestCase
             $run->command($fixture['admin'], $fixture['tournament'], $item, ['command' => 'start', 'expected_version' => $item->fresh()->version]);
             $run->command($fixture['admin'], $fixture['tournament'], $item, ['command' => 'finish', 'expected_version' => $item->fresh()->version]);
             foreach ($fixture['judges'] as $judge) {
+                $accuracyComp = $item->id === $performance->id
+                    ? ['0.90', '0.90', '0.80', '0.80', '0.80', '0.80']
+                    : ['0.70', '0.70', '0.70', '0.70', '0.60', '0.60'];
                 $this->actingAs($judge)->post('/tournaments/'.$fixture['tournament']->id.'/performances/'.$item->id.'/scores', [
                     'request_id' => (string) Str::uuid(), 'expected_version' => $item->fresh()->version,
                     'expected_revision' => 0, 'accuracy' => $item->id === $performance->id ? '5.00' : '4.00',
-                    'presentation' => '3.00', 'accuracy_components' => $item->id === $performance->id ? ['2.00', '2.00', '1.00'] : ['2.00', '1.00', '1.00'],
-                    'presentation_penalties' => ['0.30', '0.30', '0.30', '0.10'],
+                    'presentation' => '3.00', 'accuracy_components' => $accuracyComp,
+                    'presentation_components' => ['0.80', '0.80', '0.70', '0.70'],
                 ])->assertSessionHasNoErrors();
             }
             $run->command($fixture['admin'], $fixture['tournament'], $item, ['command' => 'approve', 'expected_version' => $item->fresh()->version]);
@@ -186,7 +189,8 @@ class CompetitionTypesTest extends TestCase
         $this->actingAs($fixture['judges'][0])->post('/tournaments/'.$fixture['tournament']->id.'/performances/'.$performance->id.'/scores', [
             'request_id' => (string) Str::uuid(), 'expected_version' => $performance->fresh()->version,
             'expected_revision' => 0, 'accuracy' => '6.01', 'presentation' => '4.00',
-            'accuracy_components' => ['2.01', '2.00', '2.00'], 'presentation_penalties' => [],
+            'accuracy_components' => ['1.01', '1.00', '1.00', '1.00', '1.00', '1.00'],
+            'presentation_components' => ['1.00', '1.00', '1.00', '1.00'],
         ])->assertSessionHasErrors('operation');
         $this->assertDatabaseCount('score_sheets', 0);
     }
@@ -248,8 +252,9 @@ class CompetitionTypesTest extends TestCase
         foreach ($fixture['judges'] as $judge) {
             $this->actingAs($judge)->post(route('judging.store', [$fixture['tournament'], $first]), [
                 'request_id' => (string) Str::uuid(), 'expected_version' => $first->fresh()->version, 'expected_revision' => 0,
-                'accuracy' => '5.00', 'presentation' => '3.00', 'accuracy_components' => ['2.00', '2.00', '1.00'],
-                'presentation_penalties' => ['0.30', '0.30', '0.30', '0.10'],
+                'accuracy' => '5.00', 'presentation' => '3.00',
+                'accuracy_components' => ['0.90', '0.90', '0.80', '0.80', '0.80', '0.80'],
+                'presentation_components' => ['0.80', '0.80', '0.70', '0.70'],
             ])->assertSessionHasNoErrors();
         }
         $this->actingAs($fixture['admin'])->post(route('operations.command', [$fixture['tournament'], $first]), ['command' => 'approve', 'expected_version' => $first->fresh()->version])->assertSessionHasNoErrors();

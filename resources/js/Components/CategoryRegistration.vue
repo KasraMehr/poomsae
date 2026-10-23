@@ -1,6 +1,6 @@
 <script setup>
 import { useForm } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import FormErrors from './FormErrors.vue';
 import EntryDetailsEditor from './EntryDetailsEditor.vue';
 const props = defineProps({ category: Object, tournament: Object, base: String });
@@ -20,7 +20,13 @@ const submitEntry = () => entry.transform(data => {
     return payload;
 }).post(props.base + '/categories/' + props.category.id + '/entries', { preserveScroll: true, forceFormData: props.category.discipline === 'freestyle', onSuccess: () => entry.reset() });
 const status = useForm({ status: '' });
-const schedule = useForm({ courts: props.tournament.courts.length ? [{ court_id: props.tournament.courts[0].id, judge_ids: [] }] : [] });
+const schedule = useForm({ courts: props.tournament.courts.length ? [{ court_id: props.tournament.courts[0].id, judge_ids: [] }] : [], advancing_count: null });
+const selectedAdvancingPreset = ref('auto');
+watch(selectedAdvancingPreset, val => {
+    if (val === 'auto') schedule.advancing_count = null;
+    else if (val === '8') schedule.advancing_count = 8;
+    else if (val === '4') schedule.advancing_count = 4;
+});
 const availableJudges = computed(() => props.tournament.members.filter(member => member.role === 'judge' && member.is_active));
 const selectedCourtIds = computed(() => schedule.courts.map(panel => panel.court_id));
 const courtPanelsReady = computed(() => {
@@ -37,6 +43,7 @@ const draw = useForm({ round_id: null });
 const manualForms = useForm({ round_id: null, form_ids: [] });
 const scheduledRounds = computed(() => props.category.rounds.filter(round => round.scheduled));
 const nextStage = computed(() => props.category.rounds.find(round => !round.scheduled));
+const isNextRoundRobinStage = computed(() => props.category.format === 'round_robin' && scheduledRounds.value.length > 0);
 const canSchedule = computed(() => !props.category.completed && (!props.category.management_source || props.category.management_source === 'tkdhub') && (props.category.planned_round_count ? Boolean(nextStage.value) : !scheduledRounds.value.length || props.category.format === 'knockout'));
 const previousComplete = computed(() => !scheduledRounds.value.length || scheduledRounds.value.at(-1).status === 'completed');
 const drawAvailable = computed(() => Date.now() >= Date.parse(props.category.draw_available_at));
@@ -112,6 +119,27 @@ const scheduleRound = () => schedule.post(props.base + '/categories/' + props.ca
                     <legend>{{ courtName(panel.court_id) }} · پنل {{ category.judge_count }} نفره · {{ panel.judge_ids.length }} انتخاب شده</legend>
                     <div class="judge-options"><label v-for="judge in availableJudges" :key="judge.id" class="check"><input v-model="panel.judge_ids" type="checkbox" :value="judge.id" :disabled="schedule.processing || judgeAssignedElsewhere(judge.id, panel.court_id) || (!panel.judge_ids.includes(judge.id) && panel.judge_ids.length >= category.judge_count)">{{ judge.name }}</label></div>
                 </fieldset>
+                <div v-if="isNextRoundRobinStage" class="cutoff-setting" style="margin: 16px 0; padding: 12px; background: #f6f8f5; border-radius: 8px;">
+                    <p class="field-label" style="font-weight: bold; margin-bottom: 6px;">سقف صعود به این مرحله (کات‌آف)</p>
+                    <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                        <select v-model="selectedAdvancingPreset" style="padding: 6px 10px; border-radius: 6px; border: 1px solid #c8d3c5;">
+                            <option value="auto">خودکار طبق آیین‌نامه WT (۵۰٪ مقدماتی / ۸ نفر فینال)</option>
+                            <option value="8">۸ نفر برتر (فینال استاندارد)</option>
+                            <option value="4">۴ نفر برتر (فینال ۴ نفره)</option>
+                            <option value="custom">تعیین تعداد دلخواه...</option>
+                        </select>
+                        <input
+                            v-if="selectedAdvancingPreset === 'custom'"
+                            v-model.number="schedule.advancing_count"
+                            type="number"
+                            min="1"
+                            placeholder="تعداد نفرات"
+                            style="width: 120px; padding: 6px 10px; border-radius: 6px; border: 1px solid #c8d3c5;"
+                            required
+                        />
+                    </div>
+                    <p class="subtle" style="margin-top: 6px; font-size: 12px;">در صورت تساوی در مرز صعود، طبق آیین‌نامه کلیهٔ نفرات هم‌امتیاز صعود خواهند کرد.</p>
+                </div>
                 <p class="subtle">ترتیب انتخاب داورها، شمارهٔ صندلی را مشخص می‌کند. {{ category.format === 'knockout' ? 'پس از پایان همهٔ زمین‌های این رده، برنده‌ها برای مرحلهٔ بعد در جدول مشترک قرار می‌گیرند؛ برای ادامه می‌توانید تعداد زمین‌ها را کم کنید و فینال را روی یک زمین برگزار کنید.' : 'نتایج تمام زمین‌ها در رتبه‌بندی مشترک این رده جمع می‌شود؛ ساخت مرحلهٔ بعد پس از پایان همهٔ زمین‌های همین رده مجاز است.' }}</p>
                 <FormErrors :errors="schedule.errors"/><button class="button" :disabled="schedule.processing || !previousComplete || !courtPanelsReady || !automaticStagePlanReady">تأیید و ساخت جدول</button>
             </form>

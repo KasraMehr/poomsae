@@ -348,7 +348,7 @@ class CompetitionView
                         ] : []),
                     ])->values(),
                 ])->values(),
-                'rounds' => $rounds, 'completed' => $completed, 'champion_id' => $completed && $category->format === 'knockout' ? $last['bouts'][0]['winner_entry_id'] : null,
+                'rounds' => $rounds, 'completed' => $completed, 'champion_id' => $completed ? ($category->format === 'knockout' ? ($last['bouts'][0]['winner_entry_id'] ?? null) : ($standings->firstWhere('rank', 1)['id'] ?? null)) : null,
                 'planned_round_count' => $category->planned_round_count, 'allow_form_repetition' => $category->allow_form_repetition, 'form_draw_timing' => $category->form_draw_timing, 'form_draw_time' => $category->form_draw_time,
                 'round_count_automatic' => $automaticStageCount,
                 'open_appeal_count' => $appeals->where('category_id', $category->id)->whereIn('status', CompetitionAppeal::OPEN_STATUSES)->count(),

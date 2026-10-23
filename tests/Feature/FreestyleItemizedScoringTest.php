@@ -251,7 +251,8 @@ class FreestyleItemizedScoringTest extends TestCase
 
         // Check preview: gross 8.100000 - 0.500000 = 7.600000
         $public = app(CompetitionView::class)->snapshot($fixture['tournament'], $fixture['admin'], true);
-        $preview = collect(collect(collect($public['categories'][0]['rounds'])->first()['bouts'])->first()['performances'])->first();
+        $category = collect($public['categories'])->firstWhere('id', $fixture['category']->id);
+        $preview = collect(collect(collect($category['rounds'])->first()['bouts'])->first()['performances'])->first();
         $this->assertSame('7.600000', $preview['preview_result']);
 
         // Approve and verify published score has 0.50 deducted
