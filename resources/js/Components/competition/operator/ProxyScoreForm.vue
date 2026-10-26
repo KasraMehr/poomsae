@@ -14,6 +14,7 @@ const props = defineProps({
     performance: Object,
     rules: Object,
     endpoint: String,
+    expanded: { type: Boolean, default: false },
 });
 const missingJudges = computed(() =>
     props.performance.judges.filter((judge) =>
@@ -67,10 +68,11 @@ const dangerButton =
     <!-- Keep emergency scoring compatible with every configured score method. -->
     <details
         v-if="missingJudges.length"
+        :open="expanded"
         class="mt-5 border-t border-[#2a3c4f] pt-[15px]"
     >
         <summary class="!text-[#ffbd68]">
-            ثبت اضطراری به‌جای داور قطع‌شده
+            Manual score for a missing judge seat
         </summary>
         <form
             class="rounded-xl border border-[#3c4650] bg-[#101a27] p-[18px]"
@@ -79,14 +81,14 @@ const dangerButton =
             <div
                 class="mb-[15px] grid gap-[3px] rounded-[7px] border-r-4 border-[#f28350] bg-[#3b241c] px-[14px] py-3"
             >
-                <b class="text-[#ffb07d]">ثبت با مسئولیت اپراتور</b
+                <b class="text-[#ffb07d]">Operator responsibility</b
                 ><span class="text-[10px] text-[#d8b6a4]"
-                    >نام اپراتور، صندلی داور، دلیل و نمره در سابقهٔ غیرقابل حذف
-                    مسابقه ذخیره می‌شود.</span
+                    >The operator, judge seat, reason, and score are stored in the permanent
+                    competition audit trail.</span
                 >
             </div>
             <label :for="`proxy-seat-${performance.id}`" :class="labelClass"
-                >صندلی قطع‌شده</label
+                >Judge seat</label
             >
             <select
                 :id="`proxy-seat-${performance.id}`"
@@ -94,13 +96,13 @@ const dangerButton =
                 :class="fieldClass"
                 required
             >
-                <option value="" disabled>انتخاب صندلی داور</option>
+                <option value="" disabled>Select judge seat</option>
                 <option
                     v-for="judge in missingJudges"
                     :key="judge.id"
                     :value="judge.id"
                 >
-                    صندلی {{ judge.seat }} · {{ judge.name }}
+                    Seat {{ judge.seat }} · {{ judge.name }}
                 </option>
             </select>
             <ScoreEntryFields
@@ -112,7 +114,7 @@ const dangerButton =
                 theme="dark"
             />
             <label :for="`proxy-reason-${performance.id}`" :class="labelClass"
-                >دلیل و شرح قطعی ارتباط</label
+                >Reason for manual entry</label
             >
             <textarea
                 :id="`proxy-reason-${performance.id}`"
@@ -121,14 +123,14 @@ const dangerButton =
                 required
                 minlength="10"
                 maxlength="500"
-                placeholder="مثال: تبلت صندلی ۳ از شبکه خارج شد و سرداور ثبت جایگزین را تأیید کرد."
+                placeholder="Example: the judge tablet lost its network connection; the chief judge approved manual scoring."
             ></textarea>
             <FormErrors :errors="form.errors" />
             <button
                 :class="dangerButton"
                 :disabled="form.processing || !canSubmit"
             >
-                ثبت نمرهٔ جایگزین
+                Submit manual score for review
             </button>
         </form>
     </details>
