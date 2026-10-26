@@ -1,5 +1,7 @@
 # وضعیت دادهٔ صفحات Scoreboard
 
+> مسیر عملیاتی RTDS و جداسازی نقش‌ها در [راهنمای تحویل پنل‌ها](live-panels-handoff.md) آمده است. این سند فقط قرارداد داده را توضیح می‌دهد.
+
 این سند شکل داده‌ای را ثبت می‌کند که کد فعلی backend تولید می‌کند، نحوهٔ مصرف آن در صفحات Scoreboard و کمبودهایی را که روی انتخاب یا نمایش داده اثر می‌گذارند. بررسی route و دسترسی صفحه خارج از محدودهٔ این سند است.
 
 ## منبع دادهٔ فعلی
@@ -9,7 +11,7 @@
 ```text
 display
 ├── tournament   ← snapshot مسابقه، رده‌ها، راندها، boutها، اجراها و standings
-├── courts[]     ← زمین‌ها با current و upcoming
+├── courts[]     ← زمین‌ها با current، upcoming و previous_bout_id
 ├── revision
 └── generated_at
 ```
@@ -17,9 +19,9 @@ display
 فیلدهای اصلی در snapshot فعلی:
 
 - `tournament`: نام، وضعیت، زمین‌ها و `categories[]`.
-- `category`: قالب و رشته، تعداد فرم و داور، قوانین، شرکت‌کنندگان، راندها، `champion_id` و `standings[]`. دادهٔ `standings` فقط برای `round_robin` پر می‌شود.
+- `category`: قالب و رشته، تعداد فرم و داور، قوانین، شرکت‌کنندگان، راندها، `champion_id`، `standings[]` و `placements[]`. `standings` برای `round_robin` و `placements` برای رتبه‌بندی قابل انتشار استفاده می‌شود.
 - `round`: نام، `stage_label`، شماره و وضعیت راند، boutها و فرم‌های انتخاب‌شده.
-- `bout`: وضعیت، زمین، شرکت‌کنندگان، برنده، `totals[entry_id]` و اجراها.
+- `bout`: وضعیت، زمین، شرکت‌کنندگان، برنده، `totals[entry_id]`، `component_totals[entry_id]` و اجراها.
 - `performance`: شماره/نام/نشان فرم، وضعیت، زمان، نتیجهٔ منتشرشده یا موقت و `detailed_scores`.
 - `display.courts[]`: برای هر زمین `current` و فهرست مرتب‌شدهٔ `upcoming`. اگر همهٔ اجراهای یک bout تأیید شده باشند اما نتیجهٔ bout هنوز تعیین نشده باشد، `current.status` می‌تواند `decision` باشد.
 
