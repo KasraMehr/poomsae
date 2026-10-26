@@ -9,6 +9,8 @@ import { Head } from "@inertiajs/vue3";
 const props = defineProps({
     display: { type: Object, default: null },
     tournament: { type: Object, default: null },
+    focusBoutId: { type: [String, Number], default: null },
+    focusFormNumber: { type: [String, Number], default: null },
 });
 
 // Read the production Inertia envelope while keeping standalone lab snapshots supported.
@@ -36,6 +38,7 @@ const ruleMaximum = (rules, key) => {
 
 const resultPanels = computed(() => {
     const panels = [];
+    const currentBoutIds = tournament.value?.current_result?.bout_ids;
 
     for (const category of tournament.value?.categories ?? []) {
         const matchups = new Map();
@@ -43,12 +46,16 @@ const resultPanels = computed(() => {
         for (const round of category.rounds ?? []) {
             for (const bout of round.bouts ?? []) {
                 if (
-                    bout.status !== "completed" ||
+                    (bout.status !== "completed" && props.focusBoutId == null) ||
+                    (props.focusBoutId != null && String(bout.id) !== String(props.focusBoutId)) ||
+                    (Array.isArray(currentBoutIds) && !currentBoutIds.some((id) => String(id) === String(bout.id))) ||
                     !Array.isArray(bout.entries) ||
-                    bout.entries.length !== 2
+                    ![1, 2].includes(bout.entries.length)
                 ) {
                     continue;
                 }
+                if (props.focusBoutId != null && !(bout.performances ?? []).some(performance =>
+                    performance.result != null && (props.focusFormNumber == null || String(performance.form_number) === String(props.focusFormNumber)))) continue;
 
                 const entries = [...bout.entries].sort((left, right) =>
                     String(left.id).localeCompare(String(right.id)),
@@ -88,14 +95,16 @@ const resultPanels = computed(() => {
                         const performances = (bout.performances ?? []).filter(
                             (performance) =>
                                 String(performance.entry_id) ===
-                                String(entry.id),
+                                String(entry.id) &&
+                                (props.focusFormNumber == null || String(performance.form_number) === String(props.focusFormNumber)) &&
+                                (props.focusBoutId == null || performance.result != null),
                         );
                         const detailedScores =
                             performances.length === 1
                                 ? performances[0].detailed_scores
-                                : null;
+                                : bout.component_totals?.[entry.id] ?? null;
                         const maximumScores =
-                            performances[0]?.detailed_scores ?? null;
+                            detailedScores ?? performances[0]?.detailed_scores ?? null;
                         const accuracyMax =
                             maximumFrom(maximumScores?.accuracy_max) ??
                             ruleMaximum(category.rules, "accuracy");
@@ -118,7 +127,9 @@ const resultPanels = computed(() => {
                             accuracyMax,
                             presentation: detailedScores?.presentation ?? null,
                             presentationMax,
-                            total: bout.totals?.[entry.id] ?? null,
+                            total: props.focusFormNumber == null
+                                ? bout.totals?.[entry.id] ?? null
+                                : performances.find(performance => performance.result != null)?.result ?? null,
                             totalMax,
                         };
                     }),
@@ -163,7 +174,7 @@ const title = computed(() => resultPanels.value[0]?.title ?? "RESULT");
             v-if="!resultPanels.length"
             class="flex flex-1 items-center justify-center rounded-2xl border border-rtds-border-subtle bg-rtds-bg-card p-12 text-center text-rtds-text-secondary"
         >
-            نتیجهٔ اجرای ثبت‌شده‌ای وجود ندارد.
+            No approved result is available.
         </p>
 
         <section
@@ -171,7 +182,7 @@ const title = computed(() => resultPanels.value[0]?.title ?? "RESULT");
             :key="panel.id"
             class="flex min-h-0 flex-1 flex-col"
         >
-            <div class="grid grid-cols-2 items-center gap-[60px]">
+            <div class="grid items-center gap-[60px]" :class="panel.sides.length === 1 ? 'grid-cols-1' : 'grid-cols-2'">
                 <AthleteInfo
                     v-for="side in panel.sides"
                     :key="side.entry.id"
@@ -189,7 +200,7 @@ const title = computed(() => resultPanels.value[0]?.title ?? "RESULT");
             <!-- One-round result: each athlete has a stacked subscore column and a full-height total. -->
             <div
                 v-if="panel.rounds.length === 1"
-                class="mt-[45px] grid flex-1 grid-cols-2 items-stretch gap-[60px]"
+                class="mt-[45px] grid flex-1 items-stretch gap-[60px]" :class="panel.sides.length === 1 ? 'grid-cols-1' : 'grid-cols-2'"
             >
                 <div
                     v-for="side in panel.sides"
@@ -238,7 +249,7 @@ const title = computed(() => resultPanels.value[0]?.title ?? "RESULT");
             </div>
 
             <!-- Two-round result: each round shows its subscores and total, without winner highlighting. -->
-            <div v-else class="mt-2 grid flex-1 grid-cols-2 gap-[60px]">
+            <div v-else class="mt-2 grid flex-1 gap-[60px]" :class="panel.sides.length === 1 ? 'grid-cols-1' : 'grid-cols-2'">
                 <div
                     v-for="side in panel.sides"
                     :key="side.entry.id"
