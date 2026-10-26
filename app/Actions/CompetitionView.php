@@ -177,8 +177,10 @@ class CompetitionView
                                     'method' => $ruleDef['input_method'] ?? null,
                                     'judges' => $judges,
                                     'accuracy' => $accuracyMean !== null ? number_format((float) $accuracyMean, 2, '.', '') : null,
+                                    'accuracy_exact' => $accuracyMean,
                                     'accuracy_max' => number_format($accuracyMax, 1, '.', ''),
                                     'presentation' => $presentationMean !== null ? number_format((float) $presentationMean, 2, '.', '') : null,
+                                    'presentation_exact' => $presentationMean,
                                     'presentation_max' => number_format($presentationMax, 1, '.', ''),
                                     'total' => $totalScore !== null ? number_format((float) $totalScore, 2, '.', '') : null,
                                     'total_max' => number_format($accuracyMax + $presentationMax, 1, '.', ''),
@@ -197,6 +199,7 @@ class CompetitionView
                                 'server_now' => now()->toISOString(),
                                 'rest_ready_at' => $p->status === 'pending' && $category->minimum_rest_seconds > 0 ? $lastEnded->get($p->entry_id)?->copy()->addSeconds($category->minimum_rest_seconds)->toISOString() : null,
                                 'result' => $p->result?->published_at ? $p->result->score : null,
+                                'result_published_at' => $p->result?->published_at?->toISOString(),
                                 'appeal_status' => $appeals->get($p->id)?->status,
                                 'appeal_pending' => in_array($appeals->get($p->id)?->status, CompetitionAppeal::OPEN_STATUSES, true),
                                 'preview_result' => $previewResult,
@@ -239,7 +242,13 @@ class CompetitionView
                     default => strtoupper($round->name),
                 };
 
-                return ['id' => $round->id, 'name' => $round->name, 'stage_label' => $stageLabel, 'sequence' => $round->sequence, 'status' => $round->status, 'bouts' => $bouts,
+                $roundName = match ($round->name) {
+                    'مرحله '.$round->sequence => 'Round '.$round->sequence,
+                    'مرحلهٔ نهایی' => 'Final',
+                    default => $round->name,
+                };
+
+                return ['id' => $round->id, 'name' => $roundName, 'stage_label' => $stageLabel, 'sequence' => $round->sequence, 'status' => $round->status, 'bouts' => $bouts,
                     'score_correction_open' => in_array($tournament->status, ['running', 'completed'], true) && $round->sequence >= $lastStartedSequence,
                     'court_ids' => $bouts->pluck('court_id')->unique()->values(),
                     'scheduled' => $round->scheduled_at !== null || $bouts->isNotEmpty(), 'forms_ready' => $formsReady,
