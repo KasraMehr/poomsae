@@ -13,8 +13,11 @@ class TokenController extends Controller
     public function store(LoginRequest $request): JsonResponse
     {
         $user = $request->authenticatedUser();
-        $abilities = ['tournaments:read', 'scores:write'];
-        if ($user->is_admin || $user->tournaments()->wherePivotIn('role', ['manager', 'operator'])->exists()) {
+        $abilities = ['tournaments:read'];
+        if (! $user->is_admin && $user->tournaments()->wherePivot('role', 'judge')->exists()) {
+            $abilities[] = 'scores:write';
+        }
+        if (! $user->is_admin && $user->tournaments()->wherePivot('role', 'operator')->exists()) {
             $abilities[] = 'competition:operate';
         }
         if ($user->is_admin || $user->tournaments()->wherePivot('role', 'manager')->exists()) {
