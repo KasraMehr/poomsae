@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Actions\CompetitionConsole;
 use App\Actions\CompetitionDisplay;
 use App\Actions\RunCompetition;
 use App\Actions\SubmitScore;
@@ -17,17 +18,64 @@ class CompetitionDisplayTest extends TestCase
 {
     use CreatesCompetition, RefreshDatabase;
 
+    public function test_published_final_supplies_current_winner_and_knockout_placements(): void
+    {
+        $fixture = $this->competition();
+        $this->schedule($fixture);
+        $winnerId = $fixture['category']->entries()->orderBy('id')->firstOrFail()->id;
+        $runner = app(RunCompetition::class);
+
+        for ($index = 0; $index < 4; $index++) {
+            $next = app(CompetitionConsole::class)->snapshot($fixture['tournament'], $fixture['admin'])['courts'][0]['queue'][0];
+            $performance = Performance::findOrFail($next['id']);
+            $this->startScoring($fixture, $performance);
+            $this->scoreAll($fixture, $performance, $performance->entry_id === $winnerId ? '3.00' : '2.50', '5.50');
+            $runner->command($fixture['admin'], $fixture['tournament'], $performance, ['command' => 'approve', 'expected_version' => $performance->fresh()->version]);
+        }
+
+        $snapshot = app(CompetitionDisplay::class)->snapshot($fixture['tournament'], $fixture['admin']);
+        $this->assertSame($winnerId, $snapshot['tournament']['current_result']['winner_entry_id']);
+        $this->assertSame([$snapshot['courts'][0]['previous_bout_id']], $snapshot['tournament']['current_result']['bout_ids']);
+        $this->assertSame([1, 2], collect($snapshot['tournament']['categories'][0]['placements'])->pluck('rank')->all());
+        $this->assertSame($winnerId, $snapshot['tournament']['categories'][0]['placements'][0]['entry_id']);
+        $finalBout = $snapshot['tournament']['categories'][0]['rounds'][0]['bouts'][0];
+        $this->assertSame('6.000000', $finalBout['component_totals'][$winnerId]['accuracy']);
+        $this->assertSame('11.000000', $finalBout['component_totals'][$winnerId]['presentation']);
+        $this->assertSame('20.000000', $finalBout['component_totals'][$winnerId]['total_max']);
+    }
+
+    public function test_modular_scoreboard_pages_use_the_live_display_snapshot(): void
+    {
+        $fixture = $this->competition();
+        $this->schedule($fixture);
+        $courtId = $fixture['tournament']->courts()->firstOrFail()->id;
+        $displayUser = User::factory()->create();
+        $fixture['tournament']->users()->attach($displayUser, ['role' => 'display']);
+
+        foreach (['standby' => 'Standby', 'live' => 'LiveBoard', 'scoring' => 'Scoring', 'result' => 'Result', 'ranking' => 'Ranking', 'top-four' => 'TopFour', 'draw' => 'Draw', 'winner' => 'Winner'] as $view => $component) {
+            $this->actingAs($displayUser)->get(route('scoreboard.page', [$fixture['tournament'], $view, 'court' => $courtId]))
+                ->assertOk()
+                ->assertInertia(fn (Assert $page) => $page->component('Scoreboard/'.$component)->where('courtId', $courtId)->has('display.tournament.categories', 1));
+        }
+
+        $this->get(route('scoreboard.page', [$fixture['tournament'], 'draw', 'court' => 999]))->assertNotFound();
+        $this->get(route('scoreboard.page', [$fixture['tournament'], 'unknown']))->assertNotFound();
+        $this->actingAs(User::factory()->create())->get(route('scoreboard.page', [$fixture['tournament'], 'scoring']))->assertForbidden();
+    }
+
     public function test_display_pages_and_data_are_read_only_and_members_only(): void
     {
         $fixture = $this->competition();
         $this->schedule($fixture);
         $viewer = User::factory()->create();
-        $fixture['tournament']->users()->attach($viewer, ['role' => 'judge']);
+        $fixture['tournament']->users()->attach($viewer, ['role' => 'display']);
         $operator = User::factory()->create();
         $fixture['tournament']->users()->attach($operator, ['role' => 'operator']);
-        $this->actingAs($operator)->get(route('scoreboard.show', $fixture['tournament']))->assertOk();
+        $this->actingAs($operator)->get(route('scoreboard.show', $fixture['tournament']))->assertForbidden();
         $this->actingAs($viewer)->get(route('scoreboard.rtds', $fixture['tournament']))->assertOk()
-            ->assertInertia(fn (Assert $page) => $page->component('Competition/Rtds')->has('display.courts', 1)->has('displayUrls.data'));
+            ->assertInertia(fn (Assert $page) => $page->component('Competition/Rtds')->has('display.courts', 1)
+                ->where('courtId', $fixture['tournament']->courts()->firstOrFail()->id)->has('displayUrls.data'));
+        $this->get(route('scoreboard.rtds', [$fixture['tournament'], 'court' => 999]))->assertNotFound();
         $this->get(route('scoreboard.show', $fixture['tournament']))->assertOk()
             ->assertInertia(fn (Assert $page) => $page->component('Competition/Scoreboard')->has('display.tournament.categories', 1));
         $response = $this->getJson(route('scoreboard.data', $fixture['tournament']))->assertOk()->assertJsonPath('data.tournament.members', []);
@@ -35,7 +83,7 @@ class CompetitionDisplayTest extends TestCase
         $this->assertSame([], $performance['scores']);
         $this->assertNull($performance['own_score']);
         $this->assertNull($performance['music_url']);
-        $this->post(route('operations.command', [$fixture['tournament'], $performance['id']]), ['command' => 'start', 'expected_version' => $performance['version']])->assertForbidden();
+        $this->actingAs($viewer)->post(route('operations.command', [$fixture['tournament'], $performance['id']]), ['command' => 'start', 'expected_version' => $performance['version']])->assertForbidden();
         $this->actingAs(User::factory()->create())->getJson(route('scoreboard.data', $fixture['tournament']))->assertForbidden();
         $this->get(route('scoreboard.rtds', $fixture['tournament']))->assertForbidden();
     }
@@ -47,7 +95,9 @@ class CompetitionDisplayTest extends TestCase
         $performance = Performance::query()->orderBy('id')->firstOrFail();
         $this->startScoring($fixture, $performance);
         $url = route('scoreboard.data', $fixture['tournament']);
-        $initial = $this->actingAs($fixture['admin'])->getJson($url)->assertOk();
+        $displayUser = User::factory()->create();
+        $fixture['tournament']->users()->attach($displayUser, ['role' => 'display']);
+        $initial = $this->actingAs($displayUser)->getJson($url)->assertOk();
         $revision = $initial->json('data.revision');
         $this->getJson($url.'?revision='.$revision)->assertJsonPath('changed', false)->assertJsonMissingPath('data');
         app(SubmitScore::class)->handle($fixture['judges'][0], $fixture['tournament'], $performance, [

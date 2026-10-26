@@ -94,7 +94,7 @@ class MultiCourtCompetitionTest extends TestCase
         $bouts = $firstRound->bouts()->orderBy('sequence')->get();
         foreach ($bouts->reverse() as $bout) {
             $first = $bout->performances()->orderBy('form_number')->orderBy('id')->firstOrFail();
-            $this->actingAs($fixture['admin'])->post('/tournaments/'.$fixture['tournament']->id.'/performances/'.$first->id.'/command', ['command' => 'start', 'expected_version' => $first->version])->assertSessionHasNoErrors();
+            $this->actingAs($fixture['operator'])->post('/tournaments/'.$fixture['tournament']->id.'/performances/'.$first->id.'/command', ['command' => 'start', 'expected_version' => $first->version])->assertSessionHasNoErrors();
         }
         $console = app(CompetitionConsole::class)->snapshot($fixture['tournament'], $fixture['admin']);
         $this->assertSame(4, $console['attention']['running']);
@@ -109,7 +109,7 @@ class MultiCourtCompetitionTest extends TestCase
             }
             if ($index === 2) {
                 $this->assertSame('running', $firstRound->fresh()->status);
-                $this->post('/tournaments/'.$fixture['tournament']->id.'/categories/'.$fixture['category']->id.'/rounds', ['courts' => array_slice($fixture['court_panels'], 0, 2)])->assertSessionHasErrors('operation');
+                $this->actingAs($fixture['admin'])->post('/tournaments/'.$fixture['tournament']->id.'/categories/'.$fixture['category']->id.'/rounds', ['courts' => array_slice($fixture['court_panels'], 0, 2)])->assertSessionHasErrors('operation');
                 $this->assertNull($fixture['category']->rounds()->where('sequence', 2)->firstOrFail()->scheduled_at);
             }
         }
@@ -190,7 +190,7 @@ class MultiCourtCompetitionTest extends TestCase
         foreach ($categories as $index => $category) {
             $this->scheduleOnCourts($fixture, [$fixture['court_panels'][$index]], $category);
             $performance = $category->rounds()->firstOrFail()->bouts()->firstOrFail()->performances()->orderBy('id')->firstOrFail();
-            $this->actingAs($fixture['admin'])->post('/tournaments/'.$fixture['tournament']->id.'/performances/'.$performance->id.'/command', ['command' => 'start', 'expected_version' => $performance->version])->assertSessionHasNoErrors();
+            $this->actingAs($fixture['operator'])->post('/tournaments/'.$fixture['tournament']->id.'/performances/'.$performance->id.'/command', ['command' => 'start', 'expected_version' => $performance->version])->assertSessionHasNoErrors();
         }
         $console = app(CompetitionConsole::class)->snapshot($fixture['tournament'], $fixture['admin']);
         $this->assertSame(4, $console['attention']['running']);
@@ -209,6 +209,12 @@ class MultiCourtCompetitionTest extends TestCase
             $runner->command($fixture['admin'], $fixture['tournament'], $performance, ['command' => 'start', 'expected_version' => $performance->version]);
         }
         $this->assertSame(8, Performance::where('status', 'running')->count());
+        $judgeView = app(CompetitionView::class)->snapshot($fixture['tournament'], $fixture['judges'][0]);
+        $firstBout = collect($judgeView['categories'][0]['rounds'][0]['bouts'])
+            ->firstWhere('court_id', $fixture['court_panels'][0]['court_id']);
+        $this->assertSame('simultaneous', $judgeView['categories'][0]['execution_mode']);
+        $this->assertSame(['chung', 'hong'], collect($firstBout['entries'])->pluck('side')->sort()->values()->all());
+        $this->assertCount(2, collect($firstBout['performances'])->filter(fn (array $performance): bool => $performance['status'] === 'running' && $performance['is_assigned'] && $performance['started_at'] !== null));
         $this->assertSame(4, collect(app(CompetitionDisplay::class)->snapshot($fixture['tournament'], $fixture['admin'])['courts'])->filter(fn (array $court): bool => $court['current'] !== null)->count());
 
         foreach ($courts as $court) {

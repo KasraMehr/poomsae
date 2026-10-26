@@ -271,7 +271,7 @@ class CompetitionBroadcastTest extends TestCase
         $performance = Performance::firstOrFail();
         Event::fake([CompetitionUpdated::class, CompetitionDomainUpdated::class]);
 
-        $this->actingAs($fixture['admin'])->post('/tournaments/'.$fixture['tournament']->id.'/performances/'.$performance->id.'/command', ['command' => 'finish', 'expected_version' => 1])->assertSessionHasErrors('operation');
+        $this->actingAs($fixture['operator'])->post('/tournaments/'.$fixture['tournament']->id.'/performances/'.$performance->id.'/command', ['command' => 'finish', 'expected_version' => 1])->assertSessionHasErrors('operation');
 
         $this->assertSame('pending', $performance->fresh()->status);
         Event::assertNotDispatched(CompetitionUpdated::class);
