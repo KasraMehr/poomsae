@@ -36,11 +36,13 @@ trait CreatesCompetition
             $setup->entryStatus($admin, $tournament, $entry, 'checked_in');
         }
         $judges = User::factory()->count($judgeCount)->create();
+        $operator = User::factory()->create();
+        $tournament->users()->attach($operator->id, ['role' => 'operator']);
         foreach ($judges as $judge) {
             $tournament->users()->attach($judge->id, ['role' => 'judge']);
         }
 
-        return compact('admin', 'tournament', 'category', 'judges');
+        return compact('admin', 'operator', 'tournament', 'category', 'judges');
     }
 
     protected function schedule(array $fixture): void
