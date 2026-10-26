@@ -91,6 +91,9 @@ class CompetitionSetup
                 $user = User::create(['name' => $data['name'], 'email' => $data['email'], 'password' => $data['password']]);
             }
             $this->check($user->is_active, 'حساب انتخاب‌شده غیرفعال است.');
+            $this->check(! $user->is_admin, 'حساب مدیر سامانه نمی‌تواند نقش داور، اپراتور یا نمایشگر بگیرد.');
+            $existingRole = DB::table('tournament_user')->where('user_id', $user->id)->value('role');
+            $this->check($existingRole === null || $existingRole === $data['role'], 'هر حساب فقط می‌تواند یک نوع پنل داشته باشد.');
             if ($data['role'] === 'operator') {
                 $this->check(
                     ! DB::table('tournament_user')->where('tournament_id', $tournament->id)->where('role', 'operator')->exists(),
