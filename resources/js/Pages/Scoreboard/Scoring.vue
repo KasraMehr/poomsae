@@ -21,10 +21,10 @@ const tournament = computed(
 );
 
 const statusLabels = {
-    draft: "پیش‌نویس",
-    ready: "آماده",
-    running: "در حال برگزاری",
-    completed: "پایان‌یافته",
+    draft: "DRAFT",
+    ready: "READY",
+    running: "IN PROGRESS",
+    completed: "COMPLETED",
 };
 
 const stage = computed(() => statusLabels[tournament.value?.status] ?? "");
@@ -212,7 +212,7 @@ const athleteProps = (entry) => ({
             v-if="!scoringPanels.length"
             class="flex flex-1 items-center justify-center rounded-2xl border border-rtds-border-subtle bg-rtds-bg-card p-12 text-center text-rtds-text-secondary"
         >
-            در حال حاضر رقابتی در حال اجرا نیست.
+            No performance is currently being scored.
         </p>
 
         <section
