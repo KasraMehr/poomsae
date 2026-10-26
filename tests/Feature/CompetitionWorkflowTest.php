@@ -8,6 +8,7 @@ use App\Actions\SubmitScore;
 use App\Models\AuditLog;
 use App\Models\Bout;
 use App\Models\Performance;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\CreatesCompetition;
@@ -24,7 +25,7 @@ class CompetitionWorkflowTest extends TestCase
         $this->startScoring($f, $p);
         foreach (Bout::orderBy('id')->get() as $bout) {
             $winner = $bout->entries()->firstOrFail()->id;
-            $this->actingAs($f['admin'])->post('/tournaments/'.$f['tournament']->id.'/bouts/'.$bout->id.'/resolve', [
+            $this->actingAs($f['operator'])->post('/tournaments/'.$f['tournament']->id.'/bouts/'.$bout->id.'/resolve', [
                 'decision_type' => 'walkover', 'confirmed' => true,
                 'winner_entry_id' => $winner, 'reason' => 'انصراف ثبت‌شدهٔ طرف مقابل',
             ])->assertSessionHasNoErrors()->assertRedirect();
@@ -37,7 +38,9 @@ class CompetitionWorkflowTest extends TestCase
         $this->assertSame(1, $final->bouts()->count());
         $this->assertSame(2, $final->bouts()->firstOrFail()->entries()->count());
         $this->get('/tournaments/'.$f['tournament']->id)->assertOk();
-        $this->get('/tournaments/'.$f['tournament']->id.'/scoreboard')->assertOk();
+        $display = User::factory()->create();
+        $f['tournament']->users()->attach($display, ['role' => 'display']);
+        $this->actingAs($display)->get('/tournaments/'.$f['tournament']->id.'/scoreboard')->assertOk();
     }
 
     public function test_category_and_member_setup_are_available_through_authorized_http_forms(): void
@@ -66,15 +69,15 @@ class CompetitionWorkflowTest extends TestCase
         foreach ($bout->performances()->orderBy('form_number')->orderBy('id')->get() as $performance) {
             $this->startScoring($f, $performance);
             $this->scoreAll($f, $performance, '2.50', $performance->entry_id === $winner ? '6.00' : '5.00');
-            $this->actingAs($f['admin'])->post('/tournaments/'.$f['tournament']->id.'/performances/'.$performance->id.'/command', [
+            $this->actingAs($f['operator'])->post('/tournaments/'.$f['tournament']->id.'/performances/'.$performance->id.'/command', [
                 'command' => 'approve', 'expected_version' => $performance->fresh()->version,
             ])->assertSessionHasNoErrors()->assertRedirect();
         }
         $this->assertSame($winner, $bout->fresh()->winner_entry_id);
         $this->assertSame('completed', $bout->fresh()->status);
-        $this->post('/tournaments/'.$f['tournament']->id.'/complete')->assertSessionHasNoErrors()->assertRedirect();
+        $this->actingAs($f['admin'])->post('/tournaments/'.$f['tournament']->id.'/complete')->assertSessionHasNoErrors()->assertRedirect();
         $this->assertSame('completed', $f['tournament']->fresh()->status);
-        $this->get('/tournaments/'.$f['tournament']->id)->assertOk();
+        $this->actingAs($f['operator'])->get('/tournaments/'.$f['tournament']->id)->assertOk();
         $response = $this->get('/tournaments/'.$f['tournament']->id.'/results.csv')->assertOk()->assertDownload('tournament-'.$f['tournament']->id.'-results.csv');
         $lines = collect(preg_split('/\R/u', $response->streamedContent()))->filter()->values();
         $this->assertStringStartsWith("\xEF\xBB\xBFردیف,", $lines[0]);
@@ -103,7 +106,7 @@ class CompetitionWorkflowTest extends TestCase
         $first = $submit->handle($f['judges'][0], $f['tournament'], $p, $data);
         $this->assertSame($first, $submit->handle($f['judges'][0], $f['tournament'], $p, $data));
         $this->assertDatabaseCount('score_revisions', 1);
-        $this->actingAs($f['admin'])->post('/tournaments/'.$f['tournament']->id.'/performances/'.$p->id.'/command', ['command' => 'approve', 'expected_version' => $p->fresh()->version])->assertSessionHasErrors('operation');
+        $this->actingAs($f['operator'])->post('/tournaments/'.$f['tournament']->id.'/performances/'.$p->id.'/command', ['command' => 'approve', 'expected_version' => $p->fresh()->version])->assertSessionHasErrors('operation');
         foreach ($f['judges']->skip(1) as $judge) {
             $submit->handle($judge, $f['tournament'], $p, [...$data, 'request_id' => (string) Str::uuid()]);
         }
@@ -187,7 +190,7 @@ class CompetitionWorkflowTest extends TestCase
         $this->schedule($fixture);
         $performances = Performance::query()->orderBy('form_number')->orderBy('id')->get();
         $firstSecondForm = $performances->firstWhere('form_number', 2);
-        $this->actingAs($fixture['admin'])->post('/tournaments/'.$fixture['tournament']->id.'/performances/'.$firstSecondForm->id.'/command', [
+        $this->actingAs($fixture['operator'])->post('/tournaments/'.$fixture['tournament']->id.'/performances/'.$firstSecondForm->id.'/command', [
             'command' => 'start', 'expected_version' => $firstSecondForm->version,
         ])->assertSessionHasErrors('operation');
 
@@ -226,7 +229,7 @@ class CompetitionWorkflowTest extends TestCase
         app(RunCompetition::class)->command($fixture['admin'], $fixture['tournament'], $firstForm, [
             'command' => 'approve', 'expected_version' => $firstForm->fresh()->version,
         ]);
-        $this->actingAs($fixture['admin'])->post('/tournaments/'.$fixture['tournament']->id.'/performances/'.$nextAthleteFirstForm->id.'/command', [
+        $this->actingAs($fixture['operator'])->post('/tournaments/'.$fixture['tournament']->id.'/performances/'.$nextAthleteFirstForm->id.'/command', [
             'command' => 'start', 'expected_version' => $nextAthleteFirstForm->version,
         ])->assertSessionHasErrors('operation');
     }
@@ -314,7 +317,7 @@ class CompetitionWorkflowTest extends TestCase
         $this->assertNull($bout->winner_entry_id);
         $this->assertSame('running', $bout->status);
         $winner = $bout->entries()->firstOrFail()->id;
-        $this->actingAs($f['admin'])->post('/tournaments/'.$f['tournament']->id.'/bouts/'.$bout->id.'/resolve', ['winner_entry_id' => $winner, 'reason' => 'تصمیم سرداور طبق آیین‌نامه رویداد'])->assertSessionHasNoErrors();
+        $this->actingAs($f['operator'])->post('/tournaments/'.$f['tournament']->id.'/bouts/'.$bout->id.'/resolve', ['winner_entry_id' => $winner, 'reason' => 'تصمیم سرداور طبق آیین‌نامه رویداد'])->assertSessionHasNoErrors();
         $this->assertSame($winner, $bout->fresh()->winner_entry_id);
         $this->assertDatabaseHas('audit_logs', ['action' => 'bout.tie_resolved', 'subject_id' => $bout->id]);
     }

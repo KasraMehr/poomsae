@@ -22,19 +22,32 @@ class CompetitionConsoleTest extends TestCase
     {
         $fixture = $this->competition();
         $this->schedule($fixture);
+        $operator = User::factory()->create();
+        $fixture['tournament']->users()->attach($operator, ['role' => 'operator']);
 
-        $this->actingAs($fixture['admin'])->get(route('tournaments.show', $fixture['tournament']))
+        $this->actingAs($operator)->get(route('tournaments.show', $fixture['tournament']))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Competition/Console')
                 ->has('console.courts', 1)
+                ->has('console.courts.0.matches', 1)
+                ->has('console.courts.0.matches.0.entries', 2)
+                ->has('console.recent_events')
+                ->has('competitionUrls.scoreboard_pages', 8)
                 ->where('console.attention.ready', 1));
 
         $this->actingAs($fixture['judges'][0])->get(route('tournaments.show', $fixture['tournament']))
             ->assertRedirect(route('judging.index', $fixture['tournament']));
+        $this->actingAs($fixture['admin'])->get(route('tournaments.show', $fixture['tournament']))
+            ->assertRedirect(route('tournaments.setup', $fixture['tournament']));
 
         $this->actingAs(User::factory()->create())->get(route('tournaments.show', $fixture['tournament']))
             ->assertForbidden();
+
+        $this->actingAs($fixture['admin'])->get(route('competition.system', $fixture['tournament']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->component('Competition/System')->where('system.database', 'online'));
+        $this->actingAs($fixture['judges'][0])->get(route('competition.system', $fixture['tournament']))->assertForbidden();
     }
 
     public function test_console_tracks_court_state_and_each_missing_judge_seat(): void
@@ -46,6 +59,8 @@ class CompetitionConsoleTest extends TestCase
 
         $initial = $console->snapshot($fixture['tournament'], $fixture['admin']);
         $this->assertNull($initial['courts'][0]['active']);
+        $this->assertSame($fixture['category']->id, $initial['courts'][0]['matches'][0]['category_id']);
+        $this->assertSame($initial['courts'][0]['matches'][0]['id'], $initial['courts'][0]['queue'][0]['bout_id']);
         $this->assertSame(1, $initial['attention']['ready']);
         $this->assertTrue(collect($initial['courts'][0]['queue'])->every(fn (array $queued) => $queued['form_number'] === 1));
 
@@ -55,6 +70,9 @@ class CompetitionConsoleTest extends TestCase
         ]);
         $running = $console->snapshot($fixture['tournament'], $fixture['admin']);
         $this->assertSame($performance->id, $running['courts'][0]['active']['id']);
+        $this->assertSame('running', $running['courts'][0]['matches'][0]['performances'][0]['status']);
+        $this->assertSame('performance.start', $running['recent_events'][0]['action']);
+        $this->assertSame('شروع اجرا', $running['recent_events'][0]['label']);
         $this->assertSame(1, $running['attention']['running']);
 
         $runner->command($fixture['admin'], $fixture['tournament'], $performance, [
@@ -92,6 +110,8 @@ class CompetitionConsoleTest extends TestCase
             $setup->entryStatus($fixture['admin'], $fixture['tournament'], $entry, 'checked_in');
         }
         $this->schedule([...$fixture, 'category' => $category]);
+        $operator = User::factory()->create();
+        $fixture['tournament']->users()->attach($operator, ['role' => 'operator']);
         $bout = $category->rounds()->firstOrFail()->bouts()->firstOrFail();
         $performances = $bout->performances()->orderBy('form_number')->orderBy('id')->get();
         $winnerEntryId = $performances->first()->entry_id;
@@ -100,7 +120,7 @@ class CompetitionConsoleTest extends TestCase
         foreach ($performances as $index => $performance) {
             $this->startScoring($fixture, $performance);
             $this->scoreAll($fixture, $performance, '2.50', $performance->entry_id === $winnerEntryId ? '6.00' : '5.00');
-            $this->actingAs($fixture['admin'])->post(route('operations.command', [$fixture['tournament'], $performance]), [
+            $this->actingAs($operator)->post(route('operations.command', [$fixture['tournament'], $performance]), [
                 'command' => 'approve', 'expected_version' => $performance->fresh()->version,
             ])->assertRedirect()->assertSessionHasNoErrors();
 

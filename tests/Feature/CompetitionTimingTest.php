@@ -83,7 +83,7 @@ class CompetitionTimingTest extends TestCase
         $this->assertSame($endedAt->copy()->addSeconds(30)->toISOString(), $console['courts'][0]['queue'][0]['rest_ready_at']);
         $this->travel(19)->seconds();
         $url = route('operations.command', [$fixture['tournament'], $next]);
-        $this->post($url, ['command' => 'start', 'expected_version' => 1, 'rest_ready_at' => '2000-01-01'])->assertSessionHasErrors('operation');
+        $this->actingAs($fixture['operator'])->post($url, ['command' => 'start', 'expected_version' => 1, 'rest_ready_at' => '2000-01-01'])->assertSessionHasErrors('operation');
         $this->assertSame('pending', $next->fresh()->status);
         $this->travel(1)->seconds();
         $this->post($url, ['command' => 'start', 'expected_version' => 1])->assertSessionHasNoErrors();
@@ -119,7 +119,7 @@ class CompetitionTimingTest extends TestCase
         }
         $firstForms[0]->update(['ended_at' => now()->subMinute(), 'timing_snapshot' => [...$firstForms[0]->fresh()->timing_snapshot, 'ended_at_milliseconds' => now()->subMinute()->getTimestampMs()]]);
         $secondForms = Performance::where('form_number', 2)->orderBy('id')->get();
-        $this->post(route('operations.command', [$fixture['tournament'], $secondForms[0]]), ['command' => 'start', 'expected_version' => 1])->assertSessionHasErrors('operation');
+        $this->actingAs($fixture['operator'])->post(route('operations.command', [$fixture['tournament'], $secondForms[0]]), ['command' => 'start', 'expected_version' => 1])->assertSessionHasErrors('operation');
         foreach ($secondForms as $performance) {
             $this->assertSame('pending', $performance->fresh()->status);
             $this->assertNull($performance->fresh()->started_at);

@@ -72,7 +72,7 @@ class CompetitionFlowTest extends TestCase
         $otherPerformance = $bouts[1]->performances()->orderBy('id')->firstOrFail();
         $secondForm = $bouts[0]->performances()->where('entry_id', $performance->entry_id)->where('form_number', 2)->firstOrFail();
         $commandUrl = '/tournaments/'.$fixture['tournament']->id.'/performances/'.$performance->id.'/command';
-        $this->actingAs($fixture['admin']);
+        $this->actingAs($fixture['operator']);
 
         foreach (['finish', 'approve'] as $invalidCommand) {
             $this->post($commandUrl, ['command' => $invalidCommand, 'expected_version' => $performance->version])
@@ -91,7 +91,7 @@ class CompetitionFlowTest extends TestCase
         $run->command($fixture['admin'], $fixture['tournament'], $performance, ['command' => 'start', 'expected_version' => 1]);
         $this->assertSame('running', $fixture['tournament']->fresh()->status);
         $this->assertNotNull($performance->fresh()->started_at);
-        $this->actingAs($fixture['admin'])->post($commandUrl, ['command' => 'finish', 'expected_version' => 1])->assertStatus(409);
+        $this->actingAs($fixture['operator'])->post($commandUrl, ['command' => 'finish', 'expected_version' => 1])->assertStatus(409);
         $this->post($commandUrl, ['command' => 'start', 'expected_version' => $performance->fresh()->version])->assertSessionHasErrors('operation');
         $this->post('/tournaments/'.$fixture['tournament']->id.'/performances/'.$otherPerformance->id.'/command', [
             'command' => 'start', 'expected_version' => $otherPerformance->version,
@@ -105,7 +105,7 @@ class CompetitionFlowTest extends TestCase
         ]);
         $this->assertSame('scoring', $performance->fresh()->status);
         $this->assertNotNull($performance->fresh()->ended_at);
-        $this->post($commandUrl, ['command' => 'approve', 'expected_version' => $performance->fresh()->version])
+        $this->actingAs($fixture['operator'])->post($commandUrl, ['command' => 'approve', 'expected_version' => $performance->fresh()->version])
             ->assertSessionHasErrors('operation');
 
         $score['expected_version'] = $performance->fresh()->version;
@@ -127,7 +127,7 @@ class CompetitionFlowTest extends TestCase
         ]);
         $this->assertSame('approved', $performance->fresh()->status);
         $this->assertDatabaseHas('results', ['performance_id' => $performance->id, 'score' => '8.500000']);
-        $this->actingAs($fixture['admin'])->post($commandUrl, [
+        $this->actingAs($fixture['operator'])->post($commandUrl, [
             'command' => 'approve', 'expected_version' => $performance->fresh()->version,
         ])->assertSessionHasErrors('operation');
         $this->assertDatabaseCount('results', 1);
@@ -156,7 +156,7 @@ class CompetitionFlowTest extends TestCase
         $run->command($fixture['admin'], $fixture['tournament'], $firstPerformance, [
             'command' => 'start', 'expected_version' => $firstPerformance->version,
         ]);
-        $this->actingAs($fixture['admin'])->post('/tournaments/'.$fixture['tournament']->id.'/performances/'.$secondPerformance->id.'/command', [
+        $this->actingAs($fixture['operator'])->post('/tournaments/'.$fixture['tournament']->id.'/performances/'.$secondPerformance->id.'/command', [
             'command' => 'start', 'expected_version' => $secondPerformance->version,
         ])->assertSessionHasErrors('operation');
 
@@ -183,7 +183,7 @@ class CompetitionFlowTest extends TestCase
             'command' => 'start', 'expected_version' => $firstPerformance->version,
         ]);
 
-        $this->actingAs($second['admin'])->post('/tournaments/'.$second['tournament']->id.'/performances/'.$secondPerformance->id.'/command', [
+        $this->actingAs($second['operator'])->post('/tournaments/'.$second['tournament']->id.'/performances/'.$secondPerformance->id.'/command', [
             'command' => 'start', 'expected_version' => $secondPerformance->version,
         ])->assertSessionHasErrors('operation');
 
