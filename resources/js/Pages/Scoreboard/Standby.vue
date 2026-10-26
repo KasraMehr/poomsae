@@ -24,6 +24,9 @@ const props = defineProps({
         type: [String, Number],
         default: null,
     },
+    phase: { type: String, default: null },
+    focusItem: { type: Object, default: null },
+    upcoming: { type: Array, default: () => [] },
 });
 
 // Accept the production display envelope and the standalone lab snapshot.
@@ -38,11 +41,22 @@ const statusLabels = {
     completed: "COMPLETED",
 };
 
-const stage = computed(() => statusLabels[tournament.value?.status] ?? "");
+const stage = computed(() => props.phase === 'call' ? 'CALL TO COURT' : props.phase === 'waiting' ? 'WAITING LIST' : statusLabels[tournament.value?.status] ?? "");
 
 const finished = computed(() => tournament.value?.status === "completed");
 
 const currentExecution = computed(() => {
+    if (props.phase === 'call' && props.focusItem) {
+        for (const category of tournament.value?.categories ?? []) {
+            for (const round of category.rounds ?? []) {
+                const bout = (round.bouts ?? []).find(item => String(item.id) === String(props.focusItem.bout_id));
+                if (!bout) continue;
+                const performance = bout.performances?.find(item => String(item.id) === String(props.focusItem.id));
+                if (performance) return { category, round, bout, performance, entries: bout.entries ?? [], state: 'call' };
+            }
+        }
+    }
+    if (props.phase === 'waiting') return null;
     for (const category of tournament.value?.categories ?? []) {
         for (const round of category.rounds ?? []) {
             for (const bout of round.bouts ?? []) {
@@ -183,12 +197,13 @@ const courts = computed(() => tournament.value?.courts ?? []);
 
                 <!-- FORM + TIMER -->
                 <section
-                    class="grid min-h-0 flex-1 grid-cols-2 items-center gap-10"
+                    class="grid min-h-0 flex-1 items-center gap-6 lg:gap-10"
+                    :class="phase === 'call' ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-2'"
                 >
                     <!-- FORM: LEFT -->
                     <div class="flex min-w-0 items-center justify-start">
                         <FormBadge
-                            size="xxxl"
+                            :size="phase === 'call' ? 'xl' : 'xxxl'"
                             :symbol-key="formSymbolKey"
                             :form-name="
                                 currentExecution.performance.form_name
@@ -201,8 +216,9 @@ const courts = computed(() => tournament.value?.courts ?? []);
 
                     <!-- TIMER: RIGHT -->
                     <div class="flex items-center justify-center">
+                        <span v-if="phase === 'call'" class="text-6xl font-semibold uppercase text-rtds-gold-bright">READY</span>
                         <Timer
-                            v-if="durationSeconds != null"
+                            v-else-if="durationSeconds != null"
                             size="xl"
                             :duration-seconds="durationSeconds"
                             :started-at="
@@ -229,13 +245,21 @@ const courts = computed(() => tournament.value?.courts ?? []);
                     {{
                         finished
                             ? "TOURNAMENT COMPLETED"
-                            : "NO ACTIVE PERFORMANCE"
+                            : phase === 'waiting' ? 'WAITING LIST' : "NO ACTIVE PERFORMANCE"
                     }}
                 </p>
 
-                <p class="text-rtds-text-secondary">
-                    Results are published after operator approval.
-                </p>
+                <div v-if="phase === 'waiting' && upcoming.length" class="flex w-full max-w-5xl flex-col gap-3">
+                    <div v-for="(item, index) in upcoming.slice(0, 4)" :key="item.id" class="flex items-center gap-6 rounded-xl border border-rtds-border bg-rtds-bg-card px-6 py-4 text-left">
+                        <span class="text-3xl font-semibold text-rtds-gold-bright">{{ String(index + 1).padStart(2, '0') }}</span>
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate text-2xl font-semibold">{{ item.entries.map(entry => entry.name).join(' / ') }}</p>
+                            <p class="text-rtds-text-secondary">{{ item.category_name }} · {{ item.form_name }}</p>
+                        </div>
+                        <span class="text-rtds-text-secondary">MATCH {{ item.bout_sequence }}</span>
+                    </div>
+                </div>
+                <p v-else class="text-rtds-text-secondary">{{ phase === 'waiting' ? 'AWAITING NEXT MATCH' : 'Results are published after operator approval.' }}</p>
 
                 <div
                     v-if="courts.length"
