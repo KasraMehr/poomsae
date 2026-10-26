@@ -1,26 +1,117 @@
 <script setup>
-import { computed, ref } from 'vue';
-import { Head, Link } from '@inertiajs/vue3';
+import { computed, ref, watch } from 'vue';
 import { useDisplayUpdates } from '../../Shared/Composables/useDisplayUpdates';
-import { connectionLabels, statusLabels } from '../../Shared/Services/display';
-import PerformanceTiming from '../../Components/competition/PerformanceTiming.vue';
-const props = defineProps({ display: Object, displayUrls: Object });
-const { display, now, connection } = useDisplayUpdates(props.display, props.displayUrls.data);
-const courtId = ref('');
-const courts = computed(() => display.value.courts.filter(court => !courtId.value || court.id === Number(courtId.value)));
+import Standby from '../Scoreboard/Standby.vue';
+import LiveBoard from '../Scoreboard/LiveBoard.vue';
+import Scoring from '../Scoreboard/Scoring.vue';
+import Result from '../Scoreboard/Result.vue';
+import Winner from '../Scoreboard/Winner.vue';
+import Ranking from '../Scoreboard/Ranking.vue';
+
+const props = defineProps({ display: Object, displayUrls: Object, courtId: [Number, String] });
+const { display, now } = useDisplayUpdates(props.display, props.displayUrls.data);
+const clockOffset = ref(Date.parse(props.display.generated_at) - Date.now());
+watch(display, snapshot => clockOffset.value = Date.parse(snapshot.generated_at) - Date.now());
+
+const court = computed(() => display.value.courts.find(item => String(item.id) === String(props.courtId)) ?? null);
+const current = computed(() => court.value?.current ?? null);
+const upcoming = computed(() => court.value?.upcoming ?? []);
+const firstReady = computed(() => upcoming.value[0]?.ready ? upcoming.value[0] : null);
+const queueSince = ref(Date.now());
+watch(() => firstReady.value?.id, () => queueSince.value = Date.now());
+
+const courtBouts = computed(() => (display.value.tournament.categories ?? []).flatMap(category =>
+    (category.rounds ?? []).flatMap(round => (round.bouts ?? [])
+        .filter(bout => String(bout.court_id) === String(props.courtId))
+        .map(bout => ({ category, round, bout })))));
+const latest = computed(() => courtBouts.value.flatMap(item => (item.bout.performances ?? [])
+    .filter(performance => performance.result !== null && performance.result_published_at)
+    .map(performance => ({ ...item, performance })))
+    .sort((left, right) => Date.parse(right.performance.result_published_at) - Date.parse(left.performance.result_published_at))[0] ?? null);
+const hasWinner = computed(() => latest.value?.bout.status === 'completed'
+    && latest.value.bout.winner_entry_id != null && latest.value.bout.entries?.length === 2);
+const winnerConfirmedAt = ref(null);
+watch(() => hasWinner.value ? `${latest.value?.bout.id}:${latest.value?.bout.winner_entry_id}` : null,
+    (value, previous) => {
+        if (value && value !== previous) winnerConfirmedAt.value = Date.now();
+    });
+const hasRanking = computed(() => {
+    const category = latest.value?.category;
+    return Boolean(category && (category.placements?.length || category.standings?.some(row => row.rank != null)));
+});
+const sequence = computed(() => [
+    { phase: 'result', duration: 6000 },
+    ...(hasWinner.value ? [{ phase: 'winner', duration: 7000 }] : []),
+    ...(hasRanking.value ? [{ phase: 'ranking', duration: 8000 }] : []),
+]);
+const sequenceDuration = computed(() => sequence.value.reduce((total, step) => total + step.duration, 0));
+const publishedAge = computed(() => latest.value
+    ? Math.max(0, now.value + clockOffset.value - Date.parse(latest.value.performance.result_published_at)) : null);
+const presentation = computed(() => {
+    if (publishedAge.value === null) return null;
+    if (publishedAge.value < 6000 || current.value?.status === 'decision') return 'result';
+    const winnerStart = Math.max(
+        Date.parse(latest.value.performance.result_published_at) - clockOffset.value + 6000,
+        winnerConfirmedAt.value ?? 0,
+    );
+    if (hasWinner.value && now.value < winnerStart + 7000) return 'winner';
+    if (hasRanking.value && now.value < (hasWinner.value ? winnerStart + 15000 :
+        Date.parse(latest.value.performance.result_published_at) - clockOffset.value + 14000)) return 'ranking';
+    return null;
+});
+const phase = computed(() => {
+    if (current.value?.status === 'running') return 'live';
+    if (current.value?.status === 'scoring') return 'scoring';
+    if (presentation.value) return presentation.value;
+    if (!firstReady.value) return 'waiting';
+    const winnerEnd = hasWinner.value && winnerConfirmedAt.value
+        ? winnerConfirmedAt.value + (hasRanking.value ? 15000 : 7000)
+        : 0;
+    const presentationEnd = latest.value
+        ? Date.parse(latest.value.performance.result_published_at) - clockOffset.value + sequenceDuration.value
+        : 0;
+    const waitingAge = now.value - Math.max(queueSince.value, presentationEnd, winnerEnd);
+    return waitingAge < 4000 ? 'waiting' : 'call';
+});
+const screens = { waiting: Standby, call: Standby, live: LiveBoard, scoring: Scoring, result: Result, winner: Winner, ranking: Ranking };
+const screen = computed(() => screens[phase.value]);
+
+// Each RTDS URL shows only its own court. A result on another court cannot
+// replace this court's result or winner screen.
+const screenDisplay = computed(() => {
+    const focus = ['result', 'winner'].includes(phase.value) ? latest.value : null;
+    const categories = (display.value.tournament.categories ?? []).flatMap(category => {
+        if (phase.value === 'ranking' && String(category.id) !== String(latest.value?.category.id)) return [];
+        const rounds = (category.rounds ?? []).flatMap(round => {
+            const bouts = (round.bouts ?? []).filter(bout => String(bout.court_id) === String(props.courtId)
+                && (!focus || String(bout.id) === String(focus.bout.id)))
+                .map(bout => phase.value === 'scoring' ? {
+                    ...bout,
+                    performances: (bout.performances ?? []).map(performance => performance.result != null
+                        ? performance : { ...performance, preview_result: null, detailed_scores: null }),
+                } : bout);
+            return bouts.length ? [{ ...round, bouts }] : [];
+        });
+        return rounds.length || (phase.value === 'ranking' && String(category.id) === String(latest.value?.category.id))
+            ? [{ ...category, rounds }] : [];
+    });
+    return {
+        ...display.value,
+        courts: court.value ? [court.value] : [],
+        tournament: { ...display.value.tournament, categories, courts: court.value ? [court.value] : [], current_result: null },
+    };
+});
 </script>
 
 <template>
-    <div class="scoreboard hall-display rtds-display">
-        <Head :title="`RTDS · ${display.tournament.name}`" />
-        <header class="scoreboard-header"><div><span class="eyebrow">RTDS · برنامهٔ اجراهای سالن</span><h1>{{ display.tournament.name }}</h1><p>{{ statusLabels[display.tournament.status] }}</p></div><div class="display-controls"><label>زمین<select v-model="courtId"><option value="">همهٔ زمین‌ها</option><option v-for="court in display.courts" :key="court.id" :value="court.id">{{ court.name }}</option></select></label><Link :href="displayUrls.scoreboard">نمایشگر امتیازات</Link><Link :href="displayUrls.back">بازگشت</Link></div></header>
-        <p class="display-connection" :class="connection" role="status">{{ connectionLabels[connection] }}<span v-if="connection === 'denied'"> · <Link :href="displayUrls.back">ورود مجدد</Link></span></p>
-        <div v-if="!courts.length" class="scoreboard-wait">هنوز زمینی تعریف نشده است.</div>
-        <div class="rtds-courts"><section v-for="court in courts" :key="court.id" class="rtds-court"><header><h2>{{ court.name }}</h2><span class="display-badge" :class="court.current?.status || 'pending'">{{ court.current ? statusLabels[court.current.status] : 'آمادهٔ فراخوان' }}</span></header>
-            <article v-if="court.current" class="rtds-current"><span class="eyebrow">اجرای جاری · {{ court.current.category_name }}</span><h3 v-for="entry in court.current.entries" :key="entry.id" :class="court.current.format === 'knockout' ? entry.side : ''">{{ entry.name }}</h3><p>{{ court.current.round_name }} · رقابت {{ court.current.bout_sequence }} · {{ statusLabels[court.current.round_status] }}</p><strong>{{ court.current.form_name }}</strong><div v-for="performance in court.current.performances" :key="performance.id"><p>{{ statusLabels[performance.status] }}<span v-if="performance.status === 'scoring'"> · {{ performance.submitted_count }} نمره دریافت شد</span></p><PerformanceTiming :performance="performance"/></div></article>
-            <article v-else class="rtds-current"><span class="eyebrow">اجرای جاری</span><h3>زمین آماده است</h3><p>اجرای بعدی از فهرست زیر فراخوان می‌شود.</p></article>
-            <section class="rtds-queue"><h3>اجراهای بعدی</h3><ol v-if="court.upcoming.length"><li v-for="item in court.upcoming" :key="item.id"><div class="rtds-queue-heading"><b>{{ item.entries.map(entry => entry.name).join(' / ') }}</b><span>{{ item.ready ? 'در صف اجرا' : 'در انتظار آماده‌شدن مرحله یا پایان اجرای جاری' }}</span></div><p>{{ item.category_name }} · {{ item.round_name }} · رقابت {{ item.bout_sequence }}</p><p>{{ item.form_name }} · {{ statusLabels[item.status] }}</p><PerformanceTiming v-for="performance in item.performances" :key="performance.id" :performance="performance"/></li></ol><p v-else>اجرای دیگری در جدول این زمین ثبت نشده است.</p></section>
-        </section></div>
-        <footer>صف اجرا مطابق جدول و ترتیب فرم‌های هر مرحله است.<span>نمایشگر فقط برای مشاهده است.</span></footer>
-    </div>
+    <component
+        :is="screen"
+        :display="screenDisplay"
+        :court-id="courtId"
+        :phase="phase"
+        :focus-item="firstReady"
+        :upcoming="upcoming"
+        :focus-bout-id="latest?.bout.id"
+        :focus-form-number="latest?.performance.form_number"
+    />
 </template>
