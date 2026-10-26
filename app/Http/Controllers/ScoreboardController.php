@@ -18,6 +18,34 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ScoreboardController extends Controller
 {
+    private const PAGE_COMPONENTS = [
+        'standby' => 'Standby',
+        'live' => 'LiveBoard',
+        'scoring' => 'Scoring',
+        'result' => 'Result',
+        'ranking' => 'Ranking',
+        'top-four' => 'TopFour',
+        'draw' => 'Draw',
+        'winner' => 'Winner',
+    ];
+
+    public function page(Request $request, Tournament $tournament, string $view, CompetitionDisplay $display): Response
+    {
+        Gate::authorize('view', $tournament);
+        abort_unless(isset(self::PAGE_COMPONENTS[$view]), 404);
+
+        $snapshot = $display->snapshot($tournament, $request->user());
+        $courtId = $request->integer('court');
+        if ($courtId !== 0) {
+            abort_unless(collect($snapshot['courts'])->contains('id', $courtId), 404);
+        }
+
+        return Inertia::render('Scoreboard/'.self::PAGE_COMPONENTS[$view], [
+            'display' => $snapshot,
+            'courtId' => $courtId ?: ($snapshot['courts'][0]['id'] ?? null),
+        ]);
+    }
+
     public function show(Request $request, Tournament $tournament, CompetitionDisplay $display): Response
     {
         Gate::authorize('view', $tournament);
@@ -29,7 +57,17 @@ class ScoreboardController extends Controller
     {
         Gate::authorize('view', $tournament);
 
-        return Inertia::render('Competition/Rtds', ['display' => $display->snapshot($tournament, $request->user()), 'displayUrls' => $this->urls($tournament)]);
+        $snapshot = $display->snapshot($tournament, $request->user());
+        $courtId = $request->integer('court');
+        if ($courtId !== 0) {
+            abort_unless(collect($snapshot['courts'])->contains('id', $courtId), 404);
+        }
+
+        return Inertia::render('Competition/Rtds', [
+            'display' => $snapshot,
+            'displayUrls' => $this->urls($tournament),
+            'courtId' => $courtId ?: ($snapshot['courts'][0]['id'] ?? null),
+        ]);
     }
 
     public function data(Request $request, Tournament $tournament, CompetitionDisplay $display): JsonResponse
@@ -47,7 +85,7 @@ class ScoreboardController extends Controller
     private function urls(Tournament $tournament): array
     {
         return ['data' => route('scoreboard.data', $tournament), 'scoreboard' => route('scoreboard.show', $tournament),
-            'rtds' => route('scoreboard.rtds', $tournament), 'back' => route('tournaments.show', $tournament)];
+            'rtds' => route('scoreboard.rtds', $tournament), 'back' => route('scoreboard.rtds', $tournament)];
     }
 
     public function results(Request $request, Tournament $tournament, CompetitionView $view, ExportCompetitionResults $exporter): HtmlResponse
