@@ -25,6 +25,6 @@ class JudgingController extends Controller
     {
         $submit->handle($request->user(), $tournament, $performance, $request->validated());
 
-        return back()->with('success','نمرهٔ شما ذخیره شد.');
+        return back()->with('success', 'نمرهٔ شما ذخیره شد.');
     }
 }

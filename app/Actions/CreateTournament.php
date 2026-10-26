@@ -18,11 +18,12 @@ class CreateTournament
         return DB::transaction(function () use ($actor, $data): Tournament {
             $tournament = Tournament::create([...$data, 'created_by' => $actor->id, 'status' => 'draft']);
             $tournament->users()->attach($actor, ['role' => 'manager']);
-            AuditLog::create([
+            $audit = AuditLog::create([
                 'tournament_id' => $tournament->id, 'user_id' => $actor->id,
                 'action' => 'tournament.created', 'subject_type' => 'tournament',
                 'subject_id' => $tournament->id, 'after' => $tournament->toArray(),
             ]);
+            app(PublishCompetitionUpdate::class)->handle($audit);
             TournamentCreated::dispatch($tournament->id);
 
             return $tournament;

@@ -8,6 +8,7 @@ defineProps({
 
 <template>
     <div
+        dir="ltr"
         class="relative min-h-screen w-full overflow-hidden bg-rtds-bg text-rtds-text font-rtds"
     >
         <!-- Broadcast Backdrop -->
@@ -69,22 +70,22 @@ defineProps({
             <slot name="header">
                 <header class="shrink-0 px-10 pt-8 pb-4">
                     <div class="grid grid-cols-3 items-center">
-                    <div
-                        class="justify-self-start text-left text-lg uppercase tracking-wide text-rtds-text-secondary"
-                    >
-                        {{ stage }}
+                        <div
+                            class="justify-self-start text-left text-lg uppercase tracking-wide text-rtds-text-secondary"
+                        >
+                            {{ stage }}
+                        </div>
+                        <div
+                            class="text-center text-2xl font-semibold uppercase tracking-wider"
+                        >
+                            {{ center }}
+                        </div>
+                        <div
+                            class="justify-self-end text-right text-lg uppercase tracking-wide text-rtds-text-secondary"
+                        >
+                            {{ category }}
+                        </div>
                     </div>
-                    <div
-                        class="text-center text-2xl font-semibold uppercase tracking-wider"
-                    >
-                        {{ center }}
-                    </div>
-                    <div
-                        class="justify-self-end text-right text-lg uppercase tracking-wide text-rtds-text-secondary"
-                    >
-                        {{ category }}
-                    </div>
-                </div>
                     <div class="mt-4 h-px w-full bg-rtds-border" />
                 </header>
             </slot>

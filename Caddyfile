@@ -1,0 +1,34 @@
+{
+    admin off
+    auto_https off
+}
+
+{$SERVER_NAME::8000} {
+    bind {$MERCURE_BIND:127.0.0.1}
+
+    mercure {
+        issuer {$APP_URL:http://localhost:8000} {
+            publisher {
+                jwt {env.MERCURE_PUBLISHER_JWT_KEY} HS256
+            }
+            subscriber {
+                jwt {env.MERCURE_SUBSCRIBER_JWT_KEY} HS256
+            }
+        }
+        resource_identifier {$MERCURE_JWT_AUDIENCE:http://127.0.0.1:8000/.well-known/mercure}
+        public_urls {$MERCURE_PUBLIC_URLS:http://127.0.0.1:8000/.well-known/mercure http://localhost:8000/.well-known/mercure}
+        cors_origins {$MERCURE_ORIGINS:http://127.0.0.1:8000 http://localhost:8000}
+        publish_origins {$MERCURE_ORIGINS:http://127.0.0.1:8000 http://localhost:8000}
+        cookie_name mercure_access_token
+        subscriptions
+        heartbeat 10s
+        transport bolt {
+            path {$MERCURE_HISTORY_PATH:storage/app/mercure/history.db}
+            size 10000
+        }
+    }
+
+    reverse_proxy {$APP_UPSTREAM:127.0.0.1:8001} {
+        flush_interval -1
+    }
+}

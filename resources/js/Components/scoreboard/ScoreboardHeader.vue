@@ -14,8 +14,8 @@ defineProps({
 
 <template>
     <header class="shrink-0 px-10 pt-8 pb-4">
-        <div class="grid grid-cols-3 items-center gap-4">
-            <div class="flex items-center gap-3 justify-self-start">
+        <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1fr)] items-center gap-4">
+            <div class="flex min-w-0 items-center gap-3 justify-self-start">
                 <img
                     v-if="logoUrl"
                     :src="logoUrl"
@@ -23,13 +23,15 @@ defineProps({
                     class="h-12 w-auto object-contain"
                 />
                 <span
-                    class="text-lg uppercase tracking-wide text-rtds-text-secondary"
+                    class="text-[clamp(1.3rem,3vw,2.8rem)] leading-tight uppercase tracking-wide text-rtds-text-secondary"
                     >{{ stage }}</span
                 >
             </div>
 
-            <div class="text-center">
-                <h1 class="text-2xl font-semibold uppercase tracking-wider">
+            <div class="min-w-0 text-center">
+                <h1
+                    class="break-words text-[clamp(1.6rem,3.2vw,3.6rem)] leading-tight font-semibold uppercase tracking-wider"
+                >
                     {{ eventTitle }}
                 </h1>
                 <p
@@ -41,7 +43,7 @@ defineProps({
             </div>
 
             <span
-                class="justify-self-end text-right text-lg uppercase tracking-wide text-rtds-text-secondary"
+                class="justify-self-end text-right text-[clamp(1.3rem,3vw,2.8rem)] leading-tight uppercase tracking-wide text-rtds-text-secondary"
                 >{{ category }}</span
             >
         </div>

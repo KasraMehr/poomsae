@@ -1,5 +1,6 @@
 import Echo from "laravel-echo";
 
+// Reuse one Echo connection across realtime consumers.
 let connection;
 export function getRealtime() {
     if (import.meta.env.VITE_MERCURE_ENABLED !== "true") return null;

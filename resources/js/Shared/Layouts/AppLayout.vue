@@ -69,6 +69,13 @@ const page = usePage();
                     >ثبت‌نام، اجرا و داوری<br />نسخهٔ پایلوت برگزاری</small
                 >
             </div>
+            <!-- Keep the direct layout's competition-format information. -->
+            <p
+                v-if="page.component !== 'Dashboard'"
+                class="px-[10px] pb-4 text-[10px] text-[#9aa49e] max-[760px]:hidden"
+            >
+                مسابقات پومسه · استاندارد و ابداعی · انفرادی، زوجی و تیمی
+            </p>
             <div
                 class="flex items-center gap-[9px] border-t border-[#ebefeb] pt-[23px] text-[11px] max-[760px]:hidden"
             >

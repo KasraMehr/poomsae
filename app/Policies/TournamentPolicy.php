@@ -31,4 +31,14 @@ class TournamentPolicy
     {
         return $user->hasTournamentRole($tournament, ['manager', 'operator']);
     }
+
+    public function viewAppeals(User $user, Tournament $tournament): bool
+    {
+        return $user->hasTournamentRole($tournament, ['manager', 'operator']);
+    }
+
+    public function reviewAppeals(User $user, Tournament $tournament): bool
+    {
+        return $user->hasTournamentRole($tournament, ['manager', 'operator']);
+    }
 }

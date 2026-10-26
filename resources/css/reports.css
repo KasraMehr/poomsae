@@ -1,0 +1,40 @@
+.competition-reports > .subtle { margin: 18px 0; }
+.report-filters { display: flex; flex-wrap: wrap; gap: 16px; align-items: end; margin-top: 22px; }
+.report-filters > div { min-width: 160px; flex: 1; }
+.report-filters select, .report-filters input { width: 100%; }
+.report-summary { display: flex; flex-wrap: wrap; gap: 16px; margin: 24px 0; }
+.report-summary article { flex: 1; min-width: 140px; border: 1px solid #d7e4dc; border-radius: 10px; background: white; padding: 18px; }
+.report-summary span { display: block; color: #6d7d74; font-size: 12px; }
+.report-summary b { display: block; color: #286957; font-size: 28px; }
+.report-downloads { margin: 20px 0; }
+.competition-reports .tabs a, .tabs a { padding: 12px 18px; border-bottom: 2px solid transparent; }
+.tabs a.selected { border-color: #286957; color: #286957; font-weight: bold; }
+.report-table-wrap { overflow: auto; padding: 0; max-height: 70vh; }
+.report-table { border-collapse: separate; border-spacing: 0; min-width: 1100px; width: 100%; font-size: 12px; }
+.report-table th { position: sticky; top: 0; background: #17364b; color: white; white-space: nowrap; z-index: 1; }
+.report-table td, .report-table th { border-left: 1px solid #d7e4dc; border-bottom: 1px solid #d7e4dc; padding: 12px; vertical-align: top; }
+.report-table tbody tr:nth-child(even) { background: #eff6f1; }
+.report-number { direction: ltr; text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.report-medal { font-weight: bold; color: #876614; }
+.report-table details { min-width: 140px; max-width: 420px; }
+.report-table summary { cursor: pointer; color: #286957; }
+.audit-snapshot { margin-top: 8px; min-width: 220px; font-size: 11px; overflow-wrap: anywhere; }
+.audit-snapshot > div { padding: 6px; border-bottom: 1px solid #d7e4dc; }
+.audit-snapshot dt { font-weight: bold; color: #42675a; }
+.audit-snapshot dd { margin: 0; }
+.audit-snapshot-list { display: grid; gap: 8px; }
+.archive-controls { margin-top: 28px; }
+.archive-controls p { margin: 10px 0; }
+.archive-controls textarea { width: 100%; max-width: 650px; display: block; margin-bottom: 16px; }
+@media print {
+    @page { size: landscape; margin: 10mm; }
+    body { background: white; }
+    .sidebar, .topbar, .workspace > footer, .report-actions { display: none !important; }
+    .workspace { width: 100%; margin: 0; }
+    .workspace main { padding: 0; max-width: none; }
+    .report-table-wrap { overflow: visible; max-height: none; border: 0; }
+    .report-table { min-width: 0; width: 100%; font-size: 9px; }
+    .report-table th { position: static; background: #edf3f7; color: #183044; }
+    .report-table td, .report-table th { padding: 5px; overflow-wrap: anywhere; }
+    .report-table tr { break-inside: avoid; }
+}

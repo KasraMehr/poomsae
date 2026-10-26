@@ -73,9 +73,9 @@ const display = computed(() => {
 const sizeClasses = {
     lg: {
         wrap: "gap-2 pb-5",
-        label: "text-[34px] leading-[12px] tracking-[3px] font-bold",
+        label: "text-[34px] leading-[12px] tracking-[3px] font-semibold",
         box: "h-[230px] w-[315px] border-4 rounded-lg",
-        digits: "text-[96px] leading-[96px] font-semibold",
+        digits: "text-[96px] leading-[96px] font-bold",
     },
     sm: {
         wrap: "gap-1 pb-2",

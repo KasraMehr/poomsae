@@ -1,198 +1,364 @@
 <script setup>
-import { computed } from "vue";
 import { Head } from "@inertiajs/vue3";
+import { computed } from "vue";
 import ScoreboardLayout from "../../Shared/Layouts/ScoreboardLayout.vue";
 import ScoreboardHeader from "../../Components/scoreboard/ScoreboardHeader.vue";
 import AthleteInfo from "../../Components/scoreboard/AthleteInfo.vue";
 import FormBadge from "../../Components/scoreboard/FormBadge.vue";
-import ScoreCard from "../../Components/scoreboard/ScoreCard.vue";
 import ScoreItem from "../../Components/scoreboard/ScoreItem.vue";
 import SingleScoringTable from "../../Components/scoreboard/tables/SingleScoringTable.vue";
+import DoubleScoringTable from "../../Components/scoreboard/tables/DoubleScoringTable.vue";
+import FreestyleScoringTable from "../../Components/scoreboard/tables/FreestyleScoringTable.vue";
 
-/**
- * صفحهٔ placeholder — هنوز از Backend رندر نمی‌شود
- * (هیچ controller/route‌ای دست نخورده است؛ repoint به بعد از Contract نهایی موکول است).
- * تا آن زمان props اختیاری است و همهٔ دسترسی‌ها null-safe می‌مانند.
- */
 const props = defineProps({
+    display: { type: Object, default: null },
     tournament: { type: Object, default: null },
 });
 
+// Read the production Inertia envelope while keeping standalone lab snapshots supported.
+const tournament = computed(
+    () => props.tournament ?? props.display?.tournament ?? null,
+);
+
 const statusLabels = {
-    draft: "پیش‌نویس",
-    ready: "آماده",
-    running: "در حال برگزاری",
-    completed: "پایان‌یافته",
+    draft: "DRAFT",
+    ready: "READY",
+    running: "IN PROGRESS",
+    completed: "COMPLETED",
 };
 
-const stage = computed(() => statusLabels[props.tournament?.status] ?? "");
+const stage = computed(() => statusLabels[tournament.value?.status] ?? "");
 
-// فقط داده‌ای که امروز در snapshot هست: boutهای در حال اجرا.
-const active = computed(() =>
-    (props.tournament?.categories ?? []).flatMap((category) =>
-        category.rounds.flatMap((round) =>
-            round.bouts
+const isActivePerformance = (performance) =>
+    ["running", "scoring"].includes(performance.status);
+
+const scoringVariant = (category) => {
+    if (category.discipline === "freestyle") {
+        return "freestyle";
+    }
+
+    if (
+        category.format === "knockout" &&
+        category.execution_mode === "simultaneous"
+    ) {
+        return "double";
+    }
+
+    return "single";
+};
+
+const scoringPanels = computed(() =>
+    (tournament.value?.categories ?? []).flatMap((category) =>
+        (category.rounds ?? []).flatMap((round) =>
+            (round.bouts ?? [])
                 .filter((bout) => bout.status === "running")
-                .map((bout) => ({
-                    ...bout,
-                    category: category.name,
-                    judgeCount: category.judge_count,
-                    round: round.name,
-                })),
+                .flatMap((bout) => {
+                    const variant = scoringVariant(category);
+                    const performances = bout.performances ?? [];
+                    const groups =
+                        variant === "double"
+                            ? Array.from(
+                                  performances.reduce(
+                                      (grouped, performance) => {
+                                          const formNumber =
+                                              performance.form_number ?? 0;
+                                          grouped.set(formNumber, [
+                                              ...(grouped.get(formNumber) ??
+                                                  []),
+                                              performance,
+                                          ]);
+                                          return grouped;
+                                      },
+                                      new Map(),
+                                  ),
+                              ).map(([, group]) => group)
+                            : performances
+                                  .filter(isActivePerformance)
+                                  .map((performance) => [performance]);
+
+                    return groups
+                        .filter((group) => group.some(isActivePerformance))
+                        .map((group) => ({
+                            id:
+                                String(bout.id) +
+                                "-" +
+                                String(group[0]?.form_number ?? 0),
+                            bout,
+                            category,
+                            round,
+                            roundLabel: roundLabelOf(round),
+                            variant,
+                            sides: group.map((performance) => ({
+                                performance,
+                                category,
+                                entry: (bout.entries ?? []).find(
+                                    (entry) =>
+                                        String(entry.id) ===
+                                        String(performance.entry_id),
+                                ),
+                            })),
+                        }));
+                }),
         ),
     ),
 );
 
-const sideLabels = { chung: "چونگ", hong: "هونگ" };
+const currentCategory = computed(
+    () => scoringPanels.value[0]?.category ?? null,
+);
+const currentRound = computed(() => scoringPanels.value[0]?.round ?? null);
+const categoryLabel = computed(() => currentCategory.value?.name ?? "");
+const roundTitle = computed(() => currentRound.value?.name ?? "SCORING");
 
-const score = (value) =>
-    value == null
-        ? "—"
-        : Number(value).toLocaleString("fa-IR", {
-              minimumFractionDigits: 3,
-              maximumFractionDigits: 6,
-          });
+const roundLabelOf = (round) =>
+    round?.sequence == null ? "" : `R-${round.sequence}`;
 
-// ردیف‌های جدول: هر اجرا یک ردیف (نام فرم + نمرهٔ منتشرشده).
-const tableRows = (bout) =>
-    bout.performances.map((performance) => ({
-        key: performance.id,
-        label: performance.form_name ?? `فرم ${performance.form_number}`,
-        scores: [],
-        total: performance.result != null ? score(performance.result) : null,
+const detailOf = (side) => side?.performance?.detailed_scores ?? null;
+const judgesOf = (side) => detailOf(side)?.judges ?? [];
+const scoreValue = (side, key) => {
+    const detailed = detailOf(side);
+
+    if (detailed?.[key] != null) {
+        return detailed[key];
+    }
+
+    return key === "total"
+        ? (side?.performance?.result ??
+              side?.performance?.preview_result ??
+              null)
+        : null;
+};
+
+const maximumOf = (side, key, fallback) => {
+    const detailedMaximum = detailOf(side)?.[key + "_max"];
+
+    if (detailedMaximum != null) {
+        return Number(detailedMaximum);
+    }
+
+    const ruleMaximum = side?.category?.rules?.[key + "_max"];
+
+    if (ruleMaximum == null) {
+        return fallback;
+    }
+
+    const maximum = Number(ruleMaximum);
+
+    return maximum > 20 ? maximum / 100 : maximum;
+};
+
+const totalMaximumOf = (side) => {
+    const detailedMaximum = detailOf(side)?.total_max;
+
+    return detailedMaximum == null
+        ? maximumOf(side, "accuracy", 4) + maximumOf(side, "presentation", 6)
+        : Number(detailedMaximum);
+};
+
+const singleJudgesOf = (side) =>
+    judgesOf(side).map((judge, index) => ({
+        ...judge,
+        label: judge.label ?? "J" + (judge.seat ?? index + 1),
+        accuracy: judge.accuracy,
+        eoe: judge.presentation_components?.[0] ?? null,
+        sp: judge.presentation_components?.[1] ?? null,
+        rp: judge.presentation_components?.[2] ?? null,
+        presentation: judge.presentation,
     }));
 
-const totalOf = (bout, entryId) => Number(bout.totals?.[entryId]) || 0;
+const freestyleJudgesOf = (side) =>
+    judgesOf(side).map((judge, index) => ({
+        ...judge,
+        label: judge.label ?? "J" + (judge.seat ?? index + 1),
+        accuracy: judge.accuracy,
+        presentation: judge.presentation,
+        accuracyParts: judge.accuracy_components ?? [],
+        presentationParts:
+            judge.presentation_components ??
+            (judge.presentation_penalties ?? []).map((value) => -Number(value)),
+    }));
 
-/*
- * TODO / Proposed Contract (مرحلهٔ بعد):
- * - execution_mode (SINGLE | DOUBLE | SINGLE-FREESTYLE)
- *   → انتخاب SingleScoringTable vs DoubleScoringTable vs FreestyleScoringTable
- * - judge scores per sheet (در snapshot فعلی display=true است و scores[] خالی می‌آید)
- *   → ستون‌های قاضی ۱..۵/۷ در جدول
- * - accuracy_score و presentation_score هر entry (برای ScoreItem در ScoreCard)
- * - country / country_code / flag / number هر entry
- * - logoUrl هدر
- *
- * مجموع (accuracy + presentation) از Backend می‌آید و در `total` پاس داده می‌شود؛
- * سقف‌های ۴/۶/۱۰ ثابت‌اند و فرانت آن‌ها را جمع نمی‌کند.
- */
+const isFreestylePenaltyMode = (side) =>
+    detailOf(side)?.method === "accuracy_6_presentation_4" ||
+    (detailOf(side)?.accuracy_components?.length === 3 &&
+        detailOf(side)?.presentation_penalties?.length > 0);
+
+const athleteProps = (entry) => ({
+    number: entry?.number ?? "",
+    name: entry?.name ?? "",
+    side: entry?.side ?? "",
+    country: entry?.country ?? "",
+    countryCode: entry?.country_code ?? "",
+    flagUrl: entry?.flag_url ?? "",
+});
 </script>
 
 <template>
-    <Head title="نمایش زنده" />
+    <!-- <Head title="scoring"/> -->
     <ScoreboardLayout
         :stage="stage"
         :center="tournament?.name ?? ''"
-        category=""
+        :category="categoryLabel"
     >
         <template #header>
             <ScoreboardHeader
-                :stage="stage"
-                :event-title="tournament?.name ?? ''"
+                :stage="roundTitle"
+                event-title="SCORING"
+                :category="categoryLabel"
             />
         </template>
 
-        <!--
-          ساختار placeholder: فقط داده‌ای که همین الان در snapshot هست.
-          → variantهای SINGLE | DOUBLE | SINGLE-FREESTYLE فعلاً رندر نمی‌شوند.
-        -->
         <p
-            v-if="!active.length"
+            v-if="!scoringPanels.length"
             class="flex flex-1 items-center justify-center rounded-2xl border border-rtds-border-subtle bg-rtds-bg-card p-12 text-center text-rtds-text-secondary"
         >
-            در حال حاضر رقابتی در حال اجرا نیست.
+            No performance is currently being scored.
         </p>
 
         <section
-            v-for="bout in active"
-            :key="bout.id"
-            class="mb-8 last:mb-0"
+            v-for="panel in scoringPanels"
+            :key="panel.id"
+            class="min-h-full"
         >
-            <div class="mb-4 flex items-center justify-between">
-                <h2>
-                    {{ bout.category }} · {{ bout.round }} · رقابت
-                    {{ bout.sequence }}
-                </h2>
-                <FormBadge
-                    size="sm"
-                    :round-label="bout.round"
-                    :form-name="
-                        bout.performances[0]?.form_name ??
-                        `رقابت ${bout.sequence}`
-                    "
-                    :form-number="bout.performances[0]?.form_number ?? null"
-                />
+            <!-- Double scoring layout: mirrored athlete tables for simultaneous bouts. -->
+            <div v-if="panel.variant === 'double'" class="flex flex-col gap-6">
+                <div class="flex items-center justify-between gap-6 pt-10">
+                    <AthleteInfo
+                        v-for="side in panel.sides"
+                        :key="side.entry?.id"
+                        v-bind="athleteProps(side.entry)"
+                        layout="horizontal"
+                        size="xl"
+                    />
+                </div>
+                <div class="grid grid-cols-2 gap-6 max-[900px]:grid-cols-1">
+                    <DoubleScoringTable
+                        v-for="side in panel.sides"
+                        :key="side.entry?.id"
+                        :side="side.entry?.side ?? 'chung'"
+                        :judges="singleJudgesOf(side)"
+                        :judge-count="panel.category.judge_count ?? 5"
+                    />
+                </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-6 max-[850px]:grid-cols-1">
-                <article
-                    v-for="entry in bout.entries"
-                    :key="entry.id"
-                    class="rounded-2xl border border-rtds-border bg-rtds-bg-card p-6"
-                    :class="
-                        entry.side === 'chung'
-                            ? 'border-t-4 border-t-rtds-blue'
-                            : 'border-t-4 border-t-rtds-red'
-                    "
-                >
+            <div
+                v-else-if="panel.sides[0]"
+                class="flex min-h-full flex-col justify-between gap-5"
+            >
+                <div class="flex items-center justify-between gap-6">
                     <AthleteInfo
+                        v-bind="athleteProps(panel.sides[0].entry)"
                         layout="horizontal"
-                        size="md"
-                        :name="entry.name"
-                        :side="entry.side"
+                        size="xl"
+                    />
+                    <FormBadge
+                        size="xxxl"
+                        :round-label="panel.roundLabel"
+                        :form-name="panel.sides[0].performance.form_name ?? ''"
+                        :symbol-key="
+                            panel.sides[0].performance.form_badge ?? null
+                        "
+                    />
+                </div>
+                <!-- Single scoring layout: judge rows and summary scores. -->
+                <div
+                    v-if="panel.variant === 'single'"
+                    class="grid flex-1 grid-cols-[minmax(760px,1.6fr)_minmax(440px,1fr)] items-stretch gap-5 overflow-x-auto max-[1250px]:grid-cols-1"
+                >
+                    <SingleScoringTable
+                        :judges="singleJudgesOf(panel.sides[0])"
+                        :judge-count="panel.category.judge_count ?? 5"
                     />
 
-                    <div class="mt-4">
-                        <!--
-                          TODO [Proposed Contract]: دادهٔ سه امتیاز (Accuracy/Presentation/Total)
-                          هنوز از Backend نمی‌آید؛ تا آن زمان null یعنی «--».
-                          سقف‌ها ثابت‌اند: ۴ و ۶ و ۱۰.
-                        -->
-                        <ScoreCard :side="entry.side" size="sm" class="max-w-[220px]">
+                    <div
+                        class="grid min-h-[290px] min-w-[440px] grid-cols-[minmax(0,0.8fr)_minmax(280px,1.5fr)] items-stretch gap-5"
+                    >
+                        <div class="grid min-h-0 min-w-0 grid-rows-2 gap-3">
                             <ScoreItem
                                 label="Accuracy"
-                                :max="4"
-                                :value="null"
-                                :side="entry.side"
-                                size="sm"
+                                :max="maximumOf(panel.sides[0], 'accuracy', 4)"
+                                :value="scoreValue(panel.sides[0], 'accuracy')"
+                                :side="panel.sides[0].entry?.side"
+                                size="xl"
+                            />
+
+                            <ScoreItem
+                                label="Presentation"
+                                :max="
+                                    maximumOf(panel.sides[0], 'presentation', 6)
+                                "
+                                :value="
+                                    scoreValue(panel.sides[0], 'presentation')
+                                "
+                                :side="panel.sides[0].entry?.side"
+                                size="xl"
+                            />
+                        </div>
+
+                        <ScoreItem
+                            label="Total Score"
+                            :max="totalMaximumOf(panel.sides[0])"
+                            :value="scoreValue(panel.sides[0], 'total')"
+                            variant="total"
+                            :side="panel.sides[0].entry?.side"
+                            size="xxl"
+                        />
+                    </div>
+                </div>
+                <!-- Freestyle scoring layout: variable accuracy and presentation parts. -->
+                <div
+                    v-else
+                    class="grid flex-1 grid-cols-[minmax(760px,1.6fr)_minmax(440px,1fr)] items-stretch gap-5 overflow-x-auto max-[1250px]:grid-cols-1"
+                >
+                    <FreestyleScoringTable
+                        :judges="freestyleJudgesOf(panel.sides[0])"
+                        :judge-count="panel.category.judge_count ?? 5"
+                        :accuracy-count="
+                            isFreestylePenaltyMode(panel.sides[0]) ? 3 : 4
+                        "
+                        :presentation-count="
+                            isFreestylePenaltyMode(panel.sides[0]) ? 4 : 6
+                        "
+                        :presentation-label="
+                            isFreestylePenaltyMode(panel.sides[0])
+                                ? 'PRESENTATION DEDUCTIONS'
+                                : 'PRESENTATION'
+                        "
+                    />
+                    <div
+                        class="grid min-h-[290px] min-w-[440px] grid-cols-[minmax(0,0.8fr)_minmax(280px,1.5fr)] items-stretch gap-5"
+                    >
+                        <div class="grid min-h-0 min-w-0 grid-rows-2 gap-3">
+                            <ScoreItem
+                                label="Accuracy"
+                                :max="maximumOf(panel.sides[0], 'accuracy', 4)"
+                                :value="scoreValue(panel.sides[0], 'accuracy')"
+                                :side="panel.sides[0].entry?.side"
+                                size="xl"
                             />
                             <ScoreItem
                                 label="Presentation"
-                                :max="6"
-                                :value="null"
-                                :side="entry.side"
-                                size="sm"
+                                :max="
+                                    maximumOf(panel.sides[0], 'presentation', 6)
+                                "
+                                :value="
+                                    scoreValue(panel.sides[0], 'presentation')
+                                "
+                                :side="panel.sides[0].entry?.side"
+                                size="xl"
                             />
-                            <ScoreItem
-                                label="Total Score"
-                                :max="10"
-                                :value="totalOf(bout, entry.id)"
-                                variant="total"
-                                :side="entry.side"
-                                size="sm"
-                            />
-                        </ScoreCard>
+                        </div>
+                        <ScoreItem
+                            label="Total Score"
+                            :max="totalMaximumOf(panel.sides[0])"
+                            :value="scoreValue(panel.sides[0], 'total')"
+                            variant="total"
+                            :side="panel.sides[0].entry?.side"
+                            size="xxl"
+                        />
                     </div>
-
-                    <div
-                        class="mt-4 flex items-center justify-between border-t border-rtds-border-subtle pt-4"
-                    >
-                        <span class="text-rtds-text-secondary"
-                            >میانگین دو فرم</span
-                        >
-                        <b class="text-3xl tabular-nums">
-                            {{ score(bout.totals?.[entry.id]) }}
-                        </b>
-                    </div>
-                </article>
-            </div>
-
-            <div class="mt-6">
-                <SingleScoringTable
-                    :judge-count="bout.judgeCount ?? 5"
-                    :rows="tableRows(bout)"
-                />
+                </div>
             </div>
         </section>
     </ScoreboardLayout>

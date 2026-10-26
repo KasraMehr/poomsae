@@ -10,6 +10,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Tests\CreatesCompetition;
 use Tests\TestCase;
 
@@ -22,7 +23,7 @@ class CompetitionSecurityTest extends TestCase
         $bout = Bout::firstOrFail();
         $url = '/tournaments/'.$f['tournament']->id.'/bouts/'.$bout->id.'/resolve';
         $data = ['decision_type' => 'walkover', 'winner_entry_id' => $bout->entries()->firstOrFail()->id, 'reason' => 'انصراف ورزشکار مقابل'];
-        $this->actingAs($f['admin'])->post($url, $data)->assertSessionHasErrors('confirmed');
+        $this->actingAs($f['operator'])->post($url, $data)->assertSessionHasErrors('confirmed');
         $this->post($url, [...$data, 'confirmed' => true])->assertSessionHasNoErrors();
         $this->post($url, [...$data, 'confirmed' => true])->assertSessionHasErrors('operation');
     }
@@ -48,7 +49,7 @@ class CompetitionSecurityTest extends TestCase
         $this->schedule($f);
         $p = Performance::firstOrFail();
         $this->startScoring($f, $p);
-        $this->actingAs($f['admin'])->withHeader('X-Inertia', 'true')->post(
+        $this->actingAs($f['operator'])->withHeader('X-Inertia', 'true')->post(
             '/tournaments/'.$f['tournament']->id.'/performances/'.$p->id.'/command',
             ['command' => 'finish', 'expected_version' => 1]
         )->assertRedirect()->assertSessionHasErrors('operation');
@@ -62,7 +63,8 @@ class CompetitionSecurityTest extends TestCase
         $other = $this->competition();
         $this->schedule($other);
         $p = Performance::firstOrFail();
-        $this->actingAs($f['admin'])->post('/tournaments/'.$f['tournament']->id.'/performances/'.$p->id.'/command', ['command' => 'start', 'expected_version' => $p->version])->assertNotFound();
+        $this->actingAs($f['operator'])->post('/tournaments/'.$f['tournament']->id.'/performances/'.$p->id.'/command', ['command' => 'start', 'expected_version' => $p->version])->assertNotFound();
+        $this->actingAs($f['admin']);
         $this->post('/tournaments/'.$f['tournament']->id.'/categories/'.$other['category']->id.'/entries', ['first_name' => 'آزمون', 'last_name' => 'آزمون', 'birth_date' => '2005-01-01', 'gender' => 'male'])->assertNotFound();
     }
 
@@ -89,7 +91,7 @@ class CompetitionSecurityTest extends TestCase
         $this->startScoring($f, $p);
         $outsider = User::factory()->create();
         $f['tournament']->users()->attach($outsider, ['role' => 'judge']);
-        $data = ['request_id' => (string) Str::uuid(), 'expected_version' => $p->fresh()->version, 'expected_revision' => 0, 'accuracy' => '3.01', 'presentation' => '6.00'];
+        $data = ['request_id' => (string) Str::uuid(), 'expected_version' => $p->fresh()->version, 'expected_revision' => 0, 'accuracy' => '4.01', 'presentation' => '6.00'];
         $url = '/tournaments/'.$f['tournament']->id.'/performances/'.$p->id.'/scores';
         $this->actingAs($outsider)->post($url, $data)->assertForbidden();
         $this->actingAs($f['judges'][0])->post($url, $data)->assertSessionHasErrors('operation');
@@ -103,11 +105,50 @@ class CompetitionSecurityTest extends TestCase
         $ps = Performance::orderBy('id')->get();
         $run = app(RunCompetition::class);
         $run->command($f['admin'], $f['tournament'], $ps[0], ['command' => 'start', 'expected_version' => 1]);
-        $this->actingAs($f['admin'])->post('/tournaments/'.$f['tournament']->id.'/performances/'.$ps[0]->id.'/command', ['command' => 'finish', 'expected_version' => 1])->assertStatus(409);
+        $this->actingAs($f['operator'])->post('/tournaments/'.$f['tournament']->id.'/performances/'.$ps[0]->id.'/command', ['command' => 'finish', 'expected_version' => 1])->assertStatus(409);
         $this->post('/tournaments/'.$f['tournament']->id.'/performances/'.$ps[2]->id.'/command', ['command' => 'start', 'expected_version' => 1])->assertSessionHasErrors('operation');
     }
 
-    public function test_published_score_is_immutable_and_idempotency_conflict_is_rejected(): void
+    public function test_unknown_execution_command_cannot_approve_a_score(): void
+    {
+        $fixture = $this->competition();
+        $this->schedule($fixture);
+        $performance = Performance::firstOrFail();
+        $this->startScoring($fixture, $performance);
+        $this->scoreAll($fixture, $performance);
+
+        $this->expectException(ValidationException::class);
+
+        app(RunCompetition::class)->command($fixture['admin'], $fixture['tournament'], $performance, [
+            'command' => 'pause', 'expected_version' => $performance->fresh()->version,
+        ]);
+    }
+
+    public function test_unknown_bout_decision_cannot_resolve_a_tie(): void
+    {
+        $fixture = $this->competition();
+        $this->schedule($fixture);
+        $run = app(RunCompetition::class);
+
+        foreach (Performance::orderBy('form_number')->orderBy('id')->get() as $performance) {
+            $this->startScoring($fixture, $performance);
+            $this->scoreAll($fixture, $performance);
+            $run->command($fixture['admin'], $fixture['tournament'], $performance, [
+                'command' => 'approve', 'expected_version' => $performance->fresh()->version,
+            ]);
+        }
+
+        $bout = Bout::firstOrFail();
+        $this->expectException(ValidationException::class);
+
+        $run->resolve($fixture['admin'], $fixture['tournament'], $bout, [
+            'decision_type' => 'forfeit',
+            'winner_entry_id' => $bout->entries()->firstOrFail()->id,
+            'reason' => 'تصمیم ثبت‌شدهٔ سرداور',
+        ]);
+    }
+
+    public function test_published_score_correction_requires_reason_and_idempotency_conflict_is_rejected(): void
     {
         $f = $this->competition();
         $this->schedule($f);
@@ -116,10 +157,10 @@ class CompetitionSecurityTest extends TestCase
         $this->scoreAll($f, $p);
         $record = DB::table('idempotency_keys')->where('user_id', $f['judges'][0]->id)->first();
         $url = '/tournaments/'.$f['tournament']->id.'/performances/'.$p->id.'/scores';
-        $data = ['request_id' => $record->request_id, 'expected_version' => $p->fresh()->version, 'expected_revision' => 1, 'accuracy' => '2.00', 'presentation' => '6.00', 'reason' => 'تصحیح نمره'];
+        $data = ['request_id' => $record->request_id, 'expected_version' => $p->fresh()->version, 'expected_revision' => 1, ...$this->detailedScoreInput('2.00', '6.00'), 'reason' => 'تصحیح نمره'];
         $this->actingAs($f['judges'][0])->post($url, $data)->assertStatus(409);
         app(RunCompetition::class)->command($f['admin'], $f['tournament'], $p, ['command' => 'approve', 'expected_version' => $p->fresh()->version]);
-        $this->post($url, [...$data, 'request_id' => (string) Str::uuid(), 'expected_version' => $p->fresh()->version])->assertSessionHasErrors('operation');
+        $this->post($url, [...$data, 'request_id' => (string) Str::uuid(), 'expected_version' => $p->fresh()->version, 'reason' => ''])->assertSessionHasErrors('operation');
     }
 
     public function test_entry_age_and_setup_lock_are_enforced(): void

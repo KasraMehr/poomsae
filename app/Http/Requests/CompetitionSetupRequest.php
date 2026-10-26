@@ -15,6 +15,13 @@ class CompetitionSetupRequest extends FormRequest
     public function rules(): array
     {
         $tournament = $this->route('tournament');
+        $discipline = $this->input('discipline', 'recognized');
+        $category = $this->route('category');
+        $memberCount = match ($category?->entry_type) {
+            'pair' => 2,
+            'team' => 3,
+            default => 1,
+        };
 
         return match ($this->route()->getActionMethod()) {
             'court' => ['name' => ['required', 'string', 'max:100', Rule::unique('courts')->where('tournament_id', $tournament->id)]],
@@ -25,24 +32,57 @@ class CompetitionSetupRequest extends FormRequest
             ],
             'category' => [
                 'name' => ['required', 'string', 'max:100', Rule::unique('categories')->where('tournament_id', $tournament->id)->ignore($this->route('category')?->id)],
-                'gender' => ['required', Rule::in(['male', 'female', 'open'])],
-                'minimum_age' => ['nullable', 'integer', 'min:1', 'max:100'],
-                'maximum_age' => ['nullable', 'integer', 'min:1', 'max:100', 'gte:minimum_age'],
+                'discipline' => ['sometimes', Rule::in(['recognized', 'freestyle'])],
+                'entry_type' => ['sometimes', Rule::in($discipline === 'freestyle' ? ['individual', 'pair'] : ['individual', 'pair', 'team'])],
+                'gender' => ['required', Rule::in(['male', 'female'])],
+                'age_category' => ['sometimes', 'required', 'string', Rule::in(array_keys(config('poomsae.age_categories')))],
+                'minimum_age' => [$this->filled('age_category') ? 'exclude' : 'nullable', 'integer', 'min:1', 'max:100'],
+                'maximum_age' => [$this->filled('age_category') ? 'exclude' : 'nullable', 'integer', 'min:1', 'max:100', 'gte:minimum_age'],
                 'format' => ['required', Rule::in(['knockout', 'round_robin'])],
-                'judge_count' => ['required', 'integer', Rule::in([5, 7])],
-                'accuracy_max' => ['required', 'integer', 'min:1', 'max:999'],
-                'discard_extremes' => ['required', 'boolean'],
+                'execution_mode' => ['sometimes', Rule::in($discipline === 'freestyle' ? ['alternating'] : ['alternating', 'simultaneous'])],
+                'performance_order' => ['sometimes', Rule::in($discipline === 'freestyle' ? ['consecutive'] : ['consecutive', 'phased'])],
+                'judge_count' => ['required', 'integer', Rule::in([3, 5, 7])],
+                'accuracy_max' => ['sometimes', 'integer', Rule::in($discipline === 'freestyle' ? [400, 600] : [400])],
+                'discard_each_end' => ['required', 'integer', Rule::in(match ($this->integer('judge_count')) {
+                    3 => [0], 7 => [1, 2], default => [1],
+                })],
                 'rules_acknowledged' => ['accepted'],
-                'form_names' => ['required', 'array', 'size:2'],
+                'planned_round_count' => [$this->filled('age_category') && $this->input('format') !== 'knockout' ? 'required' : 'sometimes', 'integer', 'min:1'],
+                'allow_form_repetition' => ['sometimes', 'boolean'],
+                'form_draw_timing' => ['sometimes', Rule::in(['day_before', 'morning', 'before_stage'])],
+                'form_draw_time' => ['sometimes', 'date_format:H:i'],
+                'draw_method' => ['sometimes', Rule::in(['random'])],
+                'form_names' => [$this->filled('age_category') ? 'exclude' : ($discipline === 'recognized' ? 'required' : 'prohibited'), 'array', 'size:'.($this->has('planned_round_count') ? 8 : 2)],
                 'form_names.*' => ['required', 'string', 'max:100', 'distinct'],
+                'selected_form_numbers' => [$this->filled('age_category') && $discipline === 'recognized' ? 'sometimes' : 'prohibited', 'array', 'list', 'min:2', 'distinct'],
+                'selected_form_numbers.*' => ['required', 'integer', 'min:1', 'max:16'],
             ],
             'entry' => [
-                'first_name' => ['required', 'string', 'max:100'], 'last_name' => ['required', 'string', 'max:100'],
-                'birth_date' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.$tournament->starts_on->format('Y-m-d')],
-                'gender' => ['required', Rule::in(['male', 'female'])], 'club' => ['nullable', 'string', 'max:100'],
+                'first_name' => [$memberCount === 1 ? 'required' : 'prohibited', 'string', 'max:100'],
+                'last_name' => [$memberCount === 1 ? 'required' : 'prohibited', 'string', 'max:100'],
+                'birth_date' => [$memberCount === 1 ? 'required' : 'prohibited', 'date_format:Y-m-d', 'before_or_equal:'.$tournament->starts_on->format('Y-m-d')],
+                'gender' => [$memberCount === 1 ? 'required' : 'prohibited', Rule::in(['male', 'female'])],
+                'club' => [$memberCount === 1 ? 'nullable' : 'prohibited', 'string', 'max:100'],
+                'country_code' => [$memberCount === 1 ? 'nullable' : 'prohibited', 'string', 'max:8'],
+                'members' => [$memberCount === 1 ? 'prohibited' : 'required', 'array', 'size:'.$memberCount],
+                'members.*.first_name' => ['required', 'string', 'max:100'],
+                'members.*.last_name' => ['required', 'string', 'max:100'],
+                'members.*.birth_date' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.$tournament->starts_on->format('Y-m-d')],
+                'members.*.gender' => ['required', Rule::in(['male', 'female'])],
+                'members.*.club' => ['nullable', 'string', 'max:100'],
+                'members.*.country_code' => ['nullable', 'string', 'max:8'],
+                'music' => [$category?->discipline === 'freestyle' ? 'nullable' : 'prohibited', 'file', 'mimes:mp3,wav,m4a', 'max:20480'],
             ],
             'entryStatus' => ['status' => ['required', Rule::in(['registered', 'checked_in', 'withdrawn'])]],
             default => [],
         };
+    }
+
+    public function messages(): array
+    {
+        return $this->input('discipline', 'recognized') === 'freestyle' ? [
+            'execution_mode.in' => 'اجراهای ابداعی فقط نوبتی برگزار می‌شوند؛ اجرای همزمان دو حریف مجاز نیست.',
+            'performance_order.in' => 'در ابداعی هر ورودی در هر مرحله یک اجرا دارد و ورودی‌ها به‌ترتیب اجرا می‌کنند.',
+        ] : [];
     }
 }

@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'venue', 'starts_on', 'ends_on', 'timezone', 'status', 'created_by'])]
+#[Fillable(['name', 'venue', 'starts_on', 'ends_on', 'timezone', 'status', 'created_by', 'tkdhub_event_id'])]
 class Tournament extends Model
 {
     use HasFactory;

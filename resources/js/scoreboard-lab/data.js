@@ -41,6 +41,9 @@ const flags = {
     jp: flag("#ffffff", "#bc002d", "#ffffff"),
     fr: flag("#0055a4", "#ffffff", "#ef4135"),
     kz: flag("#00afca", "#fec50c", "#00afca"),
+    de: flag("#000000", "#dd0000", "#ffce00"),
+    es: flag("#aa151b", "#f1bf00", "#aa151b"),
+    nl: flag("#ae1c28", "#ffffff", "#21468b"),
 };
 
 /* -------------------------------------------------------------- رویداد/هدر */
@@ -359,177 +362,201 @@ export const proposedScoringSeven = {
     results: [4.556, 4.69],
 };
 
-/** تبدیل judge_scores[] پیشنهادی به ردیف‌های SingleScoringTable */
-export function singleRowsFrom(snapshot) {
-    return snapshot.performances.map((performance, index) => ({
-        key: performance.id,
-        label: performance.label,
-        scores: snapshot.judge_scores.map((seat) => seat.values[index] ?? null),
-        total: snapshot.results?.[index] ?? null,
-    }));
-}
+/**
+ * شکل‌دادهٔ جدول‌های Scoring: هر ردیف = یک داور با نمره‌هایش (ترتیب صندلی J1..Jn).
+ * آینه‌سازی Double داخل کامپوننت انجام می‌شود، پس داده همیشه در ترتیب صندلی می‌آید.
+ */
+const withSeatLabels = (seats) =>
+    seats.map((seat, index) => ({ label: `J${index + 1}`, ...seat }));
 
-export const singleFive = { judgeCount: 5, rows: singleRowsFrom(proposedScoring) };
-export const singleSeven = { judgeCount: 7, rows: singleRowsFrom(proposedScoringSeven) };
+/** نمره‌های پنج داور — دقیقاً مقادیر طرح SINGLE/DOUBLE */
+const designSeats = [
+    { accuracy: 4.0, eoe: 1.7, sp: 1.9, rp: 1.8, presentation: 5.4 },
+    { accuracy: 3.8, eoe: 1.5, sp: 1.6, rp: 1.6, presentation: 4.9 },
+    { accuracy: 3.3, eoe: 1.5, sp: 1.7, rp: 1.6, presentation: 4.8 },
+    { accuracy: 3.0, eoe: 1.1, sp: 1.5, rp: 1.5, presentation: 4.1 },
+    { accuracy: 2.4, eoe: 0.9, sp: 1.3, rp: 1.2, presentation: 3.4 },
+];
 
-/** وضعیت snapshot فعلی: display=true و scores[] خالی */
-export const singleEmpty = {
-    judgeCount: 5,
-    rows: proposedScoring.performances.map((performance) => ({
-        key: performance.id,
-        label: performance.label,
-        scores: [],
-        total: null,
-    })),
+/** هفت داور — برای حالت ریسپانسیو ۷ صندلی */
+const designSeatsSeven = [
+    ...designSeats,
+    { accuracy: 2.9, eoe: 1.0, sp: 1.4, rp: 1.4, presentation: 4.0 },
+    { accuracy: 3.6, eoe: 1.6, sp: 1.6, rp: 1.7, presentation: 4.6 },
+];
+
+export const singleFive = { judges: withSeatLabels(designSeats) };
+export const singleFiveCompact = {
+    judges: withSeatLabels(designSeats),
+    showSubScores: false,
 };
+export const singleSeven = { judges: withSeatLabels(designSeatsSeven) };
+
+/** حالت خالی: display=true و هنوز judge_scores نداریم */
+export const singleEmpty = { judgeCount: 5 };
+
+/**
+ * زیرستون‌های Freestyle طبق طرح: ۴ مقدار زیر ACCURACY و ۶ مقدار زیر PRESENTATION.
+ * `accuracy`/`presentation` (تک‌ستونی) برای حالت سه‌ستونه‌اند — مقدار demo؛
+ * منبع نهایی از بک‌اند می‌آید و در قرارداد ثبت می‌شود.
+ */
+const freestyleSeat = () => ({
+    accuracy: 3.2,
+    accuracyParts: [0.8, 0.9, 0.8, 0.7],
+    presentation: 4.9,
+    presentationParts: [0.9, 0.8, 0.8, 0.9, 0.7, 0.8],
+});
 
 export const freestyleFive = {
-    judgeCount: 5,
-    rows: [
-        {
-            key: "fs-1",
-            label: "فرم آزاد — اجرای ۱",
-            scores: [4.4, 4.5, 4.35, 4.55, 4.45],
-            execution: 1.15,
-            total: 5.64,
-        },
-        {
-            key: "fs-2",
-            label: "فرم آزاد — اجرای ۲",
-            scores: [],
-            execution: null,
-            total: null,
-        },
-    ],
+    judges: withSeatLabels(Array.from({ length: 5 }, freestyleSeat)),
 };
-
+export const freestyleFiveCompact = {
+    judges: withSeatLabels(Array.from({ length: 5 }, freestyleSeat)),
+    showSubScores: false,
+};
 export const freestyleSeven = {
-    judgeCount: 7,
-    rows: [
-        {
-            key: "fs-1",
-            label: "فرم آزاد — اجرای ۱",
-            scores: [4.4, 4.5, 4.35, 4.55, 4.45, 4.48, 4.42],
-            execution: 1.15,
-            total: 5.665,
-        },
-        {
-            key: "fs-2",
-            label: "فرم آزاد — اجرای ۲",
-            scores: [4.6, 4.58, 4.62, 4.55, 4.6, 4.57, 4.61],
-            execution: 1.3,
-            total: 5.9,
-        },
-    ],
+    judges: withSeatLabels(Array.from({ length: 7 }, freestyleSeat)),
 };
 
-export const doubleFive = {
-    judgeCount: 5,
-    athletes: [
-        { key: "chung", name: "علی رضایی (چونگ)" },
-        { key: "hong", name: "کیم چان‌هی (هونگ)" },
-    ],
-    rows: [
-        {
-            key: "perf-1",
-            label: "فرم ۱ — تای گوک ۵ جو",
-            scores: {
-                chung: [4.5, 4.6, 4.4, 4.55, 4.52],
-                hong: [4.6, 4.55, 4.7, 4.62, 4.58],
-            },
-            totals: { chung: 4.514, hong: 4.61 },
-        },
-        {
-            key: "perf-2",
-            label: "فرم ۲ — کیبورد پومسه",
-            scores: {
-                chung: [4.65, 4.7, 4.62, 4.68, 4.66],
-                hong: [4.5, 4.55, 4.48, 4.52, 4.51],
-            },
-            totals: { chung: 4.662, hong: 4.512 },
-        },
-    ],
-};
+/**
+ * Double: دو جدول جدا (یکی برای هر سمت) کنار هم رندر می‌شوند.
+ * داده در ترتیب صندلی است؛ `side="hong"` داخل کامپوننت آینه می‌شود،
+ * پس دادهٔ سمت راست عمداً برعکس است تا خروجی دقیقاً مثل تصویر طرح باشد
+ * (سمت راست: ستون بیرونی J1 است و عدد بیرونی‌ترین سمتِ چپِ همان ستون است).
+ */
+const designSeatsHong = [...designSeats].reverse();
+const designSeatsSevenHong = [...designSeatsSeven].reverse();
 
-export const doubleSeven = {
-    ...doubleFive,
-    judgeCount: 7,
-    rows: [
-        {
-            key: "perf-1",
-            label: "فرم ۱ — تای گوک ۵ جو",
-            scores: {
-                chung: [4.5, 4.6, 4.4, 4.55, 4.52, 4.57, 4.49],
-                hong: [4.6, 4.55, 4.7, 4.62, 4.58, 4.56, 4.61],
-            },
-            totals: { chung: 4.533, hong: 4.603 },
-        },
-    ],
+export const doubleFiveChung = {
+    side: "chung",
+    judges: withSeatLabels(designSeats),
 };
-
-export const baseTable = {
-    judgeCount: 7,
-    highlightColumn: "total",
-    columns: [
-        { key: "accuracy", label: "دقت" },
-        { key: "power", label: "قدرت" },
-        { key: "total", label: "مجموع" },
-    ],
-    rows: [
-        { key: "r1", label: "اجرای ۱", cells: { accuracy: 4.55, power: 4.2, total: 8.75 } },
-        { key: "r2", label: "اجرای ۲", cells: { accuracy: 4.7, power: 4.35, total: 9.05 } },
-    ],
+export const doubleFiveHong = {
+    side: "hong",
+    judges: withSeatLabels(designSeatsHong),
+};
+export const doubleFiveCompact = {
+    side: "chung",
+    judges: withSeatLabels(designSeats),
+    showSubScores: false,
+};
+export const doubleSevenChung = {
+    side: "chung",
+    judges: withSeatLabels(designSeatsSeven),
+};
+export const doubleSevenHong = {
+    side: "hong",
+    judges: withSeatLabels(designSeatsSevenHong),
 };
 
 /* ------------------------------------------------- Ranking / TopFour */
 
-/** شکل پیشنهادی placements[] (بخش ۴ سند) — برای هر دو قالب round_robin و knockout */
+/**
+ * شکل پیشنهادی placements[] (بخش ۴ سند) — برای هر دو قالب round_robin و knockout.
+ * `round_scores` مصوب جدید است: نمرهٔ کل هر راند [R-1, R-2] برای ستون‌های RankingTable.
+ */
 export const placementsRoundRobin = [
-    { rank: 1, entry_id: 101, name: "علی رضایی", score: 27, country: "ایران", country_code: "IRI", flag_url: flags.ir },
-    { rank: 2, entry_id: 102, name: "کیم چان‌هی", score: 25, country: "کرهٔ جنوبی", country_code: "KOR", flag_url: flags.kr },
-    { rank: 3, entry_id: 103, name: "امره ییلدیز", score: 22, country: "ترکیه", country_code: "TUR", flag_url: flags.tr },
-    { rank: 4, entry_id: 104, name: "کنیچیرو تاناکا", score: 19, country: "ژاپن", country_code: "JPN", flag_url: flags.jp },
-    { rank: 5, entry_id: 105, name: "پییر دوبوا", score: 15, country: "فرانسه", country_code: "FRA", flag_url: flags.fr },
-    { rank: 6, entry_id: 106, name: "النور حسین‌اف", score: 11, country: "قزاقستان", country_code: "KAZ", flag_url: flags.kz },
+    { rank: 1, entry_id: 101, name: "A.SALMANI", score: 27, round_scores: [9.25, 9.36], country: "ایران", country_code: "IRI", flag_url: flags.ir },
+    { rank: 2, entry_id: 102, name: "M.YILMAZ", score: 25, round_scores: [9.05, 8.91], country: "ترکیه", country_code: "TUR", flag_url: flags.tr },
+    { rank: 3, entry_id: 103, name: "C.SENFT", score: 22, round_scores: [8.93, 8.82], country: "آلمان", country_code: "DEU", flag_url: flags.de },
+    { rank: 4, entry_id: 104, name: "A.M.BORRAS", score: 19, round_scores: [8.61, 8.9], country: "اسپانیا", country_code: "ESP", flag_url: flags.es },
+    { rank: 5, entry_id: 105, name: "J.WEIDE VAN DER", score: 15, round_scores: [8.24, 8.65], country: "هلند", country_code: "NED", flag_url: flags.nl },
+    { rank: 6, entry_id: 106, name: "النور حسین‌اف", score: 11, round_scores: [8.1, 8.3], country: "قزاقستان", country_code: "KAZ", flag_url: flags.kz },
 ];
 
 export const placementsKnockout = [
-    { rank: 1, entry_id: 201, name: "کنیچیرو تاناکا", score: 5, country: "ژاپن", country_code: "JPN", flag_url: flags.jp },
-    { rank: 2, entry_id: 202, name: "علی رضایی", score: 4, country: "ایران", country_code: "IRI", flag_url: flags.ir },
-    { rank: 3, entry_id: 203, name: "کیم چان‌هی", score: 3, country: "کرهٔ جنوبی", country_code: "KOR", flag_url: flags.kr },
-    { rank: 4, entry_id: 204, name: "امره ییلدیز", score: 2, country: "ترکیه", country_code: "TUR", flag_url: flags.tr },
+    { rank: 1, entry_id: 201, name: "کنیچیرو تاناکا", score: 5, round_scores: [9.41, 9.38], country: "ژاپن", country_code: "JPN", flag_url: flags.jp },
+    { rank: 2, entry_id: 202, name: "علی رضایی", score: 4, round_scores: [9.3, 9.25], country: "ایران", country_code: "IRI", flag_url: flags.ir },
+    { rank: 3, entry_id: 203, name: "کیم چان‌هی", score: 3, round_scores: [9.15, 9.2], country: "کرهٔ جنوبی", country_code: "KOR", flag_url: flags.kr },
+    { rank: 4, entry_id: 204, name: "امره ییلدیز", score: 2, round_scores: [8.99, 9.05], country: "ترکیه", country_code: "TUR", flag_url: flags.tr },
 ];
 
+/** حالت‌های تک‌ردیف RankingRow — با props جدید (دو ستون راند، بدون highlight) */
 export const extraRankingRows = [
     {
-        title: "highlight=true — حالت منتخب",
-        props: { rank: 1, name: "علی رضایی", country: "ایران", countryCode: "IRI", flagUrl: flags.ir, score: "۲۷", highlight: true },
+        title: "بدون پرچم — placeholder داخل قاب پرچم (کد کشور)",
+        props: { rank: 4, name: "WANG LI", country: "چین", countryCode: "CHN", flagUrl: "", roundScores: [8.61, 8.9] },
     },
     {
-        title: "بدون پرچم — رتبهٔ ۴ (placeholder داخل قاب پرچم)",
-        props: { rank: 4, name: "وانگ لی", country: "چین", countryCode: "CHN", flagUrl: "", score: "۱۳", highlight: false },
+        title: "راند دوم خالی — «—» نمایش داده می‌شود",
+        props: { rank: 5, name: "J.WEIDE VAN DER", countryCode: "NL", roundScores: [8.24] },
+    },
+    {
+        title: "بدون country/country_code — بلوک کشور حذف می‌شود",
+        props: { rank: 3, name: "بدون کشور", roundScores: [] },
     },
 ];
+
+/** ردیف‌های طرح TOP-4 (مقادیر از تصویر طرح خوانده شده‌اند) */
+export const topFourRows = [
+    { rank: 1, name: "a.salmani", country: "ایران", countryCode: "IRI", flagUrl: flags.ir, score: 9.36 },
+    { rank: 2, name: "m.yilmaz", country: "ترکیه", countryCode: "TUR", flagUrl: flags.tr, score: 8.91 },
+    { rank: 3, name: "c.senft", country: "آلمان", countryCode: "DEU", flagUrl: flags.de, score: 8.82 },
+    { rank: 4, name: "a.m.borras", country: "اسپانیا", countryCode: "ESP", flagUrl: flags.es, score: 8.9 },
+];
+
+/** حالت‌های تک‌ردیف TopFourRow */
+export const extraTopFourRows = [
+    {
+        title: "بدون پرچم — placeholder داخل قاب پرچم",
+        props: { rank: 2, name: "m.yilmaz", countryCode: "TUR", flagUrl: "", score: 8.91 },
+    },
+    {
+        title: "بدون country/country_code — بلوک کشور حذف می‌شود · بدون نمره «—»",
+        props: { rank: 3, name: "بدون کشور", score: null },
+    },
+];
+
+
+/* ------------------------------------------------------------------ Draw page */
+
+export const drawSingle = {
+    mode: "single",
+    stage: "SEMI-FINAL",
+    title: "Title",
+    category: "MALE - UNDER 30",
+    entries: [
+        {
+            id: 1,
+            number: 1,
+            name: "A.SALMANI",
+            country: "ایران",
+            country_code: "IRI",
+            flag_url: flags.ir,
+            side: "chung",
+        },
+    ],
+    forms: [
+        { round_label: "R - 1", form_number: 1, symbol_key: 5, form_name: "TAEGUK 5" },
+        { round_label: "R - 2", form_number: 2, symbol_key: 9, form_name: "KORYO" },
+    ],
+};
+
+export const drawDouble = {
+    ...drawSingle,
+    mode: "double",
+    entries: [
+        drawSingle.entries[0],
+        {
+            id: 2,
+            number: 2,
+            name: "A.NAJAFABADI",
+            country: "ایران",
+            country_code: "IRI",
+            flag_url: flags.ir,
+            side: "hong",
+        },
+    ],
+};
 
 /* ------------------------------------- خلاصهٔ فیلدهای Proposed Contract */
 
 export const contractFields = [
-    { n: 1, field: "logoUrl", shape: "string | null روی snapshot", consumers: "همهٔ صفحات (header)" },
-    { n: 2, field: "entry.photo_url", shape: "حذف موقت — تا اطلاع بعدی تأمین نشود", consumers: "— (عکس ورزشکار فعلاً در هیچ صفحه‌ای نمایش داده نمی‌شود)" },
-    { n: 3, field: "entry.country / entry.country_code / entry.flag_url", shape: "string روی entry — country_code از نوع ISO alpha-3 انگلیسی", consumers: "هر جا NationalityBadge (AthleteInfo, RankingRow)" },
-    { n: 4, field: "entry.number", shape: "int روی entry", consumers: "Standby, Scoring" },
-    { n: 5, field: "execution_duration_seconds", shape: "int روی تنظیمات مسابقه", consumers: "Standby, LiveBoard (Timer)" },
-    { n: 6, field: "execution_mode", shape: "SINGLE | DOUBLE | SINGLE-FREESTYLE", consumers: "Scoring (انتخاب جدول)" },
-    { n: 7, field: "judge_scores[]", shape: "[{seat, values[]}] روی performance", consumers: "Scoring (ستون‌های قاضی)" },
-    { n: 8, field: "accuracy_score", shape: "number ۰..۴ — سقف ثابت، ScoreItem", consumers: "Result, Scoring (ScoreCard/ScoreItem)" },
-    { n: 9, field: "presentation_score", shape: "number ۰..۶ — سقف ثابت، ScoreItem", consumers: "Result, Scoring (ScoreCard/ScoreItem)" },
-    { n: 9, field: "total_score", shape: "number ۰..۱۰ = مجموع دو مورد قبل؛ از Backend می‌آید نه جمع فرانت", consumers: "Result, Scoring (ScoreCard/ScoreItem)" },
-    { n: 9, field: "is_winner", shape: "bool — کادر زرد فقط روی total برنده", consumers: "Result" },
-    { n: 10, field: "placements[]", shape: "[{rank, entry_id, name, score, country, country_code, flag_url}] — مدال از روی rank نمایش داده می‌شود", consumers: "Ranking, TopFour" },
-    { n: 11, field: "Draw.output_snapshot", shape: "خروجی قرعه (ترتیب اجرا/جفت‌ها)", consumers: "Draw" },
-    { n: 12, field: "entry_members[]", shape: "[{name, club, position}] روی entry", consumers: "Draw, Standby, Scoring" },
-    { n: 13, field: "draw_timing", shape: "timestamp", consumers: "Draw" },
-    { n: 14, field: "form_number", shape: "int ۱..۱۸ — کلید سمبل فرم (مسیر تصویر در فرانت)", consumers: "FormBadge در Standby, LiveBoard, Scoring, Result, Draw" },
-    { n: 15, field: "courtId (LiveBoard)", shape: "query param رسمی", consumers: "LiveBoard" },
-    { n: 16, field: "timeline (LiveBoard)", shape: "previous / current / next", consumers: "LiveBoard" },
+    { n: 1, field: "display.tournament / courts / revision / generated_at", shape: "Present; Lab simulates the shared Inertia payload", consumers: "All pages" },
+    { n: 2, field: "performance.detailed_scores + form_badge", shape: "Present; detailed scores may be null until scoring is available", consumers: "Scoring, Result, Winner, Draw" },
+    { n: 3, field: "category.standings", shape: "Present for round_robin only; knockout placements are not emitted", consumers: "Ranking, TopFour" },
+    { n: 4, field: "entry country / flag", shape: "country_code may be inferred from club; country and flag_url are absent", consumers: "AthleteInfo, Ranking, TopFour" },
+    { n: 5, field: "tournament.current_result", shape: "Missing; Winner falls back to a qualifying completed bout", consumers: "Winner" },
+    { n: 6, field: "court previous history", shape: "Missing; LiveBoard infers previous from ordered bouts", consumers: "LiveBoard" },
+    { n: 7, field: "multi-performance aggregate scores", shape: "Missing; Result needs aggregate accuracy/presentation per entry and bout", consumers: "Result" },
 ];

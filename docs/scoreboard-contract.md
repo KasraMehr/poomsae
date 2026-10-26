@@ -1,198 +1,72 @@
-# Scoreboard — قرارداد پیشنهادی داده (Frontend → Backend)
+# وضعیت دادهٔ صفحات Scoreboard
 
-> **وضعیت:** Frontend پیاده‌سازی شده و **منتظر تکمیل پیاده‌سازی Backend است.**
->
-> این سند برای مطالعهٔ تیم Backend نوشته شده تا بداند **هر صفحه چه داده‌ای لازم دارد**
-> و بر اساس همین، قرارداد نهایی تأمین شود.
->
-> * هر مورد با `[Proposed Backend Contract]` هنوز در Backend پیاده‌سازی **نشده** است.
-> * Frontend آن‌ها را دادهٔ قطعی فرض نمی‌کند، برایشان mock نساخته و فقط با TODO علامت زده است.
-> * منبع دادهٔ فعلی: `CompetitionView::snapshot(..., $display = true)`.
+> مسیر عملیاتی RTDS و جداسازی نقش‌ها در [راهنمای تحویل پنل‌ها](live-panels-handoff.md) آمده است. این سند فقط قرارداد داده را توضیح می‌دهد.
 
----
+این سند شکل داده‌ای را ثبت می‌کند که کد فعلی backend تولید می‌کند، نحوهٔ مصرف آن در صفحات Scoreboard و کمبودهایی را که روی انتخاب یا نمایش داده اثر می‌گذارند. بررسی route و دسترسی صفحه خارج از محدودهٔ این سند است.
 
-## ۱. درخت صفحات و کامپوننت‌ها
+## منبع دادهٔ فعلی
 
-### ۱.۱ صفحات (`Pages/Scoreboard/`)
-
-| صفحه | فایل | هدف | وضعیت |
-| ------ | ---- | --- | ----- |
-| Standby | `Standby.vue` | نمایش **اجرای فعلی + Timer اجرا + state پایان** (`running` / `scoring`). بدون صف، بدون اجرای قبلی/بعدی. | متصل به snapshot |
-| LiveBoard | `LiveBoard.vue` | Broadcast board وضعیت **یک زمین**: `PREVIOUS ↓ CURRENT ↓ NEXT`. Timer اینجا مسئولیت اصلی نیست. | متصل به snapshot |
-| Scoring | `Scoring.vue` | نمایش زندهٔ bout در حال اجرا: ورزشکاران، فرم، جدول امتیاز قاضی‌ها، `ScoreCard` (سه امتیاز). | متصل به snapshot (با TODO) |
-| Result | `Result.vue` | نتیجهٔ رقابت‌های تکمیل‌شده؛ هر ورزشکار یک `ScoreCard` روبه‌روی دیگری (آبی چپ، قرمز راست، کادر زرد روی برنده)؛ تک‌مرحله‌ای/دومرحله‌ای از `rounds.length`. | متصل به snapshot |
-| Ranking | `Ranking.vue` | جدول رتبه‌بندی (`standings` برای round_robin + قهرمان برای knockout). | متصل به snapshot |
-| TopFour | `TopFour.vue` | چهار نفر برتر با مدال. | متصل به snapshot (فقط round_robin) |
-| Draw | `Draw.vue` | قرعه‌کشی: فرم‌ها و ورزشکاران هر دسته. | متصل به snapshot (با TODO) |
-
-### ۱.۲ کامپوننت‌ها (`Components/scoreboard/`)
-
-| کامپوننت | هدف | مصرف‌کننده |
-| ---------- | --- | ---------- |
-| `ScoreboardHeader` | هدر مشترک: لوگو + نام رویداد + دور/زمین. از `slot#header` به Layout تزریق می‌شود. | همهٔ صفحات |
-| `AthleteInfo` | نوار نام رنگی (شماره + نام) + بج کشور؛ چهار چیدمان `name-only`/`horizontal`/`vertical`/`vertical-under` و دو سمت آینه‌ای (`chung` چپ، `hong` راست). بدون عکس. | Standby, LiveBoard, Scoring, Result, TopFour, Draw |
-| `NationalityBadge` | پرچم + کد سه‌حرفی انگلیسی کشور؛ دو جهت پرچم و placeholder وقتی پرچم نباشد. | داخل AthleteInfo, RankingRow |
-| `FormBadge` | ردیف `[roundLabel] [symبل فرم] [formName]` (بدون کادر)، در سه سایز (`sm/md/lg`). | Standby, LiveBoard, Scoring, Draw |
-| `SymbolContainer` | نگه‌دارندهٔ یک تصویر سمبل (فرم یا مدال) در سه سایز؛ مسیر از `Shared/Services/symbols.js`. | داخل FormBadge, TopFour, Ranking |
-| `Timer` | **فقط نمایش** — شمارش معکوس از `execution_duration_seconds`. سه حالت کاملاً مشتق از props: `idle` (پیش از شروع، `startedAt` خالی) / `running` (`startedAt` هست، `endedAt` خالی) / `stopped` (هر دو هست). هیچ state تایمری در فرانت وجود ندارد؛ کنترل کامل از پنل اپراتور است. در صفر روی `00:00` می‌ایستد (نه قرمز، نه اعلام خودکار). دو سایز: `lg` در Standby، `sm` در LiveBoard. | Standby, LiveBoard |
-| `ScoreCard` | بلوک امتیاز **یک ورزشکار**: سه آیتم عمودی + آینه‌سازی برای `hong` (قرمز) + کادر زرد `winner` فقط روی جعبهٔ total. آیتم‌ها از slot می‌آیند. | Result, Scoring |
-| `ScoreItem` | یک آیتم امتیاز: ردیف `label … /max` و عدد در جعبهٔ تیره زیرش. `variant="sub"` (عدد سفید، ۱۰۰px) یا `variant="total"` (عدد رنگ تیم، ۱۳۵px). قالب ۲ رقم اعشار با **ممیز لاتین** (`8.46`، نه `۸٫۴۶`) و مقدار غایب `--`. | داخل ScoreCard |
-| `ScoringTableBase` | اسکلت جدول scoring: هدر قاضی‌ها، ریسپانسیو در ۵/۷ قاضی. | داخل سه جدول زیر |
-| `SingleScoringTable` | جدول تک‌نفره + ردیف مجموع قاضی‌ها. | Scoring |
-| `FreestyleScoringTable` | جدول فری‌استایل با ستون «اجرا». | Scoring (بعد از داشتن `execution_mode`) |
-| `DoubleScoringTable` | جدول دونفره با هدر دو‌سطحی به ازای هر ورزشکار. | Scoring (بعد از داشتن `execution_mode`) |
-| `RankingTable` | کانتینر جدول رنکینگ. | Ranking |
-| `RankingRow` | ردیف رنکینگ با ارتفاع/رنگ متغیر بسته به رتبه. | داخل RankingTable |
-
-> جهت وابستگی: `Pages/Scoreboard → Components/scoreboard → Shared`.
-> `Shared` هیچ وابستگی به Scoreboard ندارد.
-
----
-
-## ۲. وضعیت اجرا (Execution States)
-
-این سه state پایهٔ `Standby` و `LiveBoard` هستند؛ منبع آن‌ها `performance.status` و `bout.status` است:
-
-| state | معنی | رفتار |
-| ----- | --- | ----- |
-| `running` | اجرای فیزیکی فعلی | Timer در حال شمارش از `started_at` |
-| `scoring` | اجرا تمام شده، منتظر نتیجه | Timer متوقف روی `ended_at - started_at`، نمایش «در انتظار نتیجه» |
-| `approved` | نتیجه تأیید/منتشر شده | نمایش «نتیجه تأیید شده» + نمره |
+`ScoreboardController` دادهٔ نمایش را از `CompetitionDisplay::snapshot` می‌گیرد. این action، `CompetitionView::snapshot(..., display: true)` را فراخوانی می‌کند و پاسخ را به این شکل می‌سازد:
 
 ```text
-PREVIOUS (bout تکمیل‌شده) → CURRENT (running/scoring) → NEXT (bout pending)
+display
+├── tournament   ← snapshot مسابقه، رده‌ها، راندها، boutها، اجراها و standings
+├── courts[]     ← زمین‌ها با current، upcoming و previous_bout_id
+├── revision
+└── generated_at
 ```
 
----
+فیلدهای اصلی در snapshot فعلی:
 
-## ۳. قرارداد هر صفحه با Backend
+- `tournament`: نام، وضعیت، زمین‌ها و `categories[]`.
+- `category`: قالب و رشته، تعداد فرم و داور، قوانین، شرکت‌کنندگان، راندها، `champion_id`، `standings[]` و `placements[]`. `standings` برای `round_robin` و `placements` برای رتبه‌بندی قابل انتشار استفاده می‌شود.
+- `round`: نام، `stage_label`، شماره و وضعیت راند، boutها و فرم‌های انتخاب‌شده.
+- `bout`: وضعیت، زمین، شرکت‌کنندگان، برنده، `totals[entry_id]`، `component_totals[entry_id]` و اجراها.
+- `performance`: شماره/نام/نشان فرم، وضعیت، زمان، نتیجهٔ منتشرشده یا موقت و `detailed_scores`.
+- `display.courts[]`: برای هر زمین `current` و فهرست مرتب‌شدهٔ `upcoming`. اگر همهٔ اجراهای یک bout تأیید شده باشند اما نتیجهٔ bout هنوز تعیین نشده باشد، `current.status` می‌تواند `decision` باشد.
 
-> «دادهٔ موجود» = همین الان در `CompetitionView::snapshot(display=true)` هست.
-> «`[Proposed Backend Contract]`» = هنوز نیست و **Backend باید تأمین کند**.
+`detailed_scores` تا وقتی نتیجه منتشر نشده یا شرایط محاسبهٔ موقت فراهم نشده باشد ممکن است `null` باشد. محاسبهٔ موقت در وضعیت `scoring` و پس از دریافت نمرهٔ همهٔ داوران در دسترس است.
 
-### ۳.۱ Standby
+## وضعیت صفحات
 
-| دسته | موارد |
-| ---- | ----- |
-| **دادهٔ موجود** | `tournament.status/name`, `courts[]`, `bout.status=running`, `performance.status/started_at/ended_at`, `performance.form_name`, `round.name`, `entries[].name/side` |
-| **`[Proposed]`** | `logoUrl` (لوگوی رویداد)، `execution_duration_seconds` (مدت استاندارد اجرا برای شمارش معکوس)، `entry.country`، `entry.country_code`، `entry.flag_url`، `entry.number` — ~~`entry.photo_url`~~ **حذف موقت** (ردیف ۲ بخش ۴) |
-| **نکته** | صرفاً اجرای جاری؛ هیچ داده‌ای برای صف/بعدی لازم ندارد. |
+| صفحه | اتصال داده در کد فعلی | کمبود یا محدودیت |
+|---|---|---|
+| `Competition/Scoreboard` | رده، راند، bout، اجراها، نتیجه‌ها و standings را از `display.tournament` می‌خواند؛ به‌روزرسانی زنده و polling هم از همین envelope استفاده می‌کنند. | «آخرین نتیجه‌ها» با شناسهٔ bout مرتب می‌شود، نه زمان پایان واقعی؛ ممکن است آخرین اجرای تمام‌شده را دقیق نشان ندهد. |
+| `Competition/Rtds` | `display.courts[].current/upcoming` را مستقیماً می‌خواند؛ وضعیت `decision` نیز در برچسب‌های فرانت تعریف شده است. | برای داده‌های فعلی کمبود اصلی ندارد. |
+| `Standby` | از وضعیت bout و performance، مشخصات ورزشکار، فرم و `live_timing` دادهٔ لازم را می‌گیرد. | `courtId` اختیاری است؛ بدون آن اولین اجرای فعال در ترتیب snapshot انتخاب می‌شود و در چند زمین فعال ممکن است اجرای زمین موردنظر نباشد. |
+| `LiveBoard` | `current` و `upcoming` را از دادهٔ زمین می‌گیرد و جزئیات bout را با شناسه از snapshot پیدا می‌کند. | بدون `courtId` به زمین اول برمی‌گردد. `previous` از ترتیب category/round/bout حدس زده می‌شود؛ backend تاریخچهٔ مرتب‌شدهٔ اجراهای همان زمین را نمی‌فرستد، پس انتخاب قبلی قطعی نیست. |
+| `Scoring` | اجراهای فعال، نوع جدول، هویت شرکت‌کنندگان و جزئیات داورها را از category/bout/performance می‌خواند. | جزئیات ممکن است تا ثبت نمرهٔ همهٔ داوران خالی بماند. نام کشور و پرچم واقعی هم در دادهٔ bout نیست. |
+| `Result` | boutهای تکمیل‌شده، هویت شرکت‌کنندگان و Total رسمی هر bout را می‌خواند؛ برای هر entry نمرهٔ جزئی را از performance می‌گیرد. | صفحه همهٔ matchupهای تکمیل‌شده را می‌سازد، چون نشانگر «نتیجهٔ جاری» ندارد. اگر هر entry در bout چند performance داشته باشد، Accuracy/Presentation تجمیعی در snapshot نیست و صفحه آن‌ها را خودش محاسبه نمی‌کند. |
+| `Ranking` | `placements[]` را ترجیح می‌دهد؛ در نبود آن برای `round_robin` از `standings[]` و فیلدهای `rank`, `name`, `country_code`, `r1/r2` استفاده می‌کند. | Backend فعلاً `placements[]` نمی‌فرستد؛ در نتیجه ranking کامل knockout در دسترس نیست. `r1/r2` امتیاز فرم‌های آخرین standings round است، نه الزاماً دو راند مسابقه. فیلد stage یکنواخت برای هدر هم وجود ندارد. |
+| `TopFour` | از `placements[]` یا standings مربوط به `round_robin` رتبه‌های ۱ تا ۴ را می‌گیرد. | placementهای knockout موجود نیستند. `standings.score` برای قالب‌های غیر score-based ممکن است `null` باشد؛ بنابراین امتیاز Top Four خالی می‌ماند. فیلد stage هم موجود نیست. |
+| `Draw` | از `display.courts[].current` اجرای جاری را می‌گیرد؛ سپس bout، راند، entryها و فرم‌ها را از snapshot پیدا می‌کند. | به `courtId` نیاز دارد؛ اگر مقدار نرسد، اجرای نمایشی پیدا نمی‌شود. فرم‌های راند و `form_badge` اجرا برای محتوای فعلی کافی‌اند. |
+| `Winner` | اگر دادهٔ `current_result` موجود باشد، صفحه می‌تواند boutها، برنده، Total و فرم‌ها را به آن وصل کند. | `current_result` در snapshot فعلی وجود ندارد. fallback فقط وقتی کار می‌کند که دقیقاً یک bout تکمیل‌شدهٔ واجد شرایط در کل snapshot باشد؛ ممکن است نتیجهٔ جاری را نشان ندهد. Total تجمیعی و سقف آن هم ارائه نشده‌اند. |
 
-### ۳.۲ LiveBoard
+## داده‌های موجود و معانی مهم
 
-| دسته | موارد |
-| ---- | ----- |
-| **دادهٔ موجود** | `bout.court_id` (فیلتر زمین)، `round.sequence/bout.sequence` (ترتیب)، `performance.status` (تشخیص current)، `bout.status=completed` + `winner_entry_id` + `totals` (previous)، `bout.status=pending` (next)، `entries[].name/side`، `form_name` |
-| **`[Proposed]`** | `courtId` به‌صورت **پارامتر رسمی صفحه** (query param) — الان fallback به اولین زمین، `timeline` سراسری `previous/current/next` (الان از ترتیب snapshot و **یک زمین** استخراج می‌شود؛ بین زمین‌ها ترتیب سراسری نداریم)، `entry.country/country_code/flag_url`، `logoUrl`، `execution_duration_seconds` |
-| **نکته** | در آینده می‌تواند به «همهٔ زمین‌ها» یا «یک Category» توسعه یابد؛ فعلاً فقط یک زمین. |
+- `country_code` در دادهٔ entry موجود است، اما اگر athlete کد کشور نداشته باشد ممکن است از club کوتاه لاتین ساخته شده باشد؛ آن را کد کشور تأییدشده فرض نکنید. `country` و `flag_url` ارائه نمی‌شوند.
+- `standings.r1/r2` از نتیجهٔ فرم‌ها بر اساس `form_number` در `standings_round_id` ساخته می‌شوند. این نام‌ها معادل «راند اول و دوم مسابقه» نیستند.
+- `standings` فقط برای `round_robin` است. رتبهٔ knockout و placement کامل هر دو قالب در snapshot نیست.
+- `bout.totals[entry_id]` Total منتشرشدهٔ bout را می‌دهد، اما سقف Total تجمیعی را نمی‌دهد.
+- `performance.form_badge` برای فرم‌های شناخته‌شده کلید سمبل فرانت است؛ `form_number` شمارهٔ ترتیب اجراست و معنای متفاوتی دارد.
+- `entry.number`, `photo_url`, `symbol_key` مستقل و `execution_duration_seconds` ریشهٔ tournament برای نمایش فعلی لازم نیستند: شماره/عکس استفاده نمی‌شوند، سمبل از `form_badge` می‌آید و مدت از `live_timing.duration_seconds` قابل دریافت است.
 
-### ۳.۳ Scoring
+## کمبودهای داده برای تکمیل نمایش
 
-| دسته | موارد |
-| ---- | ----- |
-| **دادهٔ موجود** | `category.judge_count` (۵/۷)، `bout.entries[].name/side`، `performance.form_name/form_number`، `bout.totals` (میانگین دو فرم)، `performance.result` |
-| **`[Proposed]`** | **`execution_mode`** (`SINGLE \| DOUBLE \| SINGLE-FREESTYLE`) — برای انتخاب جدول درست (الان همیشه `SingleScoringTable`)، **`judge_scores[]` per seat** — نمرهٔ هر قاضی (در display snapshot آرایهٔ `scores[]` خالی می‌آید)، **`entry.accuracy_score`** و **`entry.presentation_score`** (دو امتیاز زیرمجموعه در `ScoreItem`)، `entry.country/country_code/flag`، `logoUrl` |
-| **نکته** | `mode` متعلق به Domain است؛ Frontend حدس نمی‌زند. |
+این موارد در backend فعلی وجود ندارند و فقط در صورت نیاز محصول باید به قرارداد افزوده شوند:
 
-### ۳.۴ Result
+1. **نتیجهٔ جاری:** `tournament.current_result` با حداقل `status`, `category_id`, `round_count`, `bout_ids`, `winner_entry_id`, `winner_total` و `total_max`. `round_count` یک یا دو است و `bout_ids` باید مرتب و مربوط به همان matchup باشد. سقف Total هر bout هم در صورت نمایش لازم است.
+2. **Placement یکنواخت:** `category.placements[]` برای هر دو قالب، با `rank`, `entry_id`, `name`, `score`, `round_scores`, `country_code` و در صورت پشتیبانی `flag_url`. `score` باید امتیاز رتبه‌بندی نهایی باشد؛ فرانت از wins یا bracket رتبه و امتیاز نسازد.
+3. **نتیجهٔ چندفرمی:** اگر Result باید Accuracy/Presentation یک entry را برای bout چندفرمی نشان دهد، backend باید مقدار تجمیع‌شده و سقف‌های همان bout را بدهد؛ فرانت نباید منطق امتیازدهی را تکرار کند.
+4. **تاریخچهٔ زمین:** اگر LiveBoard باید Previous قطعی داشته باشد، backend باید اجرای قبلی یا timeline مرتب‌شدهٔ همان زمین را ارائه کند.
+5. **هویت کشور:** اگر نام کشور و پرچم واقعی لازم است، دادهٔ معتبر `country` و `flag_url` به entry اضافه شود؛ مقدار حدس‌زده از club برای این منظور کافی نیست.
 
-| دسته | موارد |
-| ---- | ----- |
-| **دادهٔ موجود** | `bout.status=completed`، `winner_entry_id`، `entries[].name/side`، `bout.totals`، `rounds.length` (تشخیص `ONE-ROUND`/`TWO-ROUNDS`) |
-| **`[Proposed]`** | `entry.country/country_code/flag_url`، `form_number` (کلید سمبل فرم)، `logoUrl` |
+`courtId` برای انتخاب زمین در Standby، LiveBoard و Draw ورودی صفحه است؛ در کد فعلی الزامی نیست یا fallback یکسانی ندارد. هر مصرف‌کننده باید زمین هدف را صریحاً تعیین کند تا اجرای اشتباه انتخاب نشود.
 
-### ۳.۵ Ranking
+## جمع‌بندی وضعیت
 
-| دسته | موارد |
-| ---- | ----- |
-| **دادهٔ موجود** | `category.standings[]` = `{rank, name, wins, played}` (فقط `format=round_robin`)، `champion_id` (فقط `format=knockout`) |
-| **`[Proposed]`** | **`placements[]`** یکدست برای **هر دو قالب** (`round_robin` و `knockout`) با شکل پیشنهادی `{rank, entry_id, name, score, country, country_code, flag_url}` (مدال از روی `rank` نمایش داده می‌شود، پس فیلد جدا لازم نیست) — الان برای knockout رتبه‌بندی نداریم، و `score` عددی نهایی هم نداریم (فعلاً «X برد از Y» متنی نمایش داده می‌شود)، `logoUrl` |
-
-### ۳.۶ TopFour
-
-| دسته | موارد |
-| ---- | ----- |
-| **دادهٔ موجود** | ۴ ردیف اول `standings` (فقط `round_robin`) |
-| **`[Proposed]`** | **`placements[]`** (همان فیلد پیشنهادی Ranking — شامل knockout)، `entry.country/country_code/flag_url`، `logoUrl` |
-| **نکته** | برای knockout در حال حاضر داده‌ای ندارد و صفحه پیام placeholder نشان می‌دهد. |
-
-### ۳.۷ Draw
-
-| دسته | موارد |
-| ---- | ----- |
-| **دادهٔ موجود** | `category.form_names[]` (ترتیب فرم‌ها)، `category.entries[]` (`name/club`) |
-| **`[Proposed]`** | **`Draw.output_snapshot`** (ترتیب واقعی قرعه: شمارهٔ اجرا/جفت‌ها/slot)، `entry_members[]` (`{name, club, position}`)، `draw_timing` (زمان قرعه)، `form_number`، `logoUrl` |
-
----
-
-## ۴. خلاصهٔ فیلدهای `[Proposed Backend Contract]`
-
-| # | فیلد | شکل پیشنهادی | مصرف‌کننده |
-| - | ---- | ------------ | ---------- |
-| 1 | `logoUrl` | `string \| null` روی snapshot | همهٔ صفحات (header) |
-| 2 | ~~`entry.photo_url`~~ | **حذف موقت** — تا اطلاع بعدی تأمین نشود (عکس ورزشکار در هیچ صفحه‌ای نمایش داده نمی‌شود) | — |
-| 3 | `entry.country` / `entry.country_code` / `entry.flag_url` | `string` روی entry — `country_code` از نوع ISO 3166-1 alpha-3 انگلیسی (مثل `IRI`) | هر جا `NationalityBadge` (`AthleteInfo`, `RankingRow`) |
-| 4 | `entry.number` | `int` روی entry | Standby, Scoring |
-| 5 | `execution_duration_seconds` | `int` روی تنظیمات مسابقه | Standby, LiveBoard (Timer) |
-| 6 | `execution_mode` | `SINGLE \| DOUBLE \| SINGLE-FREESTYLE` روی category | Scoring (انتخاب جدول) |
-| 7 | `judge_scores[]` | `[{seat, values[]}]` روی performance (در display هم) | Scoring (ستون‌های قاضی) |
-| 8 | `entry.accuracy_score` | `number` ۰..۴ روی entry — سقف **ثابت**، فرانت جمع نمی‌کند | Result, Scoring (`ScoreItem`) |
-| 9 | `entry.presentation_score` | `number` ۰..۶ روی entry — سقف **ثابت** | Result, Scoring (`ScoreItem`) |
-| 9 | `bout.totals[entry_id]` | `number` ۰..۱۰ = مجموع دو مورد قبل؛ از Backend می‌آید، نه جمع در فرانت | Result, Scoring (`ScoreItem variant="total"`) |
-| 9 | `bout.winner_entry_id` | `int` — تعیین `winner` و در نتیجه کادر زرد روی total | Result (`ScoreCard`) |
-| 10 | `placements[]` | `[{rank, entry_id, name, score, country, country_code, flag_url}]` روی category (مدال از `rank` مشتق می‌شود) | Ranking, TopFour |
-| 11 | `Draw.output_snapshot` | خروجی قرعه (ترتیب اجرا/جفت‌ها) | Draw |
-| 12 | `entry_members[]` | `[{name, club, position}]` روی entry | Draw, Standby, Scoring |
-| 13 | `draw_timing` | `timestamp` | Draw |
-| 14 | `form_number` | `int` ۱..۱۸ روی فرم — کلید سمبل فرم | `FormBadge` در Scoring, Result, Draw, Standby, LiveBoard |
-| 15 | `courtId` (LiveBoard) | query param رسمی | LiveBoard |
-| 16 | `timeline` (LiveBoard) | `previous/current/next` صریح با ترتیب سراسری بین زمین‌ها | LiveBoard |
-
-**نکتهٔ `NationalityBadge` (کد کشور و پرچم):**
-
-- نمایش بج **فقط کد سه‌حرفی انگلیسی** (`entry.country_code`) است؛ نام فارسی (`entry.country`) صرفاً برای a11y/جست‌جو می‌ماند و جایگزین کد نمی‌شود.
-- اگر `flag_url` نبود، Frontend حدس نمی‌زند: همان کد داخل قاب پرچم به‌عنوان placeholder نمایش داده می‌شود (frontend-only، نیاز به دادهٔ جدید ندارد).
-- دو جهتِ پرچم (`flagPosition=left|right`) هم صرفاً prop کامپوننت است و قرارداد داده را تغییر نمی‌دهد.
-- عکس ورزشکار (`photo_url`) **حذف موقت** است: تا اطلاع بعدی نه در `AthleteInfo` رندر می‌شود نه در `RankingRow`، و backend لازم نیست آن را تأمین کند.
-
-**نکتهٔ سمبل فرم و مدال (asset های داخل مخزن):**
-
-- Backend **URL تصویر نمی‌دهد**؛ فقط کلید دامنه: `form_number` (۱..۱۸) برای فرم و `rank` (۱..۵) برای مدال.
-- مسیر فایل‌ها در فرانت و در یک جا نگه‌داری می‌شود: `resources/js/Shared/Services/symbols.js` (`FORM_SYMBOLS`، `MEDAL_SYMBOLS`، `formSymbol()`، `medalSymbol()`)، و asset ها در `public/images/symbols/` و `public/images/medals/` قرار دارند.
-- افزودن فرم یا مدال جدید = افزودن فایل + یک خط در map؛ هیچ تغییری در کامپوننت‌ها و قرارداد لازم نیست.
-- مدال‌ها از روی `rank` انتخاب می‌شوند (۱ طلا، ۲ نقره، ۳ برنز، ۴ و ۵ خاکستری) و فیلد جداگانهٔ `medal` در قرارداد وجود ندارد.
-- تا وقتی فایل‌های webp تحویل/اضافه نشده باشند، مسیرها در map تعریف شده ولی `SymbolContainer` چیزی رندر نمی‌کند (کامپوننت در نبود تصویر fallback ندارد).
-
-**پیشنهاد مدیریت کدها و پرچم‌ها:**
-
-- `country_code` یکتا و اجباری روی هر entry باشد: کد ISO 3166-1 alpha-3 (هم‌ارز کدهای المپیک: `IRI`, `KOR`, `TUR`, …)، همیشه uppercase، در Backend اعتبارسنجی شود.
-- `flag_url` از یک مخزن واحد با نام‌گذاری قابل پیش‌بینی تأمین شود: `/flags/{country_code}.svg`؛ تغییر/افزودن پرچم فقط با افزودن فایل در همان مخزن.
-- کد ناشناخته/نامعتبر: entry با همان کد نمایش و پرچمش placeholder می‌گیرد؛ Backend خطا ندهد اما در لاگ ثبت کند.
-- سمت Frontend هیچ حدس/تبدیل زبانی وجود ندارد؛ هر دو فیلد (`country_code`, `flag_url`) از snapshot می‌آیند.
-
-مواردی که **Contract جدید لازم ندارند** (از snapshot فعلی قابل استخراج):
-
-```text
-rounds.length          → ONE-ROUND / TWO-ROUNDS
-standings[]            → Ranking/TopFour فقط برای round_robin
-judge_count            → تعداد ستون جدول (۵ یا ۷)
-performance.status     → state های running / scoring / approved
-court_id               → فیلتر زمین در LiveBoard
-```
-
----
-
-## ۵. وضعیت انتظار
-
-```text
-Frontend  →  پیاده‌سازی شده (۷ صفحه + ۱۳ کامپوننت)، بدون mock، با TODO/Proposed Contract
-Backend   →  در انتظار پیاده‌سازی بر اساس بخش ۳ و ۴ همین سند
-بعد از تأیید Contract نهایی:
-            ۱. فیلدهای Proposed به snapshot اضافه می‌شوند.
-            ۲. صفحات از TODOها پاک و داده‌محور می‌شوند.
-            ۳. Route/Inertia render به `Pages/Scoreboard/*` repoint می‌شود.
-            
-```
-
-> تا تکمیل Backend: هیچ Route، Controller، Migration یا Business Logic تغییر نکرده،
-> هیچ mock/fixture ساخته نشده و همهٔ دسترسی‌ها `null-safe` است.
+- صفحات فعلی `Competition/Scoreboard` و `Competition/Rtds` دادهٔ نمایش زنده را مصرف می‌کنند.
+- صفحات ماژولار `Pages/Scoreboard/*` از نظر شکل propها می‌توانند `display.tournament` را مصرف کنند؛ داده‌های صفحه‌های Lab نمونه‌اند و backend را جایگزین نمی‌کنند.
+- Standby، Scoring و Draw دادهٔ پایهٔ لازم برای محتوای فعلی را دارند، با محدودیت انتخاب زمین در Standby/Draw.
+- LiveBoard برای Previous، Result برای انتخاب نتیجهٔ جاری، Winner برای انتخاب برندهٔ نتیجهٔ جاری، و Ranking/TopFour برای placement کامل به دادهٔ تکمیلی نیاز دارند.
+- این سند فقط وضعیت و قرارداد داده را پوشش می‌دهد؛ اتصال صفحه‌ها به route یا تغییر route بخشی از این بررسی نیست.

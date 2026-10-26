@@ -29,22 +29,41 @@ const props = defineProps({
 
 const isHong = computed(() => props.side === "hong");
 
-// سه سایز مستقل — ارتفاع نوار = ارتفاع بج همان سایز (lg دقیقاً ابعاد طرح)
 const sizeClasses = {
-    lg: {
-        bar: "gap-[18px] px-6 py-6",
-        number: "h-[89px] w-[103px] text-[73px] leading-[1.1]",
-        name: "text-[73px] leading-[1.1]",
-    },
-    md: {
-        bar: "gap-2.5 px-4 py-3",
-        number: "h-9 w-14 text-[32px] leading-[1.1]",
-        name: "text-[32px] leading-[1.1]",
-    },
     sm: {
-        bar: "gap-1.5 px-2.5 py-1",
-        number: "h-5 w-9 text-[15px] leading-[1.15]",
+        bar: "h-8 gap-1.5 px-2.5",
+        number: "h-6 w-9 text-[15px] leading-[1.15]",
         name: "text-[15px] leading-[1.15]",
+    },
+
+    md: {
+        bar: "h-12 gap-2.5 px-4",
+        number: "h-9 w-14 text-[28px] leading-[1.1]",
+        name: "text-[28px] leading-[1.1]",
+    },
+
+    lg: {
+        bar: "h-16 gap-3 px-5",
+        number: "h-12 w-[68px] text-[40px] leading-[1.1]",
+        name: "text-[40px] leading-[1.1]",
+    },
+
+    xl: {
+        bar: "h-[107px] gap-4 px-5",
+        number: "h-[69px] w-[80px] text-[57px] leading-[1.1]",
+        name: "text-[57px] leading-[1.1]",
+    },
+
+    xxl: {
+        bar: "h-[131px] gap-5 px-6",
+        number: "h-[84px] w-[98px] text-[70px] leading-[1.1]",
+        name: "text-[85px] leading-[1.1]",
+    },
+
+    xxxl: {
+        bar: "h-32 gap-6 px-7",
+        number: "h-20 w-[108px] text-[72px] leading-[1.1]",
+        name: "text-[90px] leading-[1.1]",
     },
 };
 
@@ -57,19 +76,30 @@ const barBackgrounds = {
 // حاشیهٔ ۶/۴/۳px در لبهٔ بیرونی سمت بازیکن (آبی: چپ، قرمز: راست)
 const barBorders = {
     chung: {
-        lg: "border-l-[6px] border-l-rtds-blue",
-        md: "border-l-4 border-l-rtds-blue",
         sm: "border-l-[3px] border-l-rtds-blue",
+        md: "border-l-4 border-l-rtds-blue",
+        lg: "border-l-[5px] border-l-rtds-blue",
+        xl: "border-l-[5px] border-l-rtds-blue",
+        xxl: "border-l-[6px] border-l-rtds-blue",
+        xxxl: "border-l-[7px] border-l-rtds-blue",
     },
+
     hong: {
-        lg: "border-r-[6px] border-r-rtds-red",
-        md: "border-r-4 border-r-rtds-red",
         sm: "border-r-[3px] border-r-rtds-red",
+        md: "border-r-4 border-r-rtds-red",
+        lg: "border-r-[5px] border-r-rtds-red",
+        xl: "border-r-[5px] border-r-rtds-red",
+        xxl: "border-r-[6px] border-r-rtds-red",
+        xxxl: "border-r-[7px] border-r-rtds-red",
     },
+
     neutral: {
-        lg: "border-l-[6px] border-l-rtds-border-strong",
-        md: "border-l-4 border-l-rtds-border-strong",
         sm: "border-l-[3px] border-l-rtds-border-strong",
+        md: "border-l-4 border-l-rtds-border-strong",
+        lg: "border-l-[5px] border-l-rtds-border-strong",
+        xl: "border-l-[5px] border-l-rtds-border-strong",
+        xxl: "border-l-[6px] border-l-rtds-border-strong",
+        xxxl: "border-l-[7px] border-l-rtds-border-strong",
     },
 };
 
@@ -94,7 +124,7 @@ const rootClasses = computed(() => {
                 ? "inline-flex flex-row-reverse items-center"
                 : "inline-flex flex-row items-center";
         case "vertical-under":
-            return `inline-flex flex-col ${anchor}`;
+            return `flex w-full flex-col ${anchor}`;
         case "vertical":
         default:
             return `inline-flex flex-col ${anchor}`;
@@ -102,11 +132,21 @@ const rootClasses = computed(() => {
 });
 
 const showBadge = computed(() => Boolean(props.countryCode || props.flagUrl));
-
-// در چیدمان‌های عمودی بج یک سایز کوچک‌تر می‌شود (نسبت طرح)
 const badgeSize = computed(() => {
-    if (props.layout === "horizontal") return props.size;
-    return props.size === "lg" ? "md" : "sm";
+    if (props.layout === "horizontal") {
+        return props.size;
+    }
+
+    const badgeSizes = {
+        sm: "sm",
+        md: "sm",
+        lg: "md",
+        xl: "xl",
+        xxl: "xxl",
+        xxxl: "xxl",
+    };
+
+    return badgeSizes[props.size] ?? "sm";
 });
 
 const badgeProps = computed(() => ({
@@ -132,19 +172,25 @@ const badgeProps = computed(() => ({
         />
 
         <!-- نوار نام (در name-only هم فقط نوار داریم) -->
-        <span class="bar" :class="barClasses">
-            <span
+        <span class="bar w-full" :class="barClasses">
+            <!-- <span
                 v-if="number !== ''"
                 class="grid shrink-0 place-items-center bg-rtds-blue-soft/40 font-rtds font-bold tabular-nums text-white"
                 :class="sizeClasses[size]?.number ?? sizeClasses.md.number"
-                >{{ number }}</span
             >
+                {{ number }}
+            </span> -->
+
             <span
                 v-if="name !== ''"
-                class="min-w-0 truncate font-rtds font-bold uppercase text-white"
-                :class="sizeClasses[size]?.name ?? sizeClasses.md.name"
-                >{{ name }}</span
+                class="min-w-0 flex-1 truncate font-rtds font-bold uppercase text-white"
+                :class="[
+                    sizeClasses[size]?.name ?? sizeClasses.md.name,
+                    isHong ? 'text-right' : 'text-left',
+                ]"
             >
+                {{ name }}
+            </span>
         </span>
 
         <!-- بج بعد از نوار: vertical-under (پایین نوار) -->

@@ -21,17 +21,23 @@ class PilotSeeder extends Seeder
         DB::transaction(function () use (&$credentials): void {
             $suffix = strtolower(Str::random(8));
             $password = Str::password(20, symbols: false);
-            $admin = new User(['name' => 'مدیر آزمایش', 'email' => 'pilot-'.$suffix.'@example.test', 'password' => $password]);
+            $admin = new User(['name' => 'Pilot Admin', 'email' => 'pilot-'.$suffix.'@example.test', 'password' => $password]);
             $admin->is_admin = true;
             $admin->save();
             $credentials[] = [$admin->email, $password];
-            $tournament = app(CreateTournament::class)->handle($admin, ['name' => 'پایلوت استاندارد انفرادی '.$suffix, 'starts_on' => '2026-10-01', 'venue' => 'سالن آزمایش', 'timezone' => 'Asia/Tehran']);
+            $tournament = app(CreateTournament::class)->handle($admin, ['name' => 'Poomsae Pilot '.$suffix, 'starts_on' => '2026-10-01', 'venue' => 'Test Arena', 'timezone' => 'Asia/Tehran']);
             $setup = app(CompetitionSetup::class);
-            $setup->court($admin, $tournament, ['name' => 'زمین یک']);
-            $setup->category($admin, $tournament, ['name' => 'انفرادی آزمایشی', 'gender' => 'open', 'minimum_age' => 10, 'maximum_age' => 40, 'format' => 'knockout', 'judge_count' => 5, 'accuracy_max' => 300, 'discard_extremes' => true, 'rules_acknowledged' => true, 'form_names' => ['فرم آزمایشی اول', 'فرم آزمایشی دوم']]);
+            $setup->court($admin, $tournament, ['name' => 'Court 1']);
+            foreach (['operator' => 'Pilot Operator', 'display' => 'RTDS Display'] as $role => $name) {
+                $memberPassword = Str::password(20, symbols: false);
+                $email = $role.'-'.$suffix.'@example.test';
+                $setup->member($admin, $tournament, ['name' => $name, 'email' => $email, 'password' => $memberPassword, 'role' => $role]);
+                $credentials[] = [$email, $memberPassword];
+            }
+            $setup->category($admin, $tournament, ['name' => 'U-30 Male', 'gender' => 'male', 'minimum_age' => 10, 'maximum_age' => 40, 'format' => 'knockout', 'judge_count' => 5, 'accuracy_max' => 400, 'discard_each_end' => 1, 'rules_acknowledged' => true, 'form_names' => ['Taegeuk 8 Jang', 'Koryo']]);
             $category = $tournament->categories()->firstOrFail();
-            foreach ([['آرمان', 'آزمایشی'], ['کیان', 'نمونه']] as [$first,$last]) {
-                $setup->entry($admin, $tournament, $category, ['first_name' => $first, 'last_name' => $last, 'birth_date' => '2005-01-01', 'gender' => 'male', 'club' => 'تیم نمونه']);
+            foreach ([['Daniel', 'Kim'], ['Samuel', 'Lee'], ['Alex', 'Park'], ['Ryan', 'Choi'], ['Leo', 'Han'], ['Noah', 'Kang'], ['Evan', 'Moon'], ['Adam', 'Jung']] as [$first,$last]) {
+                $setup->entry($admin, $tournament, $category, ['first_name' => $first, 'last_name' => $last, 'birth_date' => '2005-01-01', 'gender' => 'male', 'club' => 'Pilot Team']);
             }
             foreach ($category->entries()->get() as $entry) {
                 $setup->entryStatus($admin, $tournament, $entry, 'checked_in');
@@ -40,7 +46,7 @@ class PilotSeeder extends Seeder
             for ($i = 1; $i <= 5; $i++) {
                 $password = Str::password(20, symbols: false);
                 $email = 'judge'.$i.'-'.$suffix.'@example.test';
-                $setup->member($admin, $tournament, ['name' => 'داور '.$i, 'email' => $email, 'password' => $password, 'role' => 'judge']);
+                $setup->member($admin, $tournament, ['name' => 'Judge '.$i, 'email' => $email, 'password' => $password, 'role' => 'judge']);
                 $judgeIds[] = User::where('email', $email)->firstOrFail()->id;
                 $credentials[] = [$email, $password];
             }

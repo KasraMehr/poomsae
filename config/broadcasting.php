@@ -45,10 +45,9 @@ return [
             'subscribe_expiration' => (int) env('MERCURE_SUBSCRIBE_EXPIRATION', 5),
             'claims' => [
                 'iss' => env('MERCURE_JWT_ISSUER'),
+                'aud' => env('MERCURE_JWT_AUDIENCE'),
                 'client_id' => env('APP_NAME'),
             ],
-            'cookie_name' => env('MERCURE_COOKIE_NAME'),
-            'subscribe_expiration' => (int) env('MERCURE_SUBSCRIBE_EXPIRATION', 5),
         ],
 
         'log' => [
