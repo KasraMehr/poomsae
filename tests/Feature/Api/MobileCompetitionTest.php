@@ -4,6 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\Models\JudgeAssignment;
 use App\Models\Performance;
+use App\Models\ScoreSheet;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -127,6 +128,9 @@ class MobileCompetitionTest extends TestCase
             ->assertJsonCount(5, 'data.scores');
 
         // Front-end display-data returns updated court state
+        $displayUser = User::factory()->create();
+        $fixture['tournament']->users()->attach($displayUser, ['role' => 'display']);
+        Sanctum::actingAs($displayUser, ['tournaments:read']);
         $displayResponse = $this->getJson('/api/v1/tournaments/'.$fixture['tournament']->id.'/display-data')
             ->assertOk()
             ->assertJsonPath('changed', true);
@@ -174,6 +178,64 @@ class MobileCompetitionTest extends TestCase
         $this->assertDatabaseHas('results', [
             'performance_id' => $performance->id,
             'score' => '8.400000',
+        ]);
+    }
+
+    public function test_five_judge_api_flow_handles_one_failed_tablet_with_audited_manual_score(): void
+    {
+        $fixture = $this->competition();
+        $this->schedule($fixture);
+        $performance = Performance::query()->firstOrFail();
+        $this->startScoring($fixture, $performance);
+        $tournament = $fixture['tournament'];
+        $scoreUrl = '/api/v1/tournaments/'.$tournament->id.'/performances/'.$performance->id.'/scores';
+
+        foreach ($fixture['judges']->take(4) as $judge) {
+            Sanctum::actingAs($judge, ['tournaments:read', 'scores:write']);
+            $this->postJson($scoreUrl, [
+                'request_id' => (string) Str::uuid(),
+                'expected_version' => $performance->fresh()->version,
+                'expected_revision' => 0,
+                ...$this->detailedScoreInput('2.50', '6.00'),
+            ])->assertOk()->assertJsonPath('data.revision', 1);
+        }
+
+        $operator = User::factory()->create();
+        $tournament->users()->attach($operator->id, ['role' => 'operator']);
+        $missingAssignment = JudgeAssignment::where('bout_id', $performance->bout_id)->orderByDesc('seat')->firstOrFail();
+        $baseUrl = '/api/v1/tournaments/'.$tournament->id.'/performances/'.$performance->id;
+        Sanctum::actingAs($operator, ['tournaments:read', 'competition:operate']);
+
+        $this->postJson($baseUrl.'/proxy-scores', [
+            'request_id' => (string) Str::uuid(),
+            'judge_assignment_id' => $missingAssignment->id,
+            'expected_version' => $performance->fresh()->version,
+            'expected_revision' => 0,
+            ...$this->detailedScoreInput('2.50', '6.00'),
+            'reason' => 'Judge tablet disconnected during scoring.',
+        ])->assertOk()->assertJsonPath('data.requires_confirmation', true);
+
+        $sheet = ScoreSheet::where('judge_assignment_id', $missingAssignment->id)->firstOrFail();
+        $this->postJson($baseUrl.'/command', [
+            'command' => 'approve',
+            'expected_version' => $performance->fresh()->version,
+        ])->assertStatus(422);
+
+        $this->postJson($baseUrl.'/proxy-scores/'.$sheet->id.'/confirm', [
+            'expected_revision' => $sheet->revision,
+        ])->assertOk();
+
+        $this->postJson($baseUrl.'/command', [
+            'command' => 'approve',
+            'expected_version' => $performance->fresh()->version,
+        ])->assertOk()->assertJsonPath('data.status', 'approved');
+
+        $this->getJson($baseUrl.'/result')->assertOk()->assertJsonCount(5, 'data.scores');
+        $this->assertDatabaseHas('score_sheets', [
+            'id' => $sheet->id,
+            'status' => 'submitted',
+            'submission_mode' => 'operator_proxy',
+            'confirmed_by' => $operator->id,
         ]);
     }
 }
