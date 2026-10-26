@@ -32,6 +32,24 @@ class User extends Authenticatable
             ->where('tournaments.id', $tournament->id)->wherePivotIn('role', $roles)->exists());
     }
 
+    public function panelRole(Tournament $tournament): ?string
+    {
+        if (! $this->is_active) {
+            return null;
+        }
+
+        if ($this->is_admin) {
+            return 'admin';
+        }
+
+        $role = $this->tournaments()->where('tournaments.id', $tournament->id)->first()?->pivot?->role;
+        if ($role !== null && $this->tournaments()->wherePivot('role', '!=', $role)->exists()) {
+            return null;
+        }
+
+        return $role === 'manager' ? 'admin' : $role;
+    }
+
     /**
      * Get the attributes that should be cast.
      *

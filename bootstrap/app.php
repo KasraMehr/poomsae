@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsurePanelRole;
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\ResolveMercureHub;
@@ -24,6 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->api(append: [ResolveMercureHub::class]);
         $middleware->alias([
             'active' => EnsureUserIsActive::class,
+            'panel' => EnsurePanelRole::class,
             'abilities' => CheckAbilities::class,
             'ability' => CheckForAnyAbility::class,
         ]);
