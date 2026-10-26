@@ -35,10 +35,10 @@ const tournament = computed(
 );
 
 const statusLabels = {
-    draft: "پیش‌نویس",
-    ready: "آماده",
-    running: "در حال برگزاری",
-    completed: "پایان‌یافته",
+    draft: "DRAFT",
+    ready: "READY",
+    running: "IN PROGRESS",
+    completed: "COMPLETED",
 };
 
 const stage = computed(() => statusLabels[tournament.value?.status] ?? "");
@@ -143,6 +143,20 @@ const current = computed(() => {
  * approved = نتیجه منتشرشده دارد.
  */
 const previous = computed(() => {
+    const exactPrevious = displayCourt.value?.previous_bout_id
+        ? findSnapshotBout(displayCourt.value.previous_bout_id)
+        : null;
+    if (exactPrevious) {
+        const winner = exactPrevious.entries.find(
+            (entry) => entry.id === exactPrevious.winner_entry_id,
+        );
+        return {
+            bout: exactPrevious,
+            winner,
+            approved: exactPrevious.performances.every((p) => p.result != null),
+            total: winner ? exactPrevious.totals?.[winner.id] ?? null : null,
+        };
+    }
     const index = courtBouts.value.findIndex(
         (b) => b.id === current.value?.bout.id,
     );
@@ -182,9 +196,9 @@ const next = computed(() => {
 });
 
 const stateLabels = {
-    running: "در حال اجرا",
-    scoring: "اجرای پایان یافت — در انتظار نتیجه",
-    approved: "نتیجه تأیید شده",
+    running: "LIVE",
+    scoring: "AWAITING SCORES",
+    approved: "RESULT APPROVED",
 };
 
 const stateClasses = {
@@ -203,7 +217,7 @@ const durationSeconds = computed(
 const score = (value) =>
     value == null
         ? "—"
-        : Number(value).toLocaleString("fa-IR", {
+        : Number(value).toLocaleString("en-US", {
               minimumFractionDigits: 3,
               maximumFractionDigits: 6,
           });
@@ -243,7 +257,7 @@ const formSymbolKeyOf = (bout, performance = bout.performances?.[0]) => {
 
         <section
             class="flex flex-1 flex-col justify-center gap-4"
-            aria-label="جریان مسابقه"
+            aria-label="Match flow"
         >
             <!-- PREVIOUS -->
             <article
@@ -252,7 +266,7 @@ const formSymbolKeyOf = (bout, performance = bout.performances?.[0]) => {
                 <div class="mb-4 flex items-center justify-between">
                     <span
                         class="text-xs font-medium uppercase tracking-widest text-rtds-text-muted"
-                        >Previous · اجرای قبلی</span
+                        >Previous</span
                     >
                     <span
                         v-if="previous"
@@ -279,7 +293,7 @@ const formSymbolKeyOf = (bout, performance = bout.performances?.[0]) => {
                             :symbol-key="formSymbolKeyOf(previous.bout)"
                             :form-name="
                                 formNamesOf(previous.bout)[0] ??
-                                `رقابت ${previous.bout.sequence}`
+                                `Match ${previous.bout.sequence}`
                             "
                         />
                         <AthleteInfo                                v-if="previous.winner"
@@ -299,7 +313,7 @@ const formSymbolKeyOf = (bout, performance = bout.performances?.[0]) => {
                     </div>
                 </template>
                 <p v-else class="text-sm text-rtds-text-tertiary">
-                    بدون اجرای قبلی
+                    No previous performance
                 </p>
             </article>
 
@@ -325,7 +339,7 @@ const formSymbolKeyOf = (bout, performance = bout.performances?.[0]) => {
                 <div class="mb-4 flex items-center justify-between">
                     <span
                         class="text-xs font-medium uppercase tracking-widest text-rtds-text-muted"
-                        >Current · اجرای فعلی</span
+                        >Current</span
                     >
                     <span
                         v-if="current"
@@ -349,7 +363,7 @@ const formSymbolKeyOf = (bout, performance = bout.performances?.[0]) => {
                                 "
                                 :form-name="
                                     current.performance.form_name ??
-                                    `رقابت ${current.bout.sequence}`
+                                    `Match ${current.bout.sequence}`
                                 "
                             />
                             <AthleteInfo
@@ -379,7 +393,7 @@ const formSymbolKeyOf = (bout, performance = bout.performances?.[0]) => {
                     </div>
                 </template>
                 <p v-else class="text-sm text-rtds-text-tertiary">
-                    اجرایی در جریان نیست
+                    No active performance
                 </p>
             </article>
 
@@ -398,7 +412,7 @@ const formSymbolKeyOf = (bout, performance = bout.performances?.[0]) => {
                 <div class="mb-4">
                     <span
                         class="text-xs font-medium uppercase tracking-widest text-rtds-text-muted"
-                        >Next · اجرای بعدی</span
+                        >Next</span
                     >
                 </div>
 
@@ -410,7 +424,7 @@ const formSymbolKeyOf = (bout, performance = bout.performances?.[0]) => {
                             :symbol-key="formSymbolKeyOf(next)"
                             :form-name="
                                 formNamesOf(next)[0] ??
-                                `رقابت ${next.sequence}`
+                                `Match ${next.sequence}`
                             "
                         />
                         <AthleteInfo
@@ -427,7 +441,7 @@ const formSymbolKeyOf = (bout, performance = bout.performances?.[0]) => {
                     </div>
                 </template>
                 <p v-else class="text-sm text-rtds-text-tertiary">
-                    اجرای بعدی مشخص نشده است
+                    No next performance scheduled
                 </p>
             </article>
         </section>
