@@ -2,6 +2,7 @@
 
 namespace App\Actions;
 
+use App\Models\AuditLog;
 use App\Models\Tournament;
 use App\Models\User;
 use Illuminate\Support\Collection;
@@ -68,11 +69,36 @@ class CompetitionConsole
 
             return $performance;
         });
-        $courts = collect($tournamentView['courts'])->map(function (array $court) use ($performances) {
+        $courts = collect($tournamentView['courts'])->map(function (array $court) use ($performances, $tournamentView) {
             $courtPerformances = $performances->where('court_id', $court['id'])->values();
+            $matches = collect($tournamentView['categories'])->flatMap(fn (array $category) => collect($category['rounds'])->flatMap(
+                fn (array $round) => collect($round['bouts'])
+                    ->filter(fn (array $bout) => $bout['court_id'] === $court['id'])
+                    ->map(fn (array $bout) => [
+                        'id' => $bout['id'],
+                        'category_id' => $category['id'],
+                        'category_name' => $category['name'],
+                        'round_id' => $round['id'],
+                        'round_name' => $round['name'],
+                        'sequence' => $bout['sequence'],
+                        'status' => $bout['status'],
+                        'entries' => $bout['entries'],
+                        'winner_entry_id' => $bout['winner_entry_id'],
+                        'totals' => $bout['totals'],
+                        'performances' => collect($bout['performances'])->map(fn (array $performance) => [
+                            'id' => $performance['id'],
+                            'entry_id' => $performance['entry_id'],
+                            'form_number' => $performance['form_number'],
+                            'form_name' => $performance['form_name'],
+                            'status' => $performance['status'],
+                            'result' => $performance['result'],
+                        ])->values(),
+                    ])
+            ))->values();
 
             return [
                 ...$court,
+                'matches' => $matches,
                 'active' => $courtPerformances->first(fn (array $performance) => in_array($performance['status'], ['running', 'scoring'], true)),
                 'queue' => $courtPerformances
                     ->filter(fn (array $performance) => $performance['status'] === 'pending')
@@ -87,6 +113,18 @@ class CompetitionConsole
         return [
             'tournament' => $tournamentView,
             'courts' => $courts,
+            'recent_events' => AuditLog::query()->with('user:id,name')
+                ->where('tournament_id', $tournament->id)
+                ->latest('id')->limit(20)->get()
+                ->map(fn (AuditLog $log) => [
+                    'id' => $log->id,
+                    'action' => $log->action,
+                    'label' => CompetitionReports::ACTION_LABELS[$log->action] ?? $log->action,
+                    'subject_type' => $log->subject_type,
+                    'subject_id' => $log->subject_id,
+                    'actor_name' => $log->user?->name,
+                    'occurred_at' => $log->created_at?->toISOString(),
+                ])->values(),
             'attention' => [
                 'running' => $performances->where('status', 'running')->count(),
                 'waiting_for_scores' => $performances->where('status', 'scoring')->count(),
