@@ -23,7 +23,7 @@ class CompetitionSecurityTest extends TestCase
         $bout = Bout::firstOrFail();
         $url = '/tournaments/'.$f['tournament']->id.'/bouts/'.$bout->id.'/resolve';
         $data = ['decision_type' => 'walkover', 'winner_entry_id' => $bout->entries()->firstOrFail()->id, 'reason' => 'انصراف ورزشکار مقابل'];
-        $this->actingAs($f['admin'])->post($url, $data)->assertSessionHasErrors('confirmed');
+        $this->actingAs($f['operator'])->post($url, $data)->assertSessionHasErrors('confirmed');
         $this->post($url, [...$data, 'confirmed' => true])->assertSessionHasNoErrors();
         $this->post($url, [...$data, 'confirmed' => true])->assertSessionHasErrors('operation');
     }
@@ -49,7 +49,7 @@ class CompetitionSecurityTest extends TestCase
         $this->schedule($f);
         $p = Performance::firstOrFail();
         $this->startScoring($f, $p);
-        $this->actingAs($f['admin'])->withHeader('X-Inertia', 'true')->post(
+        $this->actingAs($f['operator'])->withHeader('X-Inertia', 'true')->post(
             '/tournaments/'.$f['tournament']->id.'/performances/'.$p->id.'/command',
             ['command' => 'finish', 'expected_version' => 1]
         )->assertRedirect()->assertSessionHasErrors('operation');
@@ -63,7 +63,8 @@ class CompetitionSecurityTest extends TestCase
         $other = $this->competition();
         $this->schedule($other);
         $p = Performance::firstOrFail();
-        $this->actingAs($f['admin'])->post('/tournaments/'.$f['tournament']->id.'/performances/'.$p->id.'/command', ['command' => 'start', 'expected_version' => $p->version])->assertNotFound();
+        $this->actingAs($f['operator'])->post('/tournaments/'.$f['tournament']->id.'/performances/'.$p->id.'/command', ['command' => 'start', 'expected_version' => $p->version])->assertNotFound();
+        $this->actingAs($f['admin']);
         $this->post('/tournaments/'.$f['tournament']->id.'/categories/'.$other['category']->id.'/entries', ['first_name' => 'آزمون', 'last_name' => 'آزمون', 'birth_date' => '2005-01-01', 'gender' => 'male'])->assertNotFound();
     }
 
@@ -104,7 +105,7 @@ class CompetitionSecurityTest extends TestCase
         $ps = Performance::orderBy('id')->get();
         $run = app(RunCompetition::class);
         $run->command($f['admin'], $f['tournament'], $ps[0], ['command' => 'start', 'expected_version' => 1]);
-        $this->actingAs($f['admin'])->post('/tournaments/'.$f['tournament']->id.'/performances/'.$ps[0]->id.'/command', ['command' => 'finish', 'expected_version' => 1])->assertStatus(409);
+        $this->actingAs($f['operator'])->post('/tournaments/'.$f['tournament']->id.'/performances/'.$ps[0]->id.'/command', ['command' => 'finish', 'expected_version' => 1])->assertStatus(409);
         $this->post('/tournaments/'.$f['tournament']->id.'/performances/'.$ps[2]->id.'/command', ['command' => 'start', 'expected_version' => 1])->assertSessionHasErrors('operation');
     }
 

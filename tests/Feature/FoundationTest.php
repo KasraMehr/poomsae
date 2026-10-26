@@ -64,8 +64,7 @@ class FoundationTest extends TestCase
         $allowed = Tournament::factory()->create();
         $hidden = Tournament::factory()->create();
         $allowed->users()->attach($member, ['role' => 'judge']);
-        $this->actingAs($member)->get('/dashboard')->assertOk()->assertInertia(fn (Assert $page) => $page
-            ->component('Dashboard')->where('stats.total', 1)->has('tournaments', 1)->where('tournaments.0.id', $allowed->id));
+        $this->actingAs($member)->get('/dashboard')->assertRedirect(route('judging.index', $allowed));
         $this->get('/tournaments/'.$allowed->id)->assertRedirect(route('judging.index', $allowed));
         $this->get('/tournaments/'.$hidden->id)->assertForbidden();
     }
