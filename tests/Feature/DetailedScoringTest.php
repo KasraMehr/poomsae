@@ -103,7 +103,7 @@ class DetailedScoringTest extends TestCase
         $this->startScoring($fixture, $performance);
         $assignment = $performance->bout->judges()->orderBy('seat')->firstOrFail();
 
-        $this->actingAs($fixture['admin'])->post(route('operations.proxy-score', [$fixture['tournament'], $performance]), [
+        $this->actingAs($fixture['operator'])->post(route('operations.proxy-score', [$fixture['tournament'], $performance]), [
             'request_id' => (string) Str::uuid(), 'judge_assignment_id' => $assignment->id,
             'expected_version' => $performance->fresh()->version, 'expected_revision' => 0,
             'accuracy' => '4.00', 'presentation' => '5.50', 'accuracy_penalties' => [],

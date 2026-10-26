@@ -50,11 +50,11 @@ class StageDrawTest extends TestCase
         $rounds = $fixture['category']->rounds()->orderBy('sequence')->get();
         $performance = $rounds[0]->bouts()->orderBy('sequence')->firstOrFail()->performances()->orderBy('id')->firstOrFail();
         $base = '/tournaments/'.$fixture['tournament']->id;
-        $this->actingAs($fixture['admin'])->post($base.'/performances/'.$performance->id.'/command', [
+        $this->actingAs($fixture['operator'])->post($base.'/performances/'.$performance->id.'/command', [
             'command' => 'start', 'expected_version' => $performance->version,
         ])->assertSessionHasErrors('operation');
         $this->assertSame('pending', $performance->fresh()->status);
-        $this->post($base.'/categories/'.$fixture['category']->id.'/forms/draw', ['round_id' => $rounds[1]->id])->assertSessionHasErrors('operation');
+        $this->actingAs($fixture['admin'])->post($base.'/categories/'.$fixture['category']->id.'/forms/draw', ['round_id' => $rounds[1]->id])->assertSessionHasErrors('operation');
         $this->post($base.'/categories/'.$fixture['category']->id.'/forms/draw', ['round_id' => $rounds[0]->id])->assertSessionHasNoErrors();
 
         foreach ($rounds[0]->bouts()->orderBy('sequence')->get() as $bout) {

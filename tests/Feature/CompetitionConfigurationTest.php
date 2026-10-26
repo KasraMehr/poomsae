@@ -84,7 +84,7 @@ class CompetitionConfigurationTest extends TestCase
         $run = app(RunCompetition::class);
         foreach ($bout->performances()->orderBy('form_number')->orderBy('id')->get() as $performance) {
             $this->startScoring($fixture, $performance);
-            $this->actingAs($fixture['admin'])->post('/tournaments/'.$fixture['tournament']->id.'/performances/'.$performance->id.'/command', [
+            $this->actingAs($fixture['operator'])->post('/tournaments/'.$fixture['tournament']->id.'/performances/'.$performance->id.'/command', [
                 'command' => 'approve', 'expected_version' => $performance->fresh()->version,
             ])->assertSessionHasErrors('operation');
             $this->scoreAll($fixture, $performance, '2.50', $performance->entry_id === $winner ? '6.00' : '5.00');
@@ -111,7 +111,7 @@ class CompetitionConfigurationTest extends TestCase
         $this->assertSame(64, $round->bouts()->count());
         $this->assertSame(63, $round->bouts()->where('status', 'completed')->count());
         $bout = $round->bouts()->where('status', 'pending')->firstOrFail();
-        $this->post('/tournaments/'.$fixture['tournament']->id.'/bouts/'.$bout->id.'/resolve', [
+        $this->actingAs($fixture['operator'])->post('/tournaments/'.$fixture['tournament']->id.'/bouts/'.$bout->id.'/resolve', [
             'decision_type' => 'walkover', 'confirmed' => true,
             'winner_entry_id' => $bout->entries()->firstOrFail()->id, 'reason' => 'انصراف ثبت شده ورزشکار',
         ])->assertSessionHasNoErrors();

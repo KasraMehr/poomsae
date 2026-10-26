@@ -159,7 +159,7 @@ class FreestyleDetailedScoringTest extends TestCase
         $performance = $fixture['performance'];
         $this->startScoring($fixture, $performance);
         $assignment = $performance->bout->judges()->orderBy('seat')->firstOrFail();
-        $this->actingAs($fixture['admin'])->post(route('operations.proxy-score', [$fixture['tournament'], $performance]), [
+        $this->actingAs($fixture['operator'])->post(route('operations.proxy-score', [$fixture['tournament'], $performance]), [
             ...$this->payload($performance), 'judge_assignment_id' => $assignment->id, 'reason' => 'Judge tablet disconnected',
         ])->assertSessionHasNoErrors();
         $sheet = ScoreSheet::query()->firstOrFail();

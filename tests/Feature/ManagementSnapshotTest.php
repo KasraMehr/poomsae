@@ -118,7 +118,8 @@ class ManagementSnapshotTest extends TestCase
         Sanctum::actingAs($fixture['admin'], ['competition:manage']);
         $this->putJson($this->endpoint($fixture), $payload)->assertOk();
         $performance = Performance::orderBy('id')->firstOrFail();
-        $this->actingAs($fixture['admin'])->post('/tournaments/'.$fixture['tournament']->id.'/performances/'.$performance->id.'/command', ['command' => 'start', 'expected_version' => $performance->version])->assertSessionHasErrors('operation');
+        $this->actingAs($fixture['operator'])->post('/tournaments/'.$fixture['tournament']->id.'/performances/'.$performance->id.'/command', ['command' => 'start', 'expected_version' => $performance->version])->assertSessionHasErrors('operation');
+        Sanctum::actingAs($fixture['admin'], ['competition:manage']);
         $payload['version'] = 2;
         $payload['expected_version'] = 1;
         $payload['reason'] = 'انتشار قرعهٔ فرم‌ها';

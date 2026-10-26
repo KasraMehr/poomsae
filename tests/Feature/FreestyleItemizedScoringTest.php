@@ -7,6 +7,7 @@ use App\Actions\CompetitionView;
 use App\Actions\RunCompetition;
 use App\Models\Performance;
 use App\Models\ScoreSheet;
+use App\Models\User;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -148,7 +149,9 @@ class FreestyleItemizedScoringTest extends TestCase
         }
 
         // Verify /display-data API endpoint delivers detailed_scores
-        $displayData = $this->actingAs($fixture['admin'])->getJson(route('scoreboard.data', $fixture['tournament']))->assertOk();
+        $viewer = User::factory()->create();
+        $fixture['tournament']->users()->attach($viewer, ['role' => 'display']);
+        $displayData = $this->actingAs($viewer)->getJson(route('scoreboard.data', $fixture['tournament']))->assertOk();
         $courtPerf = $displayData->json('data.courts.0.current.performances.0');
         $this->assertNotNull($courtPerf['detailed_scores']);
         $this->assertCount(5, $courtPerf['detailed_scores']['judges']);

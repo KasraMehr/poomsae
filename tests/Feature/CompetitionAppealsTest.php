@@ -234,8 +234,8 @@ class CompetitionAppealsTest extends TestCase
         $final = $fixture['category']->rounds()->orderByDesc('sequence')->firstOrFail();
         $next = $final->bouts()->firstOrFail()->performances()->orderBy('id')->firstOrFail();
         $appeal = $this->fileAppeal($fixture);
-        $this->actingAs($fixture['admin'])->post(route('operations.command', [$fixture['tournament'], $next]), ['command' => 'start', 'expected_version' => 1])->assertSessionHasErrors('operation');
-        $this->post(route('operations.schedule', [$fixture['tournament'], $fixture['category']]), ['court_id' => $fixture['tournament']->courts()->firstOrFail()->id, 'judge_ids' => $fixture['judges']->pluck('id')->all()])->assertSessionHasErrors('operation');
+        $this->actingAs($fixture['operator'])->post(route('operations.command', [$fixture['tournament'], $next]), ['command' => 'start', 'expected_version' => 1])->assertSessionHasErrors('operation');
+        $this->actingAs($fixture['admin'])->post(route('operations.schedule', [$fixture['tournament'], $fixture['category']]), ['court_id' => $fixture['tournament']->courts()->firstOrFail()->id, 'judge_ids' => $fixture['judges']->pluck('id')->all()])->assertSessionHasErrors('operation');
         $oldWinner = $fixture['performance']->bout()->firstOrFail()->winner_entry_id;
         $this->review($fixture, $appeal);
         $this->post(route('appeals.decide', [$fixture['tournament'], $appeal]), $this->acceptedPayload($fixture, $appeal))->assertSessionHasNoErrors();

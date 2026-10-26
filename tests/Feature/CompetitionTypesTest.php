@@ -28,6 +28,8 @@ class CompetitionTypesTest extends TestCase
         $setup = app(CompetitionSetup::class);
         $setup->court($admin, $tournament, ['name' => 'زمین یک']);
         $judges = User::factory()->count(5)->create();
+        $operator = User::factory()->create();
+        $tournament->users()->attach($operator, ['role' => 'operator']);
         foreach ($judges as $judge) {
             $tournament->users()->attach($judge->id, ['role' => 'judge']);
         }
@@ -42,7 +44,7 @@ class CompetitionTypesTest extends TestCase
         }
         $this->actingAs($admin)->post('/tournaments/'.$tournament->id.'/categories', $data)->assertSessionHasNoErrors();
 
-        return compact('admin', 'tournament', 'judges') + ['category' => $tournament->categories()->firstOrFail()];
+        return compact('admin', 'operator', 'tournament', 'judges') + ['category' => $tournament->categories()->firstOrFail()];
     }
 
     private function register(array $fixture, int $index, int $memberCount, bool $freestyle = false): void
@@ -231,7 +233,7 @@ class CompetitionTypesTest extends TestCase
         $this->assertCount(1, $display['courts'][0]['upcoming'][0]['performances']);
         $this->assertNull($console['courts'][0]['queue'][0]['paired_entry_name']);
 
-        $this->post(route('operations.command', [$fixture['tournament'], $first]), ['command' => 'start', 'expected_version' => $first->version])->assertSessionHasNoErrors();
+        $this->actingAs($fixture['operator'])->post(route('operations.command', [$fixture['tournament'], $first]), ['command' => 'start', 'expected_version' => $first->version])->assertSessionHasNoErrors();
 
         $this->assertSame('running', $first->fresh()->status);
         $this->assertSame('pending', $second->fresh()->status);
@@ -252,7 +254,7 @@ class CompetitionTypesTest extends TestCase
                 'presentation_penalties' => ['0.30', '0.30', '0.30', '0.10'],
             ])->assertSessionHasNoErrors();
         }
-        $this->actingAs($fixture['admin'])->post(route('operations.command', [$fixture['tournament'], $first]), ['command' => 'approve', 'expected_version' => $first->fresh()->version])->assertSessionHasNoErrors();
+        $this->actingAs($fixture['operator'])->post(route('operations.command', [$fixture['tournament'], $first]), ['command' => 'approve', 'expected_version' => $first->fresh()->version])->assertSessionHasNoErrors();
         $this->post(route('operations.command', [$fixture['tournament'], $second]), ['command' => 'start', 'expected_version' => $second->fresh()->version])->assertSessionHasNoErrors();
 
         $this->assertSame('approved', $first->fresh()->status);
@@ -279,7 +281,7 @@ class CompetitionTypesTest extends TestCase
         $this->assertDatabaseCount('performances', 3);
 
         $lastPerformance = $fixture['category']->rounds()->firstOrFail()->bouts()->orderByDesc('sequence')->firstOrFail()->performances()->firstOrFail();
-        $this->post(route('operations.command', [$fixture['tournament'], $lastPerformance]), ['command' => 'start', 'expected_version' => $lastPerformance->version])
+        $this->actingAs($fixture['operator'])->post(route('operations.command', [$fixture['tournament'], $lastPerformance]), ['command' => 'start', 'expected_version' => $lastPerformance->version])
             ->assertSessionHasErrors(['operation' => 'نوبت اجرای ابداعی رعایت نشده است؛ ابتدا نتیجهٔ اجرای قبلی را تأیید کنید.']);
 
         $this->assertSame('pending', $lastPerformance->fresh()->status);

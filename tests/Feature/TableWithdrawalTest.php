@@ -33,7 +33,7 @@ class TableWithdrawalTest extends TestCase
         $resolveUrl = '/tournaments/'.$fixture['tournament']->id.'/bouts/'.$firstBout->id.'/resolve';
 
         // Confirmation is required
-        $this->actingAs($fixture['admin'])->post($resolveUrl, [
+        $this->actingAs($fixture['operator'])->post($resolveUrl, [
             'decision_type' => 'walkover',
             'reason' => 'ورزشکار به علت آسیب‌دیدگی انصراف داد',
         ])->assertSessionHasErrors('confirmed');
@@ -103,7 +103,7 @@ class TableWithdrawalTest extends TestCase
         $this->assertNotNull($scoredRows[0]['score']);
 
         // 6. Tournament can now be completed successfully
-        $this->post('/tournaments/'.$fixture['tournament']->id.'/complete')->assertSessionHasNoErrors();
+        $this->actingAs($fixture['admin'])->post('/tournaments/'.$fixture['tournament']->id.'/complete')->assertSessionHasNoErrors();
         $this->assertSame('completed', $fixture['tournament']->fresh()->status);
     }
 
@@ -128,7 +128,7 @@ class TableWithdrawalTest extends TestCase
         $this->assertSame('pending', $forms[1]->fresh()->status);
 
         // Athlete withdraws before form 2
-        $this->actingAs($fixture['admin'])->post('/tournaments/'.$fixture['tournament']->id.'/bouts/'.$firstBout->id.'/resolve', [
+        $this->actingAs($fixture['operator'])->post('/tournaments/'.$fixture['tournament']->id.'/bouts/'.$firstBout->id.'/resolve', [
             'decision_type' => 'walkover',
             'confirmed' => true,
             'reason' => 'انصراف قبل از فرم دوم',
