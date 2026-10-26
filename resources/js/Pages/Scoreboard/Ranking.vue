@@ -102,7 +102,7 @@ const categoryLabel = computed(
                     v-else
                     class="rounded-xl border border-rtds-border-subtle bg-rtds-bg-card p-6 text-center text-rtds-text-secondary"
                 >
-                    رتبه‌بندی این دسته هنوز در دسترس نیست.
+                    Ranking is not available for this category yet.
                 </p>
             </section>
         </div>
@@ -111,7 +111,7 @@ const categoryLabel = computed(
             v-else
             class="flex flex-1 items-center justify-center rounded-2xl border border-rtds-border-subtle bg-rtds-bg-card p-12 text-center text-rtds-text-secondary"
         >
-            رتبه‌بندی‌ای برای نمایش وجود ندارد.
+            No ranking is available.
         </p>
     </ScoreboardLayout>
 </template>
