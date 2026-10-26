@@ -2,21 +2,21 @@
 export function scoreDetailFields(method, breakdown) {
     return {
         accuracy_penalties: method === 'deductions_and_components_v1' ? (breakdown?.accuracy_penalties_hundredths || []).map(value => (value / 100).toFixed(2)) : null,
-        presentation_components: method === 'deductions_and_components_v1' ? (breakdown?.presentation_components_hundredths || ['', '', '']).map(value => value === '' ? '' : (value / 100).toFixed(2)) : null,
+        presentation_components: ['deductions_and_components_v1', 'freestyle_components_v1'].includes(method) ? (breakdown?.presentation_components_hundredths || Array(method === 'freestyle_components_v1' ? 6 : 3).fill('')).map(value => value === '' ? '' : (value / 100).toFixed(2)) : null,
         presentation_penalties: method === 'components_and_deductions_v1' ? (breakdown?.presentation_penalties_hundredths || []).map(value => (value / 100).toFixed(2)) : null,
-        accuracy_components: method === 'components_and_deductions_v1' ? (breakdown?.accuracy_components_hundredths || ['', '', '']).map(value => value === '' ? '' : (value / 100).toFixed(2)) : null,
+        accuracy_components: ['components_and_deductions_v1', 'freestyle_components_v1'].includes(method) ? (breakdown?.accuracy_components_hundredths || Array(method === 'freestyle_components_v1' ? 4 : 3).fill('')).map(value => value === '' ? '' : (value / 100).toFixed(2)) : null,
     };
 }
 
 export function hasScoreDetails(data, method) {
     if (method === 'deductions_and_components_v1') return Array.isArray(data?.accuracy_penalties) && Array.isArray(data?.presentation_components) && data.presentation_components.length === 3;
     if (method === 'components_and_deductions_v1') return Array.isArray(data?.presentation_penalties) && Array.isArray(data?.accuracy_components) && data.accuracy_components.length === 3;
+    if (method === 'freestyle_components_v1') return Array.isArray(data?.accuracy_components) && data.accuracy_components.length === 4 && Array.isArray(data?.presentation_components) && data.presentation_components.length === 6;
     return true;
 }
 
 export function scoreComponentsComplete(data) {
-    const components = data.accuracy_components ?? data.presentation_components;
-    return !Array.isArray(components) || components.length === 3 && components.every(value => value !== '' && value !== null);
+    return ['accuracy_components', 'presentation_components'].every(field => !Array.isArray(data[field]) || data[field].every(value => value !== '' && value !== null));
 }
 
 export function scorePayload(data, method) {

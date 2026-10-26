@@ -34,7 +34,7 @@ const penaltyCriterion = computed(() =>
 const componentCriterion = computed(() =>
     freestyle.value ? 'accuracy' : 'presentation',
 );
-const criterionLabels = { accuracy: 'دقت', presentation: 'اجرا' };
+const criterionLabels = { accuracy: 'accuracy', presentation: 'presentation' };
 const deductedHundredths = computed(
     () =>
         400 -
@@ -149,7 +149,7 @@ const changeComponent = (index, amount) => {
             class="grid gap-3"
         >
             <label :for="`${idPrefix}-score`" class="text-xs" :class="tones.label">
-                نمرهٔ کل · از ۱۰
+                Total score · out of 10
             </label>
             <input
                 :id="`${idPrefix}-score`"
@@ -172,15 +172,15 @@ const changeComponent = (index, amount) => {
             :class="tones.panel"
         >
             <div class="flex flex-wrap items-center justify-between gap-3">
-                <b class="text-sm" :class="tones.heading">{{ step === 'accuracy' ? '۱. دقت' : '۲. اجرا' }}</b>
+                <b class="text-sm" :class="tones.heading">{{ step === 'accuracy' ? '1. Accuracy' : '2. Presentation' }}</b>
                 <span class="text-[11px]" :class="tones.label">
-                    دقت {{ accuracyHundredths === null ? '—' : decimal(accuracyHundredths) }} از {{ rules.accuracy_max / 100 }}
-                    · اجرا {{ presentationHundredths === null ? '—' : decimal(presentationHundredths) }} از {{ rules.presentation_max / 100 }}
+                    Accuracy {{ accuracyHundredths === null ? '—' : decimal(accuracyHundredths) }} out of {{ rules.accuracy_max / 100 }}
+                    · Presentation {{ presentationHundredths === null ? '—' : decimal(presentationHundredths) }} out of {{ rules.presentation_max / 100 }}
                 </span>
             </div>
             <div v-if="step === penaltyCriterion" class="grid gap-3">
                 <p class="text-xs" :class="tones.label">
-                    امتیاز پایهٔ {{ criterionLabels[penaltyCriterion] }} ۴٫۰۰ است؛ با دکمه‌ها بین صفر و چهار تغییر دهید.
+                    Base {{ criterionLabels[penaltyCriterion] }} is 4.00; use the buttons to adjust it between zero and four.
                 </p>
                 <div class="flex flex-wrap gap-2">
                     <button
@@ -192,8 +192,8 @@ const changeComponent = (index, amount) => {
                         :disabled="disabled || deductedHundredths + amount < 0 || deductedHundredths + amount > 400"
                         @click="changeDeductedScore(amount)"
                     >
-                        {{ amount > 0 ? 'افزایش' : 'کاهش' }}
-                        {{ Math.abs(amount) === 10 ? '۰٫۱' : '۰٫۳' }}
+                        {{ amount > 0 ? 'Increase' : 'Decrease' }}
+                        {{ Math.abs(amount) === 10 ? '0.1' : '0.3' }}
                     </button>
                 </div>
                 <div v-if="form[penaltyField].length" class="flex flex-wrap gap-2">
@@ -204,20 +204,20 @@ const changeComponent = (index, amount) => {
                         class="rounded-md px-2 py-1 text-xs disabled:opacity-50"
                         :class="tones.penalty"
                         :disabled="disabled"
-                        :aria-label="`برگرداندن کسر ${penalty}`"
+                        :aria-label="`Undo deduction ${penalty}`"
                         @click="removePenalty(index)"
                     >
                         −{{ penalty }} ×
                     </button>
                 </div>
                 <p class="text-xs" :class="tones.text">
-                    نمرهٔ {{ criterionLabels[penaltyCriterion] }}:
+                    {{ criterionLabels[penaltyCriterion] }} score:
                     <strong>{{ decimal(deductedHundredths) }}</strong>
                 </p>
             </div>
             <div v-else class="grid gap-3">
                 <p class="text-xs" :class="tones.label">
-                    سه مؤلفهٔ {{ criterionLabels[componentCriterion] }} را جداگانه از ۰ تا ۲ وارد کنید.
+                    Enter the three {{ criterionLabels[componentCriterion] }} components separately from 0 to 2.
                 </p>
                 <div class="grid gap-3 sm:grid-cols-3">
                     <div v-for="index in 3" :key="index" class="grid gap-2">
@@ -225,7 +225,7 @@ const changeComponent = (index, amount) => {
                             :for="`${idPrefix}-${componentCriterion}-${index}`"
                             class="text-[11px]"
                             :class="tones.label"
-                        >مؤلفهٔ {{ index }} · از ۲</label>
+                        >Component {{ index }} · out of 2</label>
                         <input
                             :id="`${idPrefix}-${componentCriterion}-${index}`"
                             v-model="form[componentField][index - 1]"
@@ -248,16 +248,16 @@ const changeComponent = (index, amount) => {
                                 class="rounded border px-2 py-1 text-[10px] disabled:opacity-50"
                                 :class="tones.button"
                                 :disabled="disabled || Number(form[componentField][index - 1]) * 100 + amount < 0 || Number(form[componentField][index - 1]) * 100 + amount > 200"
-                                :aria-label="`${amount > 0 ? 'افزایش' : 'کاهش'} ${Math.abs(amount) / 100} مؤلفهٔ ${index}`"
+                                :aria-label="`${amount > 0 ? 'Increase' : 'Decrease'} component ${index} by ${Math.abs(amount) / 100}`"
                                 @click="changeComponent(index - 1, amount)"
                             >
-                                {{ amount > 0 ? '+' : '−' }}{{ Math.abs(amount) === 10 ? '۰٫۱' : '۰٫۳' }}
+                                {{ amount > 0 ? '+' : '−' }}{{ Math.abs(amount) === 10 ? '0.1' : '0.3' }}
                             </button>
                         </div>
                     </div>
                 </div>
                 <p class="text-xs" :class="tones.text">
-                    جمع {{ criterionLabels[componentCriterion] }}:
+                    {{ criterionLabels[componentCriterion] }} total:
                     <strong>{{ componentsHundredths === null ? '—' : decimal(componentsHundredths) }}</strong>
                 </p>
             </div>
@@ -268,7 +268,7 @@ const changeComponent = (index, amount) => {
                 :class="tones.primary"
                 :disabled="disabled"
                 @click="step = 'presentation'"
-            >ثبت دقت و ورود به اجرا</button>
+            >Save accuracy and continue to presentation</button>
             <button
                 v-else
                 type="button"
@@ -276,12 +276,12 @@ const changeComponent = (index, amount) => {
                 :class="tones.secondary"
                 :disabled="disabled"
                 @click="step = 'accuracy'"
-            >بازگشت به دقت</button>
+            >Back to accuracy</button>
         </div>
         <div v-else class="grid gap-3 sm:grid-cols-2">
             <div class="grid gap-2">
                 <label :for="`${idPrefix}-accuracy`" class="text-xs" :class="tones.label">
-                    دقت · از {{ rules.accuracy_max / 100 }}
+                    Accuracy · out of {{ rules.accuracy_max / 100 }}
                 </label>
                 <input
                     :id="`${idPrefix}-accuracy`"
@@ -300,7 +300,7 @@ const changeComponent = (index, amount) => {
             </div>
             <div class="grid gap-2">
                 <label :for="`${idPrefix}-presentation`" class="text-xs" :class="tones.label">
-                    اجرا · از {{ rules.presentation_max / 100 }}
+                    Presentation · out of {{ rules.presentation_max / 100 }}
                 </label>
                 <input
                     :id="`${idPrefix}-presentation`"

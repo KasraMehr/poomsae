@@ -26,28 +26,28 @@ const overtime = computed(() => (
         aria-live="off"
     >
         <p v-if="performance.started_at" class="my-[.35rem]">
-            زمان اجرا: <b dir="ltr">{{ elapsed(performance, now) }}</b>
+            Performance time: <b dir="ltr">{{ elapsed(performance, now) }}</b>
             <span v-if="timing.maximum_duration_seconds != null">
-                · محدودهٔ مجاز: {{ timing.minimum_duration_seconds || 0 }} تا
-                {{ timing.maximum_duration_seconds }} ثانیه
+                · Allowed range: {{ timing.minimum_duration_seconds || 0 }} to
+                {{ timing.maximum_duration_seconds }} seconds
             </span>
         </p>
         <p
             v-if="performance.status === 'running' && timing.maximum_duration_seconds != null"
             class="my-[.35rem]"
         >
-            {{ overtime ? 'اضافه‌زمان' : 'زمان باقی‌مانده' }}:
-            {{ Math.ceil(Math.abs(timing.maximum_duration_seconds - seconds)) }} ثانیه
+            {{ overtime ? 'Overtime' : 'Time remaining' }}:
+            {{ Math.ceil(Math.abs(timing.maximum_duration_seconds - seconds)) }} seconds
         </p>
         <p v-if="timing.violation" class="my-[.35rem]">
-            {{ timing.violation === 'too_short' ? 'زمان اجرا کمتر از حد مجاز است.' : 'زمان اجرا از حد مجاز بیشتر است.' }}
-            جریمهٔ زمان: {{ (timing.penalty_hundredths / 100).toFixed(2) }} امتیاز از نمرهٔ نهایی.
+            {{ timing.violation === 'too_short' ? 'Performance was shorter than allowed.' : 'Performance exceeded the allowed time.' }}
+            Time penalty: {{ (timing.penalty_hundredths / 100).toFixed(2) }} points from the final score.
         </p>
         <p
             v-if="performance.status === 'pending' && rest > 0"
             class="my-[.35rem]"
         >
-            استراحت ورزشکار · {{ rest }} ثانیه تا اجازهٔ شروع.
+            Athlete rest · {{ rest }} seconds until the next start.
         </p>
     </div>
 </template>
