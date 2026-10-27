@@ -11,6 +11,30 @@ class PanelRoleIsolationTest extends TestCase
 {
     use CreatesCompetition, RefreshDatabase;
 
+    public function test_admin_can_create_an_rtds_account_that_opens_the_display_panel(): void
+    {
+        $fixture = $this->competition();
+        $tournament = $fixture['tournament'];
+
+        $this->actingAs($fixture['admin'])->post(route('operations.member', $tournament), [
+            'name' => 'Court One RTDS',
+            'email' => 'court-one-rtds@example.test',
+            'password' => 'Court-One-Display-2026',
+            'role' => 'display',
+        ])->assertSessionHasNoErrors()->assertRedirect();
+
+        $display = User::query()->where('email', 'court-one-rtds@example.test')->firstOrFail();
+        $this->assertDatabaseHas('tournament_user', [
+            'tournament_id' => $tournament->id,
+            'user_id' => $display->id,
+            'role' => 'display',
+        ]);
+
+        $this->actingAs($display)
+            ->get(route('dashboard'))
+            ->assertRedirect(route('scoreboard.rtds', $tournament));
+    }
+
     public function test_each_account_enters_only_its_own_panel(): void
     {
         $fixture = $this->competition();
