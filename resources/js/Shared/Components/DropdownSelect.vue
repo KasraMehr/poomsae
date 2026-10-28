@@ -4,7 +4,8 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 const props = defineProps({
     id: { type: String, required: true },
     label: { type: String, required: true },
-    modelValue: { type: [String, Number], default: '' },
+    modelValue: { type: [String, Number, Boolean], default: '' },
+    required: { type: Boolean, default: false },
     options: { type: Array, required: true },
     disabled: { type: Boolean, default: false },
     placeholder: { type: String, default: 'انتخاب کنید' },
@@ -100,6 +101,16 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', handleDocument
             <span :class="selectedOption ? '' : 'text-[#809386]'">{{ selectedOption?.label ?? placeholder }}</span>
             <svg aria-hidden="true" viewBox="0 0 20 20" class="h-4 w-4 shrink-0 text-[#4f7c5c] transition-transform" :class="isOpen ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m5 7.5 5 5 5-5" stroke-linecap="round" stroke-linejoin="round" /></svg>
         </button>
+        <input
+            type="text"
+            tabindex="-1"
+            aria-hidden="true"
+            :value="modelValue"
+            :required="required"
+            :disabled="disabled"
+            class="pointer-events-none absolute h-px w-px overflow-hidden opacity-0"
+            @invalid.prevent="trigger?.focus()"
+        >
         <ul
             v-if="isOpen"
             :id="`${id}-listbox`"
@@ -117,6 +128,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', handleDocument
                     @click="selectOption(option)"
                 >
                     <span>{{ option.label }}</span>
+                    <span v-if="option.meta" class="mr-auto text-xs font-medium text-[#788b7d]">{{ option.meta }}</span>
                     <svg v-if="option.value === modelValue" aria-hidden="true" viewBox="0 0 20 20" class="h-4 w-4 text-[#286957]" fill="none" stroke="currentColor" stroke-width="2"><path d="m4 10 4 4 8-8" stroke-linecap="round" stroke-linejoin="round" /></svg>
                 </button>
             </li>

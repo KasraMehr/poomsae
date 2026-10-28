@@ -7,6 +7,7 @@ import CompetitionSetupPanel from '../../Components/tournaments/CompetitionSetup
 import CategoryRegistration from '../../Components/tournaments/CategoryRegistration.vue';
 import BoutPanel from '../../Components/competition/BoutPanel.vue';
 import FormErrors from '../../Shared/Components/FormErrors.vue';
+import DropdownSelect from '../../Shared/Components/DropdownSelect.vue';
 import TournamentDetailsEditor from '../../Components/tournaments/TournamentDetailsEditor.vue';
 import CompetitionTimingSettings from '../../Components/tournaments/CompetitionTimingSettings.vue';
 
@@ -72,6 +73,13 @@ watch(() => props.tournament.status, status => {
 });
 const selectedId = ref(props.tournament.categories[0]?.id);
 const selected = computed(() => props.tournament.categories.find(category => category.id === selectedId.value) ?? props.tournament.categories[0] ?? null);
+const categorySetupPanel = ref(null);
+const categoryListOptions = computed(() => props.tournament.categories.map(category => ({
+    value: Number(category.id),
+    label: category.name,
+    meta: category.discipline === 'freestyle' ? 'سبک ابداعی' : 'سبک استاندارد',
+})));
+const selectCategoryForEditing = categoryId => categorySetupPanel.value?.loadCategory(Number(categoryId));
 const completion = useForm({});
 const labels = { draft: 'آماده‌سازی', ready: 'آمادهٔ شروع', running: 'در حال برگزاری', completed: 'پایان‌یافته', archived: 'آرشیو' };
 const statusBadgeClasses = {
@@ -148,7 +156,7 @@ function formatTournamentDate(value) {
                 </aside>
 
                 <section class="admin-content section-content">
-                    <header class="content-heading"><div><h2>{{ activeSection === 'overview' ? 'نمای مسابقه' : sectionTitles[activeSection] }}</h2></div><span v-if="activeSection === 'categories' || activeSection === 'registration' || activeSection === 'planning' || activeSection === 'execution'" class="section-count">{{ tournament.categories.length }} رده</span></header>
+                    <header class="content-heading"><div><h2>{{ activeSection === 'overview' ? 'نمای مسابقه' : sectionTitles[activeSection] }}</h2></div><DropdownSelect v-if="activeSection === 'categories'" id="category-list" class="w-64 shrink-0 md:w-80 xl:w-96" label="رده‌های مسابقه" placeholder="لیست رده‌ها" :model-value="''" :options="categoryListOptions" :disabled="categoryListOptions.length === 0" @update:model-value="selectCategoryForEditing" /><span v-else-if="activeSection === 'registration' || activeSection === 'planning' || activeSection === 'execution'" class="section-count">{{ tournament.categories.length }} رده</span></header>
 
                     <section v-if="activeSection === 'overview'" id="tournament-summary" class="grid gap-5 rounded-2xl border border-[#c8ddcb] bg-[#e7f1e8] p-4 shadow-[0_6px_20px_#26452c0a] sm:p-5" aria-label="نمای مسابقه">
                             <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -179,7 +187,7 @@ function formatTournamentDate(value) {
 
             <section v-if="['information', 'team', 'categories'].includes(activeSection) && isSetupAvailable" class="admin-content">
                 <TournamentDetailsEditor v-if="activeSection === 'information'" :tournament="tournament" :base="competitionUrls.base" />
-                <CompetitionSetupPanel v-else :section="activeSection" :tournament="tournament" :base="competitionUrls.base" :age-categories="ageCategories" :age-table-year="ageTableYear" />
+                <CompetitionSetupPanel v-else ref="categorySetupPanel" :section="activeSection" :tournament="tournament" :base="competitionUrls.base" :age-categories="ageCategories" :age-table-year="ageTableYear" />
             </section>
 
             <div v-else-if="['registration', 'planning', 'execution'].includes(activeSection)" class="admin-content">
@@ -189,7 +197,7 @@ function formatTournamentDate(value) {
                         <div><span class="eyebrow">CATEGORY CONTROL</span><h2>{{ activeSection === 'registration' ? 'ثبت‌نام و پذیرش' : activeSection === 'planning' ? 'قرعه و برنامه‌ریزی' : 'اجرا و نتایج' }}</h2></div>
                         <div class="category-picker"><label for="active-category">ردهٔ فعال</label><select id="active-category" v-model.number="selectedId"><option v-for="category in tournament.categories" :key="category.id" :value="category.id">{{ category.name }}</option></select></div>
                     </section>
-                    <div class="category-facts"><span>{{ selected.discipline === 'freestyle' ? 'ابداعی' : 'استاندارد' }}</span><span>{{ { individual: 'انفرادی', pair: 'زوجی', team: 'تیمی' }[selected.entry_type] }}</span><span>{{ selected.judge_count }} داور</span><span>{{ selected.format === 'knockout' ? 'تک‌حذفی' : 'دورهای' }}</span></div>
+                    <div class="category-facts"><span>{{ selected.discipline === 'freestyle' ? 'ابداعی' : 'استاندارد' }}</span><span>{{ { individual: 'انفرادی', pair: 'زوجی', team: 'تیمی' }[selected.entry_type] }}</span><span>{{ selected.judge_count }} داور</span><span>{{ selected.format === 'knockout' ? 'تک‌حذفی' : 'دوره ای' }}</span></div>
 
                     <details v-if="can.manage && ['registration', 'planning'].includes(activeSection) && !['completed', 'archived'].includes(tournament.status)" id="draw-lots" class="panel" open><summary>{{ activeSection === 'registration' ? 'ثبت‌نام و پذیرش ورودی‌ها' : 'قرعه و برنامه‌ریزی مراحل' }}</summary><CategoryRegistration :key="`${selected.id}-${activeSection}`" :category="selected" :tournament="tournament" :base="competitionUrls.base" :section="activeSection" /></details>
                     <CompetitionTimingSettings v-if="activeSection === 'execution' && can.manage" :key="selected.id + '-timing'" :category="selected" :base="competitionUrls.base" />
