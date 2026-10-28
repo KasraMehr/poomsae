@@ -1,6 +1,7 @@
 <script setup>
 import { useForm } from '@inertiajs/vue3';
 import { computed, nextTick, ref, watch } from 'vue';
+import DropdownSelect from '../../Shared/Components/DropdownSelect.vue';
 import FormErrors from '../../Shared/Components/FormErrors.vue';
 const props = defineProps({ tournament: Object, base: String, ageCategories: Array, ageTableYear: Number, section: { type: String, default: 'all' } });
 const court = useForm({ name: '' });
@@ -9,6 +10,12 @@ const courtEdit = useForm({ name: '' });
 const beginCourtEdit = selected => { editingCourtId.value = selected.id; courtEdit.name = selected.name; courtEdit.clearErrors(); };
 const saveCourt = () => courtEdit.put(props.base + '/courts/' + editingCourtId.value, { preserveScroll: true, onSuccess: () => editingCourtId.value = null });
 const member = useForm({ name: '', email: '', password: '', role: 'judge' });
+const memberRoleOptions = [
+    { value: 'judge', label: 'داور' },
+    { value: 'operator', label: 'اپراتور' },
+    { value: 'display', label: 'نمایشگر RTDS' },
+];
+const showMemberPassword = ref(false);
 const editingCategoryId = ref(null);
 const loadingCategory = ref(false);
 const editingCategory = computed(() => props.tournament.categories.find(item => item.id === editingCategoryId.value));
@@ -141,22 +148,24 @@ const submitCategory = () => {
 </script>
 <template>
     <div class="setup-grid">
-        <section v-if="section === 'all' || section === 'team'" class="panel">
+        <section v-if="section === 'all' || section === 'team'" class="panel !border-[#c8ddcb] !bg-[#e7f1e8]">
             <h2> زمین‌های مسابقه</h2>
-            <div v-for="selectedCourt in tournament.courts" :key="selectedCourt.id" class="section-heading"><span>{{ selectedCourt.name }}</span><button type="button" class="button secondary small" :disabled="courtEdit.processing" @click="beginCourtEdit(selectedCourt)">ویرایش نام زمین</button></div>
-            <form v-if="editingCourtId" @submit.prevent="saveCourt"><label for="edit-court-name">نام جدید زمین</label><input id="edit-court-name" v-model="courtEdit.name" required maxlength="100"><FormErrors :errors="courtEdit.errors"/><div class="row-actions"><button class="button" :disabled="courtEdit.processing">ذخیرهٔ نام زمین</button><button type="button" class="button secondary" :disabled="courtEdit.processing" @click="editingCourtId = null">انصراف</button></div></form>
             <form @submit.prevent="court.post(base + '/courts', { preserveScroll: true, onSuccess: () => court.reset() })">
                 <label for="court-name">نام زمین</label><input id="court-name" v-model="court.name" required maxlength="100" placeholder="زمین یک">
                 <FormErrors :errors="court.errors"/><button class="button" :disabled="court.processing">افزودن زمین</button>
             </form>
+            <div v-for="selectedCourt in tournament.courts" :key="selectedCourt.id" class="court-entry">
+                <div class="section-heading court-row"><span class="flex min-w-0 items-center gap-2.5"><span class="h-2.5 w-2.5 shrink-0 rounded-full bg-[#286957] ring-4 ring-[#e2f0e4]" aria-hidden="true"></span><strong class="truncate text-sm text-[#254b3d]">{{ selectedCourt.name }}</strong></span><button v-if="editingCourtId !== selectedCourt.id" type="button" class="button secondary small" :disabled="courtEdit.processing" @click="beginCourtEdit(selectedCourt)">ویرایش نام زمین</button></div>
+                <form v-if="editingCourtId === selectedCourt.id" class="court-edit-form" @submit.prevent="saveCourt"><label :for="`edit-court-name-${selectedCourt.id}`">نام جدید زمین</label><input :id="`edit-court-name-${selectedCourt.id}`" v-model="courtEdit.name" required maxlength="100"><FormErrors :errors="courtEdit.errors"/><div class="row-actions"><button class="button" :disabled="courtEdit.processing">ذخیرهٔ نام زمین</button><button type="button" class="button secondary" :disabled="courtEdit.processing" @click="editingCourtId = null">انصراف</button></div></form>
+            </div>
         </section>
-        <section v-if="section === 'all' || section === 'team'" class="panel">
+        <section v-if="section === 'all' || section === 'team'" class="panel !border-[#c8ddcb] !bg-[#e7f1e8]">
             <h2> تیم برگزاری</h2>
             <form @submit.prevent="member.post(base + '/members', { preserveScroll: true, onSuccess: () => member.reset() })" class="fields-two">
                 <div><label for="member-name">نام و نام خانوادگی</label><input id="member-name" v-model="member.name" required maxlength="100"></div>
-                <div><label for="member-role">نقش</label><select id="member-role" v-model="member.role"><option value="judge">داور</option><option value="operator">اپراتور</option><option value="display">نمایشگر RTDS</option></select></div>
+                <DropdownSelect id="member-role" v-model="member.role" label="نقش" :options="memberRoleOptions" />
                 <div><label for="member-email">ایمیل ورود</label><input id="member-email" v-model="member.email" type="email" dir="ltr" required autocomplete="off"></div>
-                <div><label for="member-password">رمز حساب جدید (۱۲ کاراکتر)</label><input id="member-password" v-model="member.password" type="password" dir="ltr" minlength="12" autocomplete="new-password"></div>
+                <div><label for="member-password">رمز حساب جدید (۱۲ کاراکتر)</label><div class="relative"><input id="member-password" v-model="member.password" :type="showMemberPassword ? 'text' : 'password'" dir="ltr" minlength="12" autocomplete="new-password" class="!pr-10"><button type="button" class="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-md text-[#557563] transition hover:bg-[#e8f1e9] hover:text-[#205a48] focus-visible:outline-2 focus-visible:outline-[#78aa8b]" :aria-label="showMemberPassword ? 'مخفی‌کردن رمز عبور' : 'نمایش رمز عبور'" :aria-pressed="showMemberPassword" @click="showMemberPassword = !showMemberPassword"><svg v-if="!showMemberPassword" aria-hidden="true" viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M2.5 12s3.3-6 9.5-6 9.5 6 9.5 6-3.3 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.6"/></svg><svg v-else aria-hidden="true" viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m3 3 18 18M10.6 6.2A10.5 10.5 0 0 1 12 6c6.2 0 9.5 6 9.5 6a15 15 0 0 1-3 3.7M6.2 6.2C3.8 7.8 2.5 12 2.5 12s3.3 6 9.5 6a9.8 9.8 0 0 0 3.1-.5"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg></button></div></div>
                 <p class="subtle wide">اگر حساب وجود دارد، فقط نقش اضافه می‌شود و رمز آن تغییر نمی‌کند.</p>
                 <FormErrors class="wide" :errors="member.errors"/><button class="button" :disabled="member.processing">افزودن عضو</button>
             </form>
@@ -217,4 +226,10 @@ const submitCategory = () => {
 .age-table th { background: #f7e75a; color: #181818; }
 .age-table td { white-space: nowrap; }
 .selected-age-row { background: #fef9c3; color: #181818; }
+.court-row { min-height: 48px; margin-top: 10px; padding: 7px 10px; border: 1px solid #d8e6d9; border-radius: 11px; background: #fff; }
+.court-edit-form { margin-top: 8px; padding: 12px; border: 1px solid #c8ddcb; border-radius: 11px; background: #f7fbf7; }
+.member-list > div { margin-top: 8px; padding: 10px 12px !important; border: 1px solid #d8e6d9 !important; border-radius: 11px; background: #fff !important; color: #254b3d; }
+.member-list > div > span:first-child { min-width: 0; font-weight: 700; }
+.member-list small { display: block; margin-top: 3px; color: #687d6e; font-size: 11px; }
+.member-list .badge { flex: none; border: 1px solid #b9d7bf; background: #e3f1e5; color: #205b42; }
 </style>
