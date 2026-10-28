@@ -6,6 +6,12 @@
 {$SERVER_NAME::8000} {
     bind {$MERCURE_BIND:127.0.0.1}
 
+    @legacyTopic {
+        path /.well-known/mercure
+        query topic=*
+    }
+    rewrite @legacyTopic {path}?match={query.topic}
+
     mercure {
         issuer {$APP_URL:http://localhost:8000} {
             publisher {
