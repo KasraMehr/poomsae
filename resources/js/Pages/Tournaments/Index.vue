@@ -3,7 +3,7 @@ import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
 import AppLayout from '../../Shared/Layouts/AppLayout.vue';
 import PersianDateField from '../../Components/tournaments/PersianDateField.vue';
-import TournamentCard from '../../Components/tournaments/TournamentCard.vue';
+import TournamentRow from '../../Components/tournaments/TournamentRow.vue';
 import { currentPersianDateParts, persianDateToGregorianIso } from '../../Shared/Services/persianDate.js';
 
 const props = defineProps({ tournaments: Object, statusFilter: String, listUrls: Object });
@@ -168,8 +168,17 @@ watch(() => props.tournaments.total, (total) => {
                     <span class="text-xs text-[#849087]">{{ tournaments.total.toLocaleString('fa-IR') }} رویداد</span>
                 </div>
 
-                <div v-if="tournaments.data.length" class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    <TournamentCard
+                <div v-if="tournaments.data.length" class="grid gap-3">
+                    <div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg bg-[#edf3ed] px-4 py-3 text-[10px] font-bold text-[#708175] min-[761px]:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)_minmax(0,.8fr)_minmax(0,.8fr)_minmax(2.5rem,.45fr)_minmax(2.5rem,.45fr)_minmax(0,.75fr)] min-[761px]:gap-3 min-[761px]:px-4">
+                        <span>مسابقه</span>
+                        <span class="hidden min-[761px]:block">محل برگزاری</span>
+                        <span class="hidden min-[761px]:block">شروع</span>
+                        <span class="hidden min-[761px]:block">پایان</span>
+                        <span class="hidden text-center min-[761px]:block">رده‌ها</span>
+                        <span class="hidden text-center min-[761px]:block">زمین‌ها</span>
+                        <span>وضعیت</span>
+                    </div>
+                    <TournamentRow
                         v-for="tournament in tournaments.data"
                         :key="tournament.id"
                         :tournament="tournament"
@@ -182,7 +191,7 @@ watch(() => props.tournaments.total, (total) => {
                 </div>
 
                 <nav
-                    v-if="tournaments.data.length"
+                    v-if="tournaments.prev_page_url || tournaments.next_page_url"
                     class="flex items-center justify-between gap-3 rounded-xl border border-[#e5ebe3] bg-white px-4 py-3 text-xs text-[#748178]"
                     aria-label="صفحه‌بندی"
                 >

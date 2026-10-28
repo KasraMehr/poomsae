@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
-import { Head, Link, useForm, usePoll } from '@inertiajs/vue3';
+import { Head, Link, useForm, usePage, usePoll } from '@inertiajs/vue3';
 import { useCompetitionUpdates } from '../../Shared/Composables/useCompetitionUpdates';
 import AppLayout from '../../Shared/Layouts/AppLayout.vue';
 import CompetitionSetupPanel from '../../Components/tournaments/CompetitionSetupPanel.vue';
@@ -11,6 +11,7 @@ import TournamentDetailsEditor from '../../Components/tournaments/TournamentDeta
 import CompetitionTimingSettings from '../../Components/tournaments/CompetitionTimingSettings.vue';
 
 const props = defineProps({ tournament: Object, can: Object, competitionUrls: Object, ageCategories: Array, ageTableYear: Number });
+const page = usePage();
 useCompetitionUpdates(props.tournament.id);
 usePoll(5000, { only: ['tournament', 'can'] });
 
@@ -37,6 +38,11 @@ const preparation = computed(() => [
     <AppLayout>
         <Head :title="tournament.name" />
         <div class="admin-page" dir="rtl">
+            <nav class="flex min-w-0 items-center gap-2 text-xs text-[#7c8b80]" aria-label="مسیر صفحه">
+                <Link :href="page.props.urls.tournaments" class="shrink-0 rounded-md px-2 py-1.5 font-semibold text-[#286957] transition-colors hover:bg-[#edf4ee]">مسابقات</Link>
+                <span aria-hidden="true" class="text-[#a2afa4]">/</span>
+                <span class="min-w-0 truncate font-medium text-[#52665a]" aria-current="page">{{ tournament.name }}</span>
+            </nav>
             <header class="admin-hero">
                 <div class="hero-copy">
                     <span class="hero-overline">POOMSAE / COMPETITION ADMIN</span>
