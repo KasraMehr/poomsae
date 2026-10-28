@@ -7,11 +7,11 @@ const page = usePage();
     <div class="flex min-h-screen flex-col">
         <header class="border-b border-[#e5ebe5] bg-white">
             <div
-                class="mx-auto flex min-h-[104px] w-full max-w-[1560px] items-center justify-between gap-8 px-10 max-[1100px]:gap-5 max-[1100px]:px-6 max-[760px]:grid max-[760px]:grid-cols-[1fr_auto] max-[760px]:gap-x-4 max-[760px]:gap-y-3 max-[760px]:px-[18px] max-[760px]:py-4"
+                class="mx-auto grid min-h-[104px] w-full max-w-[1560px] grid-cols-[1fr_auto_1fr] items-center gap-8 px-10 max-[1100px]:gap-5 max-[1100px]:px-6 max-[760px]:grid-cols-[1fr_auto] max-[760px]:gap-x-4 max-[760px]:gap-y-3 max-[760px]:px-[18px] max-[760px]:py-4"
             >
                 <Link
                     :href="page.props.urls.dashboard"
-                    class="flex shrink-0 items-center gap-3"
+                    class="flex shrink-0 items-center gap-3 justify-self-start"
                 >
                     <span
                         class="grid h-11 w-11 place-items-center rounded-[14px_4px_14px_4px] bg-[#215e51] text-[27px] font-bold text-white shadow-sm"
@@ -25,7 +25,7 @@ const page = usePage();
 
                 <nav
                     aria-label="منوی اصلی"
-                    class="flex items-center gap-1 rounded-xl bg-[#f5f7f4] p-1 max-[760px]:order-3 max-[760px]:col-span-2 max-[760px]:w-full"
+                    class="flex items-center gap-1 justify-self-center rounded-xl bg-[#f5f7f4] p-1 max-[760px]:order-3 max-[760px]:col-span-2 max-[760px]:w-full"
                 >
                     <Link
                         :href="page.props.urls.dashboard"
@@ -61,7 +61,7 @@ const page = usePage();
                     </Link>
                 </nav>
 
-                <div class="flex shrink-0 items-center gap-3 rounded-2xl border border-[#e8ece6] bg-[#fafbf9] px-3 py-2 max-[760px]:gap-2 max-[760px]:border-0 max-[760px]:bg-transparent max-[760px]:px-0 max-[760px]:py-0">
+                <div class="flex shrink-0 items-center gap-3 justify-self-end rounded-2xl border border-[#e8ece6] bg-[#fafbf9] px-3 py-2 max-[760px]:gap-2 max-[760px]:border-0 max-[760px]:bg-transparent max-[760px]:px-0 max-[760px]:py-0">
                     <span
                         class="grid h-11 w-11 place-items-center rounded-xl bg-[#e9efe9] text-sm font-bold text-[#315d4c] max-[480px]:h-9 max-[480px]:w-9"
                         aria-hidden="true"

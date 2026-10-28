@@ -5,6 +5,14 @@
 @source '../**/*.vue';
 @source '../**/*.blade.php';
 
+@font-face {
+    font-family: "Vazirmatn";
+    src: url("../fonts/Vazirmatn-Variable.woff2") format("woff2");
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+}
+
 /*
  * Shared element-level base styles.
  * The screens carry their own layout, component and state styling through
@@ -12,7 +20,9 @@
  */
 @layer base {
     :root {
-        font-family: Tahoma, Arial, sans-serif;
+        --font-sans: "Vazirmatn", Tahoma, Arial, sans-serif;
+        --default-font-family: "Vazirmatn", Tahoma, Arial, sans-serif;
+        font-family: "Vazirmatn", Tahoma, Arial, sans-serif;
         color: #233d38;
         background: #f5f7f5;
         font-synthesis: none;
