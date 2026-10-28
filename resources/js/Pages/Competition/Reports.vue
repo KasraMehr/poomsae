@@ -3,7 +3,9 @@ import { computed, watch } from 'vue';
 import { Head, Link, router, useForm, usePoll } from '@inertiajs/vue3';
 import AppLayout from '../../Shared/Layouts/AppLayout.vue';
 import FormErrors from '../../Shared/Components/FormErrors.vue';
+import DropdownSelect from '../../Shared/Components/DropdownSelect.vue';
 import AuditSnapshot from '../../Components/competition/AuditSnapshot.vue';
+import PersianDateField from '../../Components/tournaments/PersianDateField.vue';
 import { useCompetitionUpdates } from '../../Shared/Composables/useCompetitionUpdates';
 
 const props = defineProps({ tournament: Object, type: String, title: String, report: Object, filters: Object, options: Object, canArchive: Boolean, reportUrls: Object });
@@ -24,6 +26,22 @@ const descriptions = {
     medals: 'مدال‌های رده‌های پایان‌یافته: تک‌حذفی یک طلا، یک نقره و بازندگان نیمه‌نهایی برنز؛ دوره‌ای مطابق رتبهٔ نهایی. رتبه‌های مساوی صریحاً مشترک‌اند. اصلاح نتیجه می‌تواند مدال‌بندی را تغییر دهد.',
 };
 const allowedFilters = computed(() => props.type === 'judges' ? ['category_id', 'judge_id', 'from', 'to'] : props.type === 'audit' ? ['user_id', 'action', 'from', 'to'] : ['category_id']);
+const categoryOptions = computed(() => [
+    { value: '', label: 'همهٔ رده‌ها' },
+    ...props.options.categories.map(category => ({ value: Number(category.id), label: category.name })),
+]);
+const judgeOptions = computed(() => [
+    { value: '', label: 'همهٔ داورها' },
+    ...props.options.judges.map(judge => ({ value: Number(judge.id), label: judge.name })),
+]);
+const actorOptions = computed(() => [
+    { value: '', label: 'همهٔ کاربران' },
+    ...props.options.actors.map(actor => ({ value: Number(actor.id), label: actor.name })),
+]);
+const actionOptions = computed(() => [
+    { value: '', label: 'همهٔ تغییرات' },
+    ...props.options.actions.map(action => ({ value: action.id, label: action.name })),
+]);
 const applyFilters = () => filters.transform(data => Object.fromEntries(allowedFilters.value.map(key => [key, data[key]]))).get(props.reportUrls[props.type], { preserveState: true, preserveScroll: true, replace: true });
 const resetFilters = () => router.get(props.reportUrls[props.type]);
 const print = () => window.print();
@@ -39,11 +57,12 @@ const updateArchive = () => archive.post(props.tournament.status === 'archived' 
             <p class="subtle">{{ descriptions[type] }}</p>
             <p v-if="tournament.status === 'archived'" class="notice">این مسابقه آرشیو شده است. گزارش‌ها و نتایج قابل مشاهده‌اند و ثبت یا اصلاح نمره بسته است.</p>
             <form class="panel report-filters report-actions" @submit.prevent="applyFilters">
-                <div v-if="type !== 'audit'"><label for="report-category">رده</label><select id="report-category" v-model="filters.category_id"><option value="">همهٔ رده‌ها</option><option v-for="category in options.categories" :key="category.id" :value="category.id">{{ category.name }}</option></select></div>
-                <div v-if="type === 'judges'"><label for="report-judge">داور</label><select id="report-judge" v-model="filters.judge_id"><option value="">همهٔ داورها</option><option v-for="judge in options.judges" :key="judge.id" :value="judge.id">{{ judge.name }}</option></select></div>
-                <div v-if="type === 'audit'"><label for="report-actor">کاربر ثبت‌کننده</label><select id="report-actor" v-model="filters.user_id"><option value="">همهٔ کاربران</option><option v-for="actor in options.actors" :key="actor.id" :value="actor.id">{{ actor.name }}</option></select></div>
-                <div v-if="type === 'audit'"><label for="report-action">نوع تغییر</label><select id="report-action" v-model="filters.action"><option value="">همهٔ تغییرات</option><option v-for="action in options.actions" :key="action.id" :value="action.id">{{ action.name }}</option></select></div>
-                <template v-if="type !== 'medals'"><div><label for="report-from">از تاریخ (میلادی)</label><input id="report-from" v-model="filters.from" type="date" dir="ltr" /></div><div><label for="report-to">تا تاریخ (میلادی)</label><input id="report-to" v-model="filters.to" type="date" :min="filters.from" dir="ltr" /></div></template>
+                <DropdownSelect v-if="type !== 'audit'" id="report-category" v-model="filters.category_id" label="رده" :options="categoryOptions" />
+                <DropdownSelect v-if="type === 'judges'" id="report-judge" v-model="filters.judge_id" label="داور" :options="judgeOptions" />
+                <DropdownSelect v-if="type === 'audit'" id="report-actor" v-model="filters.user_id" label="کاربر ثبت‌کننده" :options="actorOptions" />
+                <DropdownSelect v-if="type === 'audit'" id="report-action" v-model="filters.action" label="نوع تغییر" :options="actionOptions" />
+                <PersianDateField v-if="type !== 'medals'" id="report-from" v-model="filters.from" label="از تاریخ (شمسی)" />
+                <PersianDateField v-if="type !== 'medals'" id="report-to" v-model="filters.to" label="تا تاریخ (شمسی)" :min-iso="filters.from" />
                 <div class="row-actions"><button class="button" :disabled="filters.processing">اعمال فیلتر</button><button type="button" class="button secondary" @click="resetFilters">پاک‌کردن</button></div>
                 <FormErrors :errors="filters.errors" />
             </form>

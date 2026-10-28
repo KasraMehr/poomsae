@@ -1,40 +1,241 @@
-.competition-reports > .subtle { margin: 18px 0; }
-.report-filters { display: flex; flex-wrap: wrap; gap: 16px; align-items: end; margin-top: 22px; }
-.report-filters > div { min-width: 160px; flex: 1; }
-.report-filters select, .report-filters input { width: 100%; }
-.report-summary { display: flex; flex-wrap: wrap; gap: 16px; margin: 24px 0; }
-.report-summary article { flex: 1; min-width: 140px; border: 1px solid #d7e4dc; border-radius: 10px; background: white; padding: 18px; }
-.report-summary span { display: block; color: #6d7d74; font-size: 12px; }
-.report-summary b { display: block; color: #286957; font-size: 28px; }
-.report-downloads { margin: 20px 0; }
-.competition-reports .tabs a, .tabs a { padding: 12px 18px; border-bottom: 2px solid transparent; }
-.tabs a.selected { border-color: #286957; color: #286957; font-weight: bold; }
-.report-table-wrap { overflow: auto; padding: 0; max-height: 70vh; }
-.report-table { border-collapse: separate; border-spacing: 0; min-width: 1100px; width: 100%; font-size: 12px; }
-.report-table th { position: sticky; top: 0; background: #17364b; color: white; white-space: nowrap; z-index: 1; }
-.report-table td, .report-table th { border-left: 1px solid #d7e4dc; border-bottom: 1px solid #d7e4dc; padding: 12px; vertical-align: top; }
-.report-table tbody tr:nth-child(even) { background: #eff6f1; }
-.report-number { direction: ltr; text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.report-medal { font-weight: bold; color: #876614; }
-.report-table details { min-width: 140px; max-width: 420px; }
-.report-table summary { cursor: pointer; color: #286957; }
-.audit-snapshot { margin-top: 8px; min-width: 220px; font-size: 11px; overflow-wrap: anywhere; }
-.audit-snapshot > div { padding: 6px; border-bottom: 1px solid #d7e4dc; }
-.audit-snapshot dt { font-weight: bold; color: #42675a; }
-.audit-snapshot dd { margin: 0; }
-.audit-snapshot-list { display: grid; gap: 8px; }
-.archive-controls { margin-top: 28px; }
-.archive-controls p { margin: 10px 0; }
-.archive-controls textarea { width: 100%; max-width: 650px; display: block; margin-bottom: 16px; }
+.competition-reports {
+    --report-green: #286957;
+    --report-green-dark: #1d5143;
+    --report-green-soft: #edf6ef;
+    --report-border: #dce8de;
+    --report-muted: #718278;
+    display: grid;
+    gap: 18px;
+    min-width: 0;
+    color: #203a30;
+}
+
+.competition-reports .page-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 22px 26px;
+    border: 1px solid #dce9df;
+    border-radius: 18px;
+    background: linear-gradient(120deg, #f4faf5, #eaf4ec);
+}
+
+.competition-reports .page-heading > div:first-child { min-width: 0; }
+.competition-reports .eyebrow { color: #54816a; font-size: 11px; font-weight: 800; }
+.competition-reports .page-heading h1 { margin: 3px 0 2px; color: #214d3d; font-size: clamp(21px, 2vw, 28px); }
+.competition-reports .page-heading .subtle { margin: 0; color: var(--report-muted); font-size: 12px; }
+.competition-reports .row-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; }
+.competition-reports .button {
+    display: inline-flex;
+    min-height: 40px;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 14px;
+    border: 1px solid var(--report-green);
+    border-radius: 10px;
+    background: var(--report-green);
+    color: white;
+    font-size: 12px;
+    font-weight: 750;
+    text-decoration: none;
+    transition: background-color 150ms ease, border-color 150ms ease, transform 150ms ease;
+}
+.competition-reports .button:hover { transform: translateY(-1px); background: var(--report-green-dark); border-color: var(--report-green-dark); }
+.competition-reports .button.secondary { border-color: #cbdccf; background: #fff; color: #315f49; }
+.competition-reports .button.secondary:hover { background: var(--report-green-soft); }
+
+.competition-reports .tabs {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 5px;
+    border: 1px solid var(--report-border);
+    border-radius: 13px;
+    background: #f8fbf8;
+}
+.competition-reports .tabs a {
+    flex: 1 0 auto;
+    padding: 10px 18px;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    color: #62756a;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+    transition: background-color 150ms ease, color 150ms ease;
+}
+.competition-reports .tabs a:hover { background: #edf5ef; color: var(--report-green-dark); }
+.competition-reports .tabs a.selected { border-color: #cfe2d3; background: white; color: var(--report-green); box-shadow: 0 2px 8px #244a2b0c; }
+.competition-reports > .subtle { margin: -8px 2px 0; color: var(--report-muted); font-size: 12px; }
+
+.competition-reports .notice,
+.competition-reports .empty {
+    margin: 0;
+    padding: 13px 16px;
+    border: 1px solid #d9e8dc;
+    border-radius: 12px;
+    background: #f3f8f3;
+    color: #466653;
+    font-size: 12px;
+}
+.competition-reports .notice { border-color: #eadca8; background: #fffaf0; color: #725e2c; }
+
+.competition-reports .report-filters {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(140px, 1fr));
+    align-items: end;
+    gap: 14px;
+    margin: 0;
+    padding: 18px;
+    border: 1px solid var(--report-border);
+    border-radius: 15px;
+    background: #f2f8f3;
+    box-shadow: 0 4px 16px #244a2b08;
+}
+.competition-reports .report-filters > div { min-width: 0; }
+.competition-reports .report-filters label { margin: 0 0 5px; color: #50695a; font-size: 11px; font-weight: 700; }
+.competition-reports .report-filters select,
+.competition-reports .report-filters input {
+    min-height: 42px;
+    border: 1px solid #d2e0d4;
+    border-radius: 9px;
+    background-color: #fff;
+    color: #294639;
+    font-size: 12px;
+}
+.competition-reports .report-filters select:focus,
+.competition-reports .report-filters input:focus { outline: 2px solid #a8cdb2; outline-offset: 1px; }
+.competition-reports .report-filters .row-actions { grid-column: 1 / -1; }
+.competition-reports .report-filters [role="alert"] { grid-column: 1 / -1; }
+
+.competition-reports .report-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin: 0;
+}
+.competition-reports .report-summary article {
+    display: grid;
+    min-height: 94px;
+    align-content: space-between;
+    gap: 7px;
+    padding: 14px 17px;
+    border: 1px solid var(--report-border);
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 4px 14px #244a2b08;
+}
+.competition-reports .report-summary span { color: var(--report-muted); font-size: 11px; }
+.competition-reports .report-summary b { color: var(--report-green); font-size: 25px; line-height: 1.3; font-variant-numeric: tabular-nums; }
+
+.competition-reports .report-downloads { gap: 9px; margin: 0; }
+.competition-reports .report-downloads .subtle { margin-inline-start: auto; color: var(--report-muted); font-size: 11px; }
+.competition-reports .report-table-wrap {
+    overflow: auto;
+    max-height: 68vh;
+    padding: 0;
+    border: 1px solid var(--report-border);
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 5px 18px #244a2b0a;
+}
+.competition-reports .report-table {
+    width: 100%;
+    min-width: 1000px;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 12px;
+}
+.competition-reports .report-table th {
+    position: sticky;
+    z-index: 1;
+    top: 0;
+    padding: 12px 13px;
+    border: 0;
+    border-bottom: 1px solid #286957;
+    background: #286957;
+    color: white;
+    font-size: 11px;
+    font-weight: 750;
+    white-space: nowrap;
+}
+.competition-reports .report-table td {
+    padding: 11px 13px;
+    border: 0;
+    border-bottom: 1px solid #e9f0e9;
+    color: #354b3e;
+    vertical-align: top;
+}
+.competition-reports .report-table tbody tr:nth-child(even) { background: #f4f8f4; }
+.competition-reports .report-table tbody tr:hover { background: #eaf4ec; }
+.competition-reports .report-table tbody tr:last-child td { border-bottom: 0; }
+.competition-reports .report-number { direction: ltr; text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.competition-reports .report-medal { color: #876614; font-weight: 800; }
+.competition-reports .report-table details { min-width: 140px; max-width: 420px; }
+.competition-reports .report-table summary { cursor: pointer; color: var(--report-green); font-weight: 700; }
+.competition-reports .audit-snapshot { min-width: 220px; margin-top: 8px; overflow-wrap: anywhere; font-size: 11px; }
+.competition-reports .audit-snapshot > div { padding: 6px 0; border-bottom: 1px solid var(--report-border); }
+.competition-reports .audit-snapshot dt { color: #42675a; font-weight: 700; }
+.competition-reports .audit-snapshot dd { margin: 0; }
+.competition-reports .audit-snapshot-list { display: grid; gap: 8px; }
+.competition-reports .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    color: var(--report-muted);
+    font-size: 12px;
+}
+.competition-reports .pagination a { padding: 7px 12px; border: 1px solid var(--report-border); border-radius: 8px; background: white; color: var(--report-green); font-weight: 700; }
+.competition-reports .pagination a:hover { background: var(--report-green-soft); }
+
+.competition-reports .archive-controls {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 20px;
+    border: 1px solid var(--report-border);
+    border-radius: 15px;
+    background: #edf6ef;
+}
+.competition-reports .archive-controls h2 { margin: 0; color: #285a45; font-size: 16px; }
+.competition-reports .archive-controls p { margin: 0; color: var(--report-muted); font-size: 12px; }
+.competition-reports .archive-controls form { display: grid; justify-items: start; gap: 8px; }
+.competition-reports .archive-controls label { margin: 0; color: #50695a; font-size: 11px; font-weight: 700; }
+.competition-reports .archive-controls textarea { width: min(100%, 650px); min-height: 85px; border-color: #d2e0d4; border-radius: 9px; background: white; }
+
+@media (max-width: 900px) {
+    .competition-reports .report-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+    .competition-reports { gap: 13px; }
+    .competition-reports .page-heading { align-items: stretch; flex-direction: column; padding: 17px; }
+    .competition-reports .page-heading .row-actions { width: 100%; }
+    .competition-reports .page-heading .button { flex: 1; }
+    .competition-reports .tabs a { padding: 9px 12px; }
+    .competition-reports .report-filters { grid-template-columns: minmax(0, 1fr); padding: 14px; }
+    .competition-reports .report-filters .row-actions { grid-column: auto; }
+    .competition-reports .report-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+    .competition-reports .report-summary article { min-height: 82px; padding: 12px; }
+    .competition-reports .report-summary b { font-size: 22px; }
+    .competition-reports .report-downloads .subtle { width: 100%; margin: 0; }
+    .competition-reports .report-table-wrap { max-height: 65vh; }
+}
+
 @media print {
     @page { size: landscape; margin: 10mm; }
     body { background: white; }
     .sidebar, .topbar, .workspace > footer, .report-actions { display: none !important; }
     .workspace { width: 100%; margin: 0; }
-    .workspace main { padding: 0; max-width: none; }
-    .report-table-wrap { overflow: visible; max-height: none; border: 0; }
-    .report-table { min-width: 0; width: 100%; font-size: 9px; }
-    .report-table th { position: static; background: #edf3f7; color: #183044; }
-    .report-table td, .report-table th { padding: 5px; overflow-wrap: anywhere; }
-    .report-table tr { break-inside: avoid; }
+    .workspace main { max-width: none; padding: 0; }
+    .competition-reports { gap: 10px; }
+    .competition-reports .page-heading { padding: 0 0 8px; border: 0; background: white; }
+    .competition-reports .report-table-wrap { overflow: visible; max-height: none; border: 0; box-shadow: none; }
+    .competition-reports .report-table { width: 100%; min-width: 0; font-size: 9px; }
+    .competition-reports .report-table th { position: static; padding: 5px; background: #286957 !important; color: white !important; print-color-adjust: exact; }
+    .competition-reports .report-table td { padding: 5px; overflow-wrap: anywhere; }
+    .competition-reports .report-table tr { break-inside: avoid; }
 }

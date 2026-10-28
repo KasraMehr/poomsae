@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "./themes/operator.css";
 @import "./themes/scoreboard.css";
+@import "./reports.css";
 @source '../**/*.vue';
 @source '../**/*.blade.php';
 
