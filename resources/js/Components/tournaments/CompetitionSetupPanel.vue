@@ -142,7 +142,7 @@ const submitCategory = () => {
 <template>
     <div class="setup-grid">
         <section v-if="section === 'all' || section === 'team'" class="panel">
-            <h2>۱. زمین‌های مسابقه</h2>
+            <h2> زمین‌های مسابقه</h2>
             <div v-for="selectedCourt in tournament.courts" :key="selectedCourt.id" class="section-heading"><span>{{ selectedCourt.name }}</span><button type="button" class="button secondary small" :disabled="courtEdit.processing" @click="beginCourtEdit(selectedCourt)">ویرایش نام زمین</button></div>
             <form v-if="editingCourtId" @submit.prevent="saveCourt"><label for="edit-court-name">نام جدید زمین</label><input id="edit-court-name" v-model="courtEdit.name" required maxlength="100"><FormErrors :errors="courtEdit.errors"/><div class="row-actions"><button class="button" :disabled="courtEdit.processing">ذخیرهٔ نام زمین</button><button type="button" class="button secondary" :disabled="courtEdit.processing" @click="editingCourtId = null">انصراف</button></div></form>
             <form @submit.prevent="court.post(base + '/courts', { preserveScroll: true, onSuccess: () => court.reset() })">
@@ -151,7 +151,7 @@ const submitCategory = () => {
             </form>
         </section>
         <section v-if="section === 'all' || section === 'team'" class="panel">
-            <h2>۲. تیم برگزاری</h2>
+            <h2> تیم برگزاری</h2>
             <form @submit.prevent="member.post(base + '/members', { preserveScroll: true, onSuccess: () => member.reset() })" class="fields-two">
                 <div><label for="member-name">نام و نام خانوادگی</label><input id="member-name" v-model="member.name" required maxlength="100"></div>
                 <div><label for="member-role">نقش</label><select id="member-role" v-model="member.role"><option value="judge">داور</option><option value="operator">اپراتور</option><option value="display">نمایشگر RTDS</option></select></div>

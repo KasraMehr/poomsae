@@ -14,6 +14,7 @@ const props = defineProps({
     modelValue: { type: String, default: '' },
     minIso: { type: String, default: '' },
     required: { type: Boolean, default: false },
+    disabled: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['update:modelValue']);
@@ -139,6 +140,8 @@ function finishEditing() {
 }
 
 function openCalendar() {
+    if (props.disabled) return;
+
     isOpen.value = true;
 
     if (!props.modelValue) {
@@ -207,11 +210,12 @@ onBeforeUnmount(() => {
                 inputmode="numeric"
                 dir="ltr"
                 :required="required"
+                :disabled="disabled"
                 :placeholder="required ? '۱۴۰۵/۰۱/۰۱' : 'انتخاب تاریخ'"
                 :aria-controls="isOpen ? `${id}-calendar` : undefined"
                 :aria-expanded="isOpen"
                 autocomplete="off"
-                class="w-full rounded-lg border border-[#dce5da] bg-white py-2.5 pl-10 pr-3 text-left text-sm text-[#253c31] placeholder:text-[#a5aea6] focus:border-[#79a28b] focus:outline-2 focus:outline-[#79a28b]/30"
+                class="w-full rounded-lg border border-[#dce5da] bg-white py-2.5 pl-10 pr-3 text-left text-sm text-[#253c31] placeholder:text-[#a5aea6] focus:border-[#79a28b] focus:outline-2 focus:outline-[#79a28b]/30 disabled:cursor-not-allowed disabled:bg-[#f1f4f0] disabled:text-[#8a978e]"
                 @input="updateInput"
                 @blur="finishEditing"
                 @focus="openCalendar"
