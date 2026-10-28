@@ -12,13 +12,10 @@ const page = usePage();
             class="mb-[30px] flex items-center justify-between gap-5 max-[760px]:flex-col max-[760px]:items-start max-[760px]:gap-[15px]"
         >
             <div>
-                <span class="mb-2 block text-xs text-[#578678]"
-                    >میز کار برگزاری</span
-                >
                 <h1
                     class="text-[29px] font-bold leading-[1.6] max-[760px]:text-[25px]"
                 >
-                    نمای کلی مسابقات
+                    میز کار برگزاری
                 </h1>
                 <p class="mt-2 text-[13px] text-[#7c8984]">
                     وضعیت مسابقات و نقطهٔ شروع آماده‌سازی رویداد بعدی.
