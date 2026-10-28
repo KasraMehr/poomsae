@@ -29,6 +29,7 @@ class MobileCompetitionTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.id', $fixture['tournament']->id)
             ->assertJsonPath('realtime.protocol', 'mercure-sse')
+            ->assertJsonPath('realtime.hub_url', url('/.well-known/mercure'))
             ->assertJsonPath('realtime.channel', 'private-tournaments.'.$fixture['tournament']->id)
             ->assertJsonPath('realtime.event', 'competition.updated');
 

@@ -37,7 +37,7 @@ class CompetitionController extends Controller
             'data' => $view->snapshot($tournament, $request->user()),
             'realtime' => [
                 'protocol' => 'mercure-sse',
-                'hub_url' => config('broadcasting.connections.mercure.public_url'),
+                'hub_url' => url(config('broadcasting.connections.mercure.public_url') ?: '/.well-known/mercure'),
                 'auth_endpoint' => url('/api/v1/broadcasting/auth'),
                 'channel' => 'private-tournaments.'.$tournament->id,
                 'presence_channel' => 'presence-tournaments.'.$tournament->id.'.judges',
