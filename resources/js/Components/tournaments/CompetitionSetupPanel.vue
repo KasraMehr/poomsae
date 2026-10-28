@@ -2,7 +2,7 @@
 import { useForm } from '@inertiajs/vue3';
 import { computed, nextTick, ref, watch } from 'vue';
 import FormErrors from '../../Shared/Components/FormErrors.vue';
-const props = defineProps({ tournament: Object, base: String, ageCategories: Array, ageTableYear: Number });
+const props = defineProps({ tournament: Object, base: String, ageCategories: Array, ageTableYear: Number, section: { type: String, default: 'all' } });
 const court = useForm({ name: '' });
 const editingCourtId = ref(null);
 const courtEdit = useForm({ name: '' });
@@ -141,7 +141,7 @@ const submitCategory = () => {
 </script>
 <template>
     <div class="setup-grid">
-        <section class="panel">
+        <section v-if="section === 'all' || section === 'team'" class="panel">
             <h2>۱. زمین‌های مسابقه</h2>
             <div v-for="selectedCourt in tournament.courts" :key="selectedCourt.id" class="section-heading"><span>{{ selectedCourt.name }}</span><button type="button" class="button secondary small" :disabled="courtEdit.processing" @click="beginCourtEdit(selectedCourt)">ویرایش نام زمین</button></div>
             <form v-if="editingCourtId" @submit.prevent="saveCourt"><label for="edit-court-name">نام جدید زمین</label><input id="edit-court-name" v-model="courtEdit.name" required maxlength="100"><FormErrors :errors="courtEdit.errors"/><div class="row-actions"><button class="button" :disabled="courtEdit.processing">ذخیرهٔ نام زمین</button><button type="button" class="button secondary" :disabled="courtEdit.processing" @click="editingCourtId = null">انصراف</button></div></form>
@@ -150,7 +150,7 @@ const submitCategory = () => {
                 <FormErrors :errors="court.errors"/><button class="button" :disabled="court.processing">افزودن زمین</button>
             </form>
         </section>
-        <section class="panel">
+        <section v-if="section === 'all' || section === 'team'" class="panel">
             <h2>۲. تیم برگزاری</h2>
             <form @submit.prevent="member.post(base + '/members', { preserveScroll: true, onSuccess: () => member.reset() })" class="fields-two">
                 <div><label for="member-name">نام و نام خانوادگی</label><input id="member-name" v-model="member.name" required maxlength="100"></div>
@@ -162,7 +162,7 @@ const submitCategory = () => {
             </form>
             <div class="member-list"><div v-for="(user,i) in tournament.members" :key="user.id + '-' + i"><span>{{ user.name }} <small dir="ltr">{{ user.email }}</small></span><span class="badge">{{ {judge:'داور',operator:'اپراتور',display:'نمایشگر',manager:'مدیر'}[user.role] || user.role }}</span></div></div>
         </section>
-        <section class="panel wide">
+        <section v-if="section === 'all' || section === 'categories'" class="panel wide">
             <h2>۳. ردهٔ مسابقه</h2>
             <div class="section-heading"><div><label for="edit-category-choice">ساخت یا ویرایش رده و قوانین</label><select id="edit-category-choice" :value="editingCategoryId || ''" :disabled="category.processing" @change="loadCategory(Number($event.target.value))"><option value="">ساخت ردهٔ جدید</option><option v-for="existing in tournament.categories" :key="existing.id" :value="existing.id">{{ existing.name }}</option></select></div></div>
             <p v-if="editingCategory" class="subtle">نسخهٔ قوانین: {{ editingCategory.rule_version }}. با ذخیره، نسخهٔ جدید تأیید می‌شود.</p>

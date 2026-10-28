@@ -3,7 +3,7 @@ import { useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import FormErrors from '../../Shared/Components/FormErrors.vue';
 import EntryDetailsEditor from './EntryDetailsEditor.vue';
-const props = defineProps({ category: Object, tournament: Object, base: String });
+const props = defineProps({ category: Object, tournament: Object, base: String, section: { type: String, default: 'all' } });
 const blankMember = () => ({ first_name: '', last_name: '', birth_date: '', gender: props.category.gender === 'female' ? 'female' : 'male', club: '' });
 const memberCount = computed(() => props.category.entry_type === 'team' ? 3 : props.category.entry_type === 'pair' ? 2 : 1);
 const ageCategory = computed(() => props.category.rules?.age_category);
@@ -63,7 +63,7 @@ const scheduleRound = () => schedule.post(props.base + '/categories/' + props.ca
         <p v-if="category.open_appeal_count" class="rounded-lg border border-[#dccf9c] bg-[#faf7eb] px-4 py-3 text-sm text-[#5f5430]">این رده {{ category.open_appeal_count }} اعتراض باز دارد. ساخت و شروع مرحلهٔ بعد پس از تعیین تکلیف رأی ناظر مجاز است.</p>
         <section v-if="category.discipline === 'freestyle'" class="mb-6 rounded-xl border border-[#e2e9df] bg-white p-5 min-[761px]:p-[27px]"><h2>ترتیب اجرای ابداعی</h2><p>{{ category.format === 'knockout' ? 'هر رقابت: ابتدا A، سپس B؛ یک اجرا با موسیقی برای هر ورودی.' : 'ورودی‌ها به‌ترتیب A، B، C و ... اجرا می‌کنند؛ یک اجرا با موسیقی برای هر ورودی در هر مرحله.' }}</p><p v-if="category.entry_type === 'pair'" class="my-3 text-xs leading-6 text-[#8b988a]">اعضای هر زوج با هم یک اجرا انجام می‌دهند؛ هر زوج یک ورودی مسابقه است.</p></section>
         <section v-if="category.management_source" class="mb-6 rounded-xl border border-[#e2e9df] bg-white p-5 min-[761px]:p-[27px]"><p>اطلاعات از {{ category.management_source }} دریافت شده است · نسخهٔ {{ category.management_version }}</p><p class="my-3 text-xs leading-6 text-[#8b988a]">نسخهٔ محلی ذخیره شده است؛ اجرای مرحلهٔ آماده به اتصال سیستم مدیریت وابسته نیست.</p></section>
-        <section class="mb-6 rounded-xl border border-[#e2e9df] bg-white p-5 min-[761px]:p-[27px]" v-if="!category.registration_locked && !category.management_source">
+        <section class="mb-6 rounded-xl border border-[#e2e9df] bg-white p-5 min-[761px]:p-[27px]" v-if="(section === 'all' || section === 'registration') && !category.registration_locked && !category.management_source">
             <h2>ثبت {{ category.entry_type === 'team' ? 'تیم' : category.entry_type === 'pair' ? 'زوج' : 'ورزشکار' }}</h2><p v-if="ageCategory" class="rounded-lg border border-[#dccf9c] bg-[#faf7eb] px-4 py-3 text-sm text-[#5f5430]">{{ ageCategory.label }} · {{ ageCategory.birth_date_label }}</p><p class="my-3 text-xs leading-6 text-[#8b988a]">{{ ageCategory ? 'تاریخ تولد هر عضو باید در بازهٔ ردهٔ انتخاب‌شده باشد.' : 'سن هر عضو در روز شروع مسابقه محاسبه می‌شود.' }} بعد از ساخت قرعه، فهرست رده قفل خواهد شد.</p>
             <form @submit.prevent="submitEntry" class="mt-[18px] grid grid-cols-1 gap-[18px] min-[761px]:grid-cols-3">
                 <template v-if="memberCount === 1">
@@ -86,14 +86,14 @@ const scheduleRound = () => schedule.post(props.base + '/categories/' + props.ca
                 <FormErrors class="col-span-full" :errors="entry.errors"/>
             </form>
         </section>
-        <section class="mb-6 rounded-xl border border-[#e2e9df] bg-white p-5 min-[761px]:p-[27px]">
+        <section v-if="section === 'all' || section === 'registration'" class="mb-6 rounded-xl border border-[#e2e9df] bg-white p-5 min-[761px]:p-[27px]">
             <div class="mb-5 flex flex-wrap items-center justify-between gap-3"><h2>فهرست و پذیرش ورودی‌ها</h2><span class="inline-block rounded-[5px] bg-[#f2f4ed] px-[9px] py-[3px] text-[10px] text-[#81896b]">{{ category.entries.filter(e => e.status === 'checked_in').length }} ورودی حاضر</span></div>
             <p v-if="category.round_count_automatic" class="rounded-lg border border-[#dccf9c] bg-[#faf7eb] px-4 py-3 text-sm text-[#5f5430]">{{ category.required_round_count ? `تعداد مراحل تک‌حذفی: ${category.required_round_count.toLocaleString('fa-IR')} مرحله تا فینال · محاسبهٔ خودکار بر اساس ورودی‌های حاضر` : 'تعداد مراحل تک‌حذفی پس از تأیید حضور حداقل دو ورودی، خودکار مشخص می‌شود.' }}<span v-if="!attendanceReady"> ابتدا حضور یا انصراف همهٔ ورودی‌ها را مشخص کنید.</span></p>
             <FormErrors :errors="status.errors"/>
             <div class="overflow-x-auto"><table><thead><tr><th>ورودی</th><th>باشگاه</th><th>وضعیت</th><th v-if="!category.registration_locked && !category.management_source">پذیرش</th><th v-if="!category.management_source">ویرایش</th></tr></thead><tbody><tr v-for="athlete in category.entries" :key="athlete.id"><td>{{ athlete.name }}</td><td>{{ athlete.club || '—' }}</td><td>{{ {registered:'در انتظار حضور',checked_in:'حاضر',withdrawn:'منصرف',disqualified:'حذف‌شده'}[athlete.status] }}</td><td v-if="!category.registration_locked && !category.management_source" class="flex flex-wrap items-center gap-2.5"><button v-if="athlete.status !== 'checked_in'" class="inline-flex min-h-[34px] items-center justify-center rounded-lg border border-transparent bg-[#286957] px-3 py-1.5 text-[11px] font-semibold text-white disabled:cursor-wait disabled:opacity-55" :disabled="status.processing" @click="setStatus(athlete.id,'checked_in')">حاضر</button><button v-if="athlete.status !== 'withdrawn'" class="inline-flex min-h-[34px] items-center justify-center rounded-lg border border-transparent bg-[#e8eee7] px-3 py-1.5 text-[11px] font-semibold text-[#42664f] disabled:cursor-wait disabled:opacity-55" :disabled="status.processing" @click="setStatus(athlete.id,'withdrawn')">انصراف</button></td><td v-if="!category.management_source"><EntryDetailsEditor :entry="athlete" :category="category" :tournament="tournament" :base="base"/></td></tr></tbody></table></div>
             <p v-if="!category.entries.length" class="my-3 text-xs leading-6 text-[#8b988a]">هنوز ورزشکاری ثبت نشده است.</p>
         </section>
-        <section v-if="category.planned_round_count && category.discipline === 'recognized'" class="mb-6 rounded-xl border border-[#e2e9df] bg-white p-5 min-[761px]:p-[27px]">
+        <section v-if="(section === 'all' || section === 'planning') && category.planned_round_count && category.discipline === 'recognized'" class="mb-6 rounded-xl border border-[#e2e9df] bg-white p-5 min-[761px]:p-[27px]">
             <h2>قرعهٔ پومسه‌های مراحل</h2>
             <p>{{ { day_before: 'روز قبل مسابقه', morning: 'صبح مسابقه', before_stage: 'قبل از شروع هر مرحله' }[category.form_draw_timing] }} · {{ category.allow_form_repetition ? 'تکرار بین مراحل مجاز است' : 'بدون تکرار بین مراحل' }}</p>
             <p class="my-3 text-xs leading-6 text-[#8b988a]">زمان مجاز: {{ new Date(category.draw_available_at).toLocaleString('fa-IR', { timeZone: tournament.timezone || 'Asia/Tehran' }) }}</p>
@@ -102,7 +102,7 @@ const scheduleRound = () => schedule.post(props.base + '/categories/' + props.ca
             <button v-if="!category.management_source && category.form_draw_timing !== 'before_stage' && category.rounds.some(round => !round.forms_ready)" type="button" class="inline-flex min-h-11 items-center justify-center rounded-lg border border-transparent bg-[#286957] px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-55" :disabled="draw.processing || !drawAvailable || !automaticStagePlanReady" @click="drawForms(null)">قرعهٔ فرم‌های تمام مراحل</button>
             <FormErrors :errors="draw.errors"/>
         </section>
-        <section class="mb-6 rounded-xl border border-[#e2e9df] bg-white p-5 min-[761px]:p-[27px]" v-if="canSchedule">
+        <section class="mb-6 rounded-xl border border-[#e2e9df] bg-white p-5 min-[761px]:p-[27px]" v-if="(section === 'all' || section === 'planning') && canSchedule">
             <h2>{{ nextStage ? `ساخت جدول ${nextStage.name}` : scheduledRounds.length ? 'ساخت دور بعد' : 'ساخت قرعه و برنامهٔ اجرا' }}</h2>
             <p class="my-3 text-xs leading-6 text-[#8b988a]">{{ category.management_source === 'tkdhub' ? 'ترتیب ورزشکاران طبق قرعهٔ tkdhub حفظ می‌شود؛ زمین و پنل داورها را انتخاب کنید.' : scheduledRounds.length ? 'پس از پایان مرحلهٔ قبل، برنامهٔ مرحلهٔ بعد ساخته می‌شود.' : 'ورودی‌های حاضر با قرعهٔ تصادفی در جدول قرار می‌گیرند.' }}</p>
             <form @submit.prevent="scheduleRound">
@@ -117,6 +117,6 @@ const scheduleRound = () => schedule.post(props.base + '/categories/' + props.ca
                 <FormErrors :errors="schedule.errors"/><button class="inline-flex min-h-11 items-center justify-center rounded-lg border border-transparent bg-[#286957] px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-55" :disabled="schedule.processing || !previousComplete || !courtPanelsReady || !automaticStagePlanReady">تأیید و ساخت جدول</button>
             </form>
         </section>
-        <section v-if="scheduledRounds.length" class="mb-6 rounded-xl border border-[#e2e9df] bg-white p-5 min-[761px]:p-[27px]"><h2>زمین‌های مراحل این رده</h2><div v-for="round in scheduledRounds" :key="round.id" class="mb-5 flex flex-wrap items-center justify-between gap-3"><span>{{ round.name }}</span><span>{{ round.court_ids.map(courtName).join('، ') }} · {{ round.status === 'completed' ? 'پایان همهٔ زمین‌ها' : 'در انتظار پایان مرحله' }}</span></div></section>
+        <section v-if="(section === 'all' || section === 'planning') && scheduledRounds.length" class="mb-6 rounded-xl border border-[#e2e9df] bg-white p-5 min-[761px]:p-[27px]"><h2>زمین‌های مراحل این رده</h2><div v-for="round in scheduledRounds" :key="round.id" class="mb-5 flex flex-wrap items-center justify-between gap-3"><span>{{ round.name }}</span><span>{{ round.court_ids.map(courtName).join('، ') }} · {{ round.status === 'completed' ? 'پایان همهٔ زمین‌ها' : 'در انتظار پایان مرحله' }}</span></div></section>
     </div>
 </template>

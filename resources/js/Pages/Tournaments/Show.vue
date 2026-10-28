@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { Head, Link, useForm, usePage, usePoll } from '@inertiajs/vue3';
 import { useCompetitionUpdates } from '../../Shared/Composables/useCompetitionUpdates';
 import AppLayout from '../../Shared/Layouts/AppLayout.vue';
@@ -12,13 +12,63 @@ import CompetitionTimingSettings from '../../Components/tournaments/CompetitionT
 
 const props = defineProps({ tournament: Object, can: Object, competitionUrls: Object, ageCategories: Array, ageTableYear: Number });
 const page = usePage();
-const isTournamentSummaryOpen = ref(false);
 useCompetitionUpdates(props.tournament.id);
 usePoll(5000, { only: ['tournament', 'can'] });
 
-const tab = ref(['running', 'completed', 'archived'].includes(props.tournament.status) ? 'control' : 'setup');
+const canManage = computed(() => props.can.manage);
+const isSetupAvailable = computed(() => canManage.value && !['completed', 'archived'].includes(props.tournament.status));
+const activeSection = ref(isSetupAvailable.value ? 'overview' : 'execution');
+const sectionTitles = {
+    overview: 'نمای مسابقه',
+    information: 'اطلاعات مسابقه',
+    team: 'تیم و زمین‌ها',
+    categories: 'رده‌ها و قوانین',
+    registration: 'ثبت‌نام و پذیرش',
+    planning: 'قرعه و برنامه‌ریزی',
+    execution: 'اجرا و نتایج',
+    reports: 'گزارش‌ها و آرشیو',
+};
+const menuGroups = computed(() => [
+    { title: 'مسابقه', items: [{ id: 'overview', title: 'نمای مسابقه', icon: '◫' }] },
+    ...(isSetupAvailable.value ? [{ title: 'آماده‌سازی', items: [
+        { id: 'information', title: 'اطلاعات مسابقه', icon: '◉' },
+        { id: 'team', title: 'تیم و زمین‌ها', icon: '♧' },
+        { id: 'categories', title: 'رده‌ها و قوانین', icon: '▤' },
+    ] }] : []),
+    { title: 'برگزاری', items: [
+        ...(isSetupAvailable.value ? [
+            { id: 'registration', title: 'ثبت‌نام و پذیرش', icon: '＋' },
+            { id: 'planning', title: 'قرعه و برنامه‌ریزی', icon: '▦' },
+        ] : []),
+        { id: 'execution', title: 'اجرا و نتایج', icon: '▷' },
+    ] },
+    { title: 'گزارش', items: [{ id: 'reports', title: 'گزارش‌ها و آرشیو', icon: '▧', href: props.competitionUrls.reports }] },
+]);
+const selectSection = section => {
+    if (section !== 'overview' && section !== 'execution' && section !== 'reports' && !isSetupAvailable.value) return;
+    activeSection.value = section;
+    if (section === 'overview') {
+        window.requestAnimationFrame(() => document.getElementById('tournament-summary')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    }
+    if (window.location.hash !== `#${section}`) window.history.pushState(null, '', `#${section}`);
+};
+const syncSectionFromHash = () => {
+    const section = window.location.hash.slice(1);
+    if (sectionTitles[section] && (isSetupAvailable.value || ['overview', 'execution', 'reports'].includes(section))) {
+        activeSection.value = section;
+    }
+};
+onMounted(() => {
+    syncSectionFromHash();
+    window.addEventListener('hashchange', syncSectionFromHash);
+    window.addEventListener('popstate', syncSectionFromHash);
+});
+onBeforeUnmount(() => {
+    window.removeEventListener('hashchange', syncSectionFromHash);
+    window.removeEventListener('popstate', syncSectionFromHash);
+});
 watch(() => props.tournament.status, status => {
-    if (['completed', 'archived'].includes(status)) tab.value = 'control';
+    if (['completed', 'archived'].includes(status) && ['information', 'team', 'categories', 'registration', 'planning'].includes(activeSection.value)) selectSection('execution');
 });
 const selectedId = ref(props.tournament.categories[0]?.id);
 const selected = computed(() => props.tournament.categories.find(category => category.id === selectedId.value) ?? props.tournament.categories[0] ?? null);
@@ -66,36 +116,41 @@ function formatTournamentDate(value) {
     <AppLayout>
         <Head :title="tournament.name" />
         <div class="admin-page" dir="rtl">
-            <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="tournament-header flex flex-wrap items-center gap-3">
                 <nav class="flex min-w-0 items-center gap-2 text-xs text-[#7c8b80]" aria-label="مسیر صفحه">
                     <Link :href="page.props.urls.tournaments" class="shrink-0 rounded-md px-2 py-1.5 font-semibold text-[#286957] transition-colors hover:bg-[#edf4ee]">مسابقات</Link>
                     <span aria-hidden="true" class="text-[#a2afa4]">/</span>
-                    <span class="min-w-0 truncate font-medium text-[#52665a]" aria-current="page">{{ tournament.name }}</span>
+                    <button type="button" class="min-w-0 truncate font-medium text-[#52665a] hover:text-[#286957]" @click="selectSection('overview')">{{ tournament.name }}</button>
+                    <template v-if="activeSection !== 'overview'"><span aria-hidden="true" class="text-[#a2afa4]">/</span><span class="shrink-0 font-semibold text-[#52665a]" aria-current="page">{{ sectionTitles[activeSection] }}</span></template>
                 </nav>
-                <button
-                    type="button"
-                    class="flex w-full min-w-0 max-w-[390px] items-center justify-between gap-3 rounded-2xl border border-[#174e40] bg-gradient-to-l from-[#174e40] to-[#2d755a] px-5 py-4 text-right text-white shadow-[0_9px_24px_#174e4030] transition hover:from-[#1c5b49] hover:to-[#358365] focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-[#286957]"
-                    :aria-expanded="isTournamentSummaryOpen"
-                    aria-controls="tournament-summary"
-                    @click="isTournamentSummaryOpen = !isTournamentSummaryOpen"
-                >
-                    <span class="flex min-w-0 items-center gap-3">
-                        <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/15 text-lg text-white" aria-hidden="true">▤</span>
-                        <span class="min-w-0">
-                            <strong class="block max-w-[250px] truncate text-sm font-bold text-white">{{ tournament.name }}</strong>
-                            <small class="mt-1 block max-w-[250px] truncate text-xs text-[#d7eadc]">{{ tournament.venue || 'محل برگزاری تعیین نشده' }}</small>
-                        </span>
-                    </span>
-                    <span class="shrink-0 rounded-full border px-2.5 py-1.5 text-[10px] font-bold" :class="statusBadgeClasses[tournament.status] || statusBadgeClasses.draft">{{ labels[tournament.status] }}</span>
-                    <svg aria-hidden="true" viewBox="0 0 20 20" class="h-5 w-5 shrink-0 text-white transition-transform duration-300 ease-in-out" :class="isTournamentSummaryOpen ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m5 7.5 5 5 5-5" stroke-linecap="round" stroke-linejoin="round" /></svg>
-                </button>
+                <div class="tournament-header-actions">
+                    <Link :href="competitionUrls.system" class="system-status-link">وضعیت سیستم</Link>
+                    <div class="tournament-strip" aria-label="مشخصات مسابقه">
+                        <strong class="tournament-strip-name">{{ tournament.name }}</strong>
+                        <span class="tournament-strip-venue">{{ tournament.venue || 'محل برگزاری تعیین نشده' }}</span>
+                        <span class="tournament-strip-status" :class="statusBadgeClasses[tournament.status] || statusBadgeClasses.draft">{{ labels[tournament.status] }}</span>
+                    </div>
+                </div>
             </div>
             <h1 class="sr-only">{{ tournament.name }}</h1>
 
-            <Transition name="summary">
-                <section v-if="isTournamentSummaryOpen" id="tournament-summary" class="grid min-h-0" aria-label="اطلاعات مسابقه">
-                    <div class="min-h-0 overflow-hidden">
-                        <div class="grid gap-5 rounded-2xl border border-[#c8ddcb] bg-[#e7f1e8] p-5 shadow-[0_6px_20px_#26452c0a] sm:p-6">
+            <div class="section-layout">
+                <aside class="section-sidebar">
+                    <nav aria-label="بخش‌های مدیریت مسابقه">
+                        <section v-for="group in menuGroups" :key="group.title" class="menu-group">
+                            <h2>{{ group.title }}</h2>
+                            <template v-for="item in group.items" :key="item.id">
+                                <Link v-if="item.href" :href="item.href" class="menu-item" :class="{ active: activeSection === item.id }" :aria-current="activeSection === item.id ? 'page' : undefined" @click="activeSection = item.id"><span class="menu-icon" aria-hidden="true">{{ item.icon }}</span><span>{{ item.title }}</span></Link>
+                                <button v-else type="button" class="menu-item" :class="{ active: activeSection === item.id }" :aria-current="activeSection === item.id ? 'page' : undefined" @click="selectSection(item.id)"><span class="menu-icon" aria-hidden="true">{{ item.icon }}</span><span>{{ item.title }}</span><span v-if="item.id === 'categories'" class="menu-count">{{ tournament.categories.length }}</span></button>
+                            </template>
+                        </section>
+                    </nav>
+                </aside>
+
+                <section class="admin-content section-content">
+                    <header class="content-heading"><div><h2>{{ activeSection === 'overview' ? 'نمای مسابقه' : sectionTitles[activeSection] }}</h2></div><span v-if="activeSection === 'categories' || activeSection === 'registration' || activeSection === 'planning' || activeSection === 'execution'" class="section-count">{{ tournament.categories.length }} رده</span></header>
+
+                    <section v-if="activeSection === 'overview'" id="tournament-summary" class="grid gap-5 rounded-2xl border border-[#c8ddcb] bg-[#e7f1e8] p-4 shadow-[0_6px_20px_#26452c0a] sm:p-5" aria-label="نمای مسابقه">
                             <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
                                 <div class="rounded-xl border border-[#e6ece5] bg-white px-3 py-2.5"><small class="block text-[10px] text-[#849087]">وضعیت</small><strong class="mt-1 block text-xs text-[#40594b]">{{ labels[tournament.status] }}</strong></div>
                                 <div class="rounded-xl border border-[#e6ece5] bg-white px-3 py-2.5"><small class="block text-[10px] text-[#849087]">تاریخ شروع</small><strong class="mt-1 block text-xs text-[#40594b]">{{ formatTournamentDate(tournament.starts_on) }}</strong></div>
@@ -120,39 +175,27 @@ function formatTournamentDate(value) {
                                 </div>
                             </section>
 
-                            <div class="flex flex-wrap gap-2">
-                                <Link :href="competitionUrls.reports" class="inline-flex min-h-9 items-center rounded-lg border border-[#dce7dd] bg-white px-3.5 text-xs font-semibold text-[#376a4e] transition-colors hover:bg-[#f0f7f1]">گزارش‌ها و آرشیو</Link>
-                                <Link :href="competitionUrls.system" class="inline-flex min-h-9 items-center rounded-lg border border-[#dce7dd] bg-white px-3.5 text-xs font-semibold text-[#376a4e] transition-colors hover:bg-[#f0f7f1]">وضعیت سیستم</Link>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-            </Transition>
+                    </section>
 
-            <nav class="admin-tabs" aria-label="بخش‌های مدیریت مسابقه">
-                <button v-if="can.manage && !['completed', 'archived'].includes(tournament.status)" type="button" :class="{ active: tab === 'setup' }" :aria-current="tab === 'setup' ? 'page' : undefined" @click="tab = 'setup'">تنظیمات و اعضا</button>
-                <button type="button" :class="{ active: tab === 'control' }" :aria-current="tab === 'control' ? 'page' : undefined" @click="tab = 'control'">رده‌ها و برنامه <span>{{ tournament.categories.length }}</span></button>
-            </nav>
+            <section v-if="['information', 'team', 'categories'].includes(activeSection) && isSetupAvailable" class="admin-content">
+                <TournamentDetailsEditor v-if="activeSection === 'information'" :tournament="tournament" :base="competitionUrls.base" />
+                <CompetitionSetupPanel v-else :section="activeSection" :tournament="tournament" :base="competitionUrls.base" :age-categories="ageCategories" :age-table-year="ageTableYear" />
+            </section>
 
-            <div v-if="tab === 'setup' && can.manage && !['completed', 'archived'].includes(tournament.status)" class="admin-content">
-                <TournamentDetailsEditor :tournament="tournament" :base="competitionUrls.base" />
-                <CompetitionSetupPanel :tournament="tournament" :base="competitionUrls.base" :age-categories="ageCategories" :age-table-year="ageTableYear" />
-            </div>
-
-            <div v-else class="admin-content">
-                <section v-if="!tournament.categories.length" class="admin-empty"><h2>هنوز رده‌ای ساخته نشده است</h2><p>از بخش «تنظیمات و اعضا» زمین، داور و رده را تعریف کنید.</p><button v-if="can.manage" type="button" @click="tab = 'setup'">رفتن به آماده‌سازی</button></section>
+            <div v-else-if="['registration', 'planning', 'execution'].includes(activeSection)" class="admin-content">
+                <section v-if="!tournament.categories.length" class="admin-empty"><h2>هنوز رده‌ای ساخته نشده است</h2><p>برای ادامه، ابتدا در بخش «رده‌ها و قوانین» یک رده تعریف کنید.</p><button v-if="isSetupAvailable" type="button" @click="selectSection('categories')">رفتن به رده‌ها و قوانین</button></section>
                 <template v-if="selected">
                     <section class="category-toolbar">
-                        <div><span class="eyebrow">CATEGORY CONTROL</span><h2>رده‌ها و برنامهٔ اجرا</h2></div>
+                        <div><span class="eyebrow">CATEGORY CONTROL</span><h2>{{ activeSection === 'registration' ? 'ثبت‌نام و پذیرش' : activeSection === 'planning' ? 'قرعه و برنامه‌ریزی' : 'اجرا و نتایج' }}</h2></div>
                         <div class="category-picker"><label for="active-category">ردهٔ فعال</label><select id="active-category" v-model.number="selectedId"><option v-for="category in tournament.categories" :key="category.id" :value="category.id">{{ category.name }}</option></select></div>
                     </section>
                     <div class="category-facts"><span>{{ selected.discipline === 'freestyle' ? 'ابداعی' : 'استاندارد' }}</span><span>{{ { individual: 'انفرادی', pair: 'زوجی', team: 'تیمی' }[selected.entry_type] }}</span><span>{{ selected.judge_count }} داور</span><span>{{ selected.format === 'knockout' ? 'تک‌حذفی' : 'دورهای' }}</span></div>
 
-                    <details v-if="can.manage && !['completed', 'archived'].includes(tournament.status)" id="draw-lots" class="panel" :open="!selected.registration_locked"><summary>ثبت‌نام، پذیرش، قرعهٔ پومسه و ساخت مراحل</summary><CategoryRegistration :key="selected.id" :category="selected" :tournament="tournament" :base="competitionUrls.base" /></details>
-                    <CompetitionTimingSettings v-if="can.manage" :key="selected.id + '-timing'" :category="selected" :base="competitionUrls.base" />
-                    <div v-if="selected.completed" class="notice">این رده پایان یافته است.<span v-if="selected.champion_id"> قهرمان: {{ selected.entries.find(entry => entry.id === selected.champion_id)?.name }}</span></div>
+                    <details v-if="can.manage && ['registration', 'planning'].includes(activeSection) && !['completed', 'archived'].includes(tournament.status)" id="draw-lots" class="panel" open><summary>{{ activeSection === 'registration' ? 'ثبت‌نام و پذیرش ورودی‌ها' : 'قرعه و برنامه‌ریزی مراحل' }}</summary><CategoryRegistration :key="`${selected.id}-${activeSection}`" :category="selected" :tournament="tournament" :base="competitionUrls.base" :section="activeSection" /></details>
+                    <CompetitionTimingSettings v-if="activeSection === 'execution' && can.manage" :key="selected.id + '-timing'" :category="selected" :base="competitionUrls.base" />
+                    <div v-if="activeSection === 'execution' && selected.completed" class="notice">این رده پایان یافته است.<span v-if="selected.champion_id"> قهرمان: {{ selected.entries.find(entry => entry.id === selected.champion_id)?.name }}</span></div>
 
-                    <section v-for="round in selected.rounds" :key="round.id" class="round-card">
+                    <section v-if="activeSection === 'execution'" v-for="round in selected.rounds" :key="round.id" class="round-card">
                         <div class="section-title"><div><span class="eyebrow">ROUND {{ round.sequence }}</span><h2>{{ round.name }}</h2></div><span>{{ round.bouts.length }} {{ selected.score_based ? 'ورودی' : 'رقابت' }}</span></div>
                         <p v-if="!round.forms_ready" class="notice">در انتظار قرعهٔ پومسه؛ اجرای این مرحله تا تعیین فرم‌ها بسته است.</p>
                         <p v-if="!round.scheduled" class="subtle">جدول این مرحله هنوز آماده نشده است.</p>
@@ -161,19 +204,30 @@ function formatTournamentDate(value) {
                         <BoutPanel v-for="bout in round.bouts" :key="bout.id" :bout="bout" :round="round" :category="selected" :tournament="tournament" :base="competitionUrls.base" :can-operate="can.operate" />
                     </section>
 
-                    <section v-if="selected.standings.length" class="panel standings-card"><h2>{{ selected.display_label ? `${selected.display_label} · ` : '' }}{{ selected.score_based ? 'رتبه‌بندی امتیازی' : 'جدول بردها' }} {{ selected.completed ? '· پایان رده' : '· موقت' }}</h2><p class="subtle">{{ selected.score_based ? `نتیجهٔ ${selected.forms_per_round === 1 ? 'یک اجرا' : 'دو فرم'} رتبه را تعیین می‌کند. در تساوی، ابتدا نمرهٔ اجرا و سپس نمره‌های بازگردانده‌شدهٔ همهٔ داوران معیار است؛ برابری دوباره، رتبهٔ مشترک دارد.` : 'برد مساوی، رتبهٔ مشترک دارد؛ tie-break جدول دورهای خودکار اعمال نمی‌شود.' }}</p><div class="table-wrap"><table><thead><tr><th>رتبه</th><th>ورودی</th><th v-if="selected.standings.some(entry => entry.country_code)">کشور / تیم</th><th v-if="!selected.score_based">رقابت پایان‌یافته</th><th v-if="selected.score_based && selected.forms_per_round > 1 && selected.standings.some(entry => entry.r1)">R-1</th><th v-if="selected.score_based && selected.forms_per_round > 1 && selected.standings.some(entry => entry.r2)">R-2</th><th>{{ selected.score_based ? 'امتیاز نهایی' : 'برد' }}</th><th v-if="selected.score_based && selected.standings.some(entry => entry.tie_break_score)">امتیاز رفع تساوی</th></tr></thead><tbody><tr v-for="entry in selected.standings" :key="entry.id"><td>{{ entry.rank ?? '—' }}</td><td>{{ entry.short_name || entry.name }}</td><td v-if="selected.standings.some(item => item.country_code)">{{ entry.country_code || '—' }}</td><td v-if="!selected.score_based">{{ entry.played }}</td><td v-if="selected.score_based && selected.forms_per_round > 1 && selected.standings.some(item => item.r1)">{{ entry.r1 ?? '—' }}</td><td v-if="selected.score_based && selected.forms_per_round > 1 && selected.standings.some(item => item.r2)">{{ entry.r2 ?? '—' }}</td><td>{{ selected.score_based ? (entry.score ?? (entry.withdrawn ? 'انصراف' : 'در انتظار')) : entry.wins }}</td><td v-if="selected.score_based && selected.standings.some(item => item.tie_break_score)">{{ entry.tie_break_score ?? '—' }}</td></tr></tbody></table></div></section>
+                    <section v-if="activeSection === 'execution' && selected.standings.length" class="panel standings-card"><h2>{{ selected.display_label ? `${selected.display_label} · ` : '' }}{{ selected.score_based ? 'رتبه‌بندی امتیازی' : 'جدول بردها' }} {{ selected.completed ? '· پایان رده' : '· موقت' }}</h2><p class="subtle">{{ selected.score_based ? `نتیجهٔ ${selected.forms_per_round === 1 ? 'یک اجرا' : 'دو فرم'} رتبه را تعیین می‌کند. در تساوی، ابتدا نمرهٔ اجرا و سپس نمره‌های بازگردانده‌شدهٔ همهٔ داوران معیار است؛ برابری دوباره، رتبهٔ مشترک دارد.` : 'برد مساوی، رتبهٔ مشترک دارد؛ tie-break جدول دورهای خودکار اعمال نمی‌شود.' }}</p><div class="table-wrap"><table><thead><tr><th>رتبه</th><th>ورودی</th><th v-if="selected.standings.some(entry => entry.country_code)">کشور / تیم</th><th v-if="!selected.score_based">رقابت پایان‌یافته</th><th v-if="selected.score_based && selected.forms_per_round > 1 && selected.standings.some(entry => entry.r1)">R-1</th><th v-if="selected.score_based && selected.forms_per_round > 1 && selected.standings.some(entry => entry.r2)">R-2</th><th>{{ selected.score_based ? 'امتیاز نهایی' : 'برد' }}</th><th v-if="selected.score_based && selected.standings.some(entry => entry.tie_break_score)">امتیاز رفع تساوی</th></tr></thead><tbody><tr v-for="entry in selected.standings" :key="entry.id"><td>{{ entry.rank ?? '—' }}</td><td>{{ entry.short_name || entry.name }}</td><td v-if="selected.standings.some(item => item.country_code)">{{ entry.country_code || '—' }}</td><td v-if="!selected.score_based">{{ entry.played }}</td><td v-if="selected.score_based && selected.forms_per_round > 1 && selected.standings.some(item => item.r1)">{{ entry.r1 ?? '—' }}</td><td v-if="selected.score_based && selected.forms_per_round > 1 && selected.standings.some(item => item.r2)">{{ entry.r2 ?? '—' }}</td><td>{{ selected.score_based ? (entry.score ?? (entry.withdrawn ? 'انصراف' : 'در انتظار')) : entry.wins }}</td><td v-if="selected.score_based && selected.standings.some(item => item.tie_break_score)">{{ entry.tie_break_score ?? '—' }}</td></tr></tbody></table></div></section>
                 </template>
             </div>
 
-            <section v-if="can.manage && tournament.status === 'running'" class="finish-card"><div><h2>پایان مسابقه</h2><p>وقتی همهٔ رده‌ها و فینال‌ها پایان یافته‌اند، مسابقه را تأیید کنید.</p></div><FormErrors :errors="completion.errors" /><button type="button" :disabled="completion.processing || !tournament.categories.length || !tournament.categories.every(category => category.completed)" @click="completion.post(competitionUrls.base + '/complete', { preserveScroll: true })">تأیید پایان مسابقه</button></section>
+                    <section v-if="activeSection === 'execution' && can.manage && tournament.status === 'running'" class="finish-card"><div><h2>پایان مسابقه</h2><p>وقتی همهٔ رده‌ها و فینال‌ها پایان یافته‌اند، مسابقه را تأیید کنید.</p></div><FormErrors :errors="completion.errors" /><button type="button" :disabled="completion.processing || !tournament.categories.length || !tournament.categories.every(category => category.completed)" @click="completion.post(competitionUrls.base + '/complete', { preserveScroll: true })">تأیید پایان مسابقه</button></section>
+                </section>
+            </div>
         </div>
     </AppLayout>
 </template>
 
 <style scoped>
 .admin-page{display:grid;gap:22px;color:#19352f}.admin-hero{display:flex;justify-content:space-between;align-items:flex-end;gap:26px;padding:30px 34px;border-radius:22px;background:linear-gradient(125deg,#123e36,#1f6655 64%,#337b60);color:white;box-shadow:0 16px 36px #143e3322}.hero-copy{min-width:0}.hero-overline,.eyebrow{font-size:10px;font-weight:800;letter-spacing:.15em;color:#9ed4bb}.admin-hero h1{margin:9px 0 13px;font-size:clamp(24px,2.7vw,38px);line-height:1.25;overflow-wrap:anywhere}.hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:9px 18px;color:#dcefe5;font-size:12px}.status-pill{padding:5px 12px;border:1px solid #b7dcc4;border-radius:999px;background:#ffffff24;color:white;font-weight:700}.hero-actions{display:flex;flex-wrap:wrap;gap:9px}.hero-actions a{display:flex;align-items:center;justify-content:space-between;gap:18px;min-width:135px;padding:10px 13px;border:1px solid #ffffff77;border-radius:10px;background:#ffffff17;font-size:12px;font-weight:700;white-space:nowrap}.hero-actions a:hover{background:#ffffff30}.overview-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.overview-grid article{display:flex;flex-direction:column;min-height:120px;padding:16px 19px;border:1px solid #dfe8e1;border-radius:16px;background:white}.overview-grid span{font-size:12px;color:#657970}.overview-grid strong{margin:4px 0 1px;font-size:32px;line-height:1.35;color:#1e5d4c}.overview-grid small{font-size:11px;color:#82928a}.readiness-card,.admin-content :deep(.panel),.round-card,.category-toolbar,.finish-card{border:1px solid #dfe8e1;border-radius:16px;background:white;box-shadow:0 4px 16px #244a2b08}.readiness-card{padding:19px 22px}.section-title{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-bottom:17px}.section-title h2{margin:4px 0 0;font-size:17px}.section-title>span{color:#6f8277;font-size:11px}.readiness-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.readiness-step{display:flex;align-items:center;gap:11px;min-width:0;padding:12px;border:1px solid #e5ebe5;border-radius:12px;background:#f8faf8}.readiness-step.done{border-color:#cbe3d3;background:#f1f8f3}.step-number{display:grid;flex:none;place-items:center;width:32px;height:32px;border-radius:10px;background:#e7ede8;color:#667e6e;font-size:12px;font-weight:800}.done .step-number{background:#286957;color:white}.readiness-step strong,.readiness-step small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.readiness-step strong{font-size:12px}.readiness-step small{font-size:10px;color:#7b8c81}.admin-tabs{display:flex;gap:6px;border-bottom:1px solid #dfe8e1}.admin-tabs button{display:flex;align-items:center;gap:9px;padding:12px 18px;border:0;border-bottom:3px solid transparent;background:none;color:#73877b;font-size:13px;font-weight:700}.admin-tabs button.active{border-color:#286957;color:#205a48}.admin-tabs button span{padding:0 8px;border-radius:9px;background:#e8f1e9;font-size:11px}.admin-content{display:grid;gap:18px;min-width:0}.admin-content :deep(.setup-grid){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.admin-content :deep(.setup-grid>.wide){grid-column:1/-1}.admin-content :deep(.panel){min-width:0;padding:23px}.admin-content :deep(.panel h2){margin-bottom:15px;font-size:17px}.admin-content :deep(.panel form){margin-top:15px}.admin-content :deep(.panel .section-heading){display:flex;justify-content:space-between;align-items:center;gap:10px;margin:10px 0}.admin-content :deep(.fields-two),.admin-content :deep(.tournament-form){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.admin-content :deep(.wide){grid-column:1/-1}.admin-content :deep(.button),.admin-content :deep(button.button){display:inline-flex;justify-content:center;align-items:center;min-height:39px;margin-top:7px;padding:8px 14px;border:1px solid #286957;border-radius:9px;background:#286957;color:white;font-size:12px;font-weight:700}.admin-content :deep(.button.secondary){border-color:#d5e1d7;background:#f2f6f1;color:#2d6650}.admin-content :deep(.button.small){min-height:32px}.admin-content :deep(.row-actions){display:flex;flex-wrap:wrap;gap:8px}.admin-content :deep(.subtle){color:#73877a;font-size:12px}.admin-content :deep(.notice){padding:12px 14px;border:1px solid #e7dba6;border-radius:10px;background:#fffbea;color:#735c2a;font-size:12px}.admin-content :deep(.member-list){margin-top:17px}.admin-content :deep(.member-list>div){display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid #e9eee8}.admin-content :deep(.badge),.category-facts span{display:inline-flex;align-items:center;padding:4px 9px;border-radius:8px;background:#eaf3ec;color:#27634f;font-size:11px;font-weight:700}.admin-content :deep(.table-wrap){overflow-x:auto}.admin-content :deep(table){min-width:580px}.admin-content :deep(details>summary){font-size:14px}.category-toolbar{display:flex;align-items:end;justify-content:space-between;gap:18px;padding:18px 22px}.category-toolbar h2{font-size:19px}.category-picker{width:min(340px,100%)}.category-picker label{margin:0 0 5px}.category-facts{display:flex;flex-wrap:wrap;gap:7px;margin-top:-8px}.round-card{padding:20px 22px}.round-card :deep(.panel){box-shadow:none}.admin-empty{padding:46px 24px;border:1px dashed #cbdcd0;border-radius:16px;background:#f7faf7;text-align:center}.admin-empty p{margin:8px 0 16px;color:#788b7b}.admin-empty button,.finish-card button{padding:9px 15px;border:0;border-radius:9px;background:#286957;color:white;font-weight:700}.standings-card{overflow:hidden}.finish-card{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;padding:19px 22px}.finish-card p{color:#77887c;font-size:12px}.finish-card button:disabled{background:#9caea0}
-.summary-enter-active,.summary-leave-active{overflow:hidden;transition:grid-template-rows 280ms cubic-bezier(.22,1,.36,1),opacity 180ms ease}.summary-enter-from,.summary-leave-to{grid-template-rows:0fr;opacity:0}.summary-enter-to,.summary-leave-from{grid-template-rows:1fr;opacity:1}
+.section-layout{display:grid;grid-template-columns:230px minmax(0,1fr);align-items:start;gap:20px;direction:rtl}.section-sidebar{position:sticky;top:20px;overflow:hidden;border:1px solid #dfe8e1;border-radius:16px;background:#fff;box-shadow:0 4px 16px #244a2b08}.section-sidebar nav{display:grid;gap:8px;padding:12px}.menu-group{display:grid;gap:3px}.menu-group h2{margin:7px 10px 4px;color:#8a9a8d;font-size:10px;font-weight:800;letter-spacing:.04em}.menu-item{display:flex;width:100%;min-height:42px;align-items:center;gap:10px;padding:8px 10px;border:1px solid transparent;border-radius:10px;background:transparent;color:#53685b;text-align:right;text-decoration:none;font-size:12px;font-weight:650;transition:background-color 160ms ease,color 160ms ease,border-color 160ms ease}.menu-item:hover{border-color:#d9e9dc;background:#f5f9f5;color:#205a48}.menu-item:focus-visible{outline:2px solid #78aa8b;outline-offset:2px}.menu-item.active{border-color:#c8dfce;background:#eaf4ec;color:#205a48;font-weight:800}.menu-icon{display:grid;width:27px;height:27px;flex:none;place-items:center;border-radius:8px;background:#f0f4ef;color:#628270;font-size:14px}.menu-item.active .menu-icon{background:#286957;color:#fff}.menu-count{margin-right:auto;padding:2px 8px;border-radius:999px;background:#d9ebdd;color:#27634f;font-size:10px}.section-content{min-width:0;padding:4px 0}.content-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 2px}.content-heading h2{margin:4px 0 0;color:#203a30;font-size:21px;font-weight:800}.content-heading .eyebrow{color:#849889}.section-count{padding:5px 10px;border:1px solid #dfe9df;border-radius:999px;background:#f7faf7;color:#5d7564;font-size:11px;font-weight:700}
+@media(max-width:900px){.section-layout{grid-template-columns:190px minmax(0,1fr);gap:14px}.section-sidebar nav{padding:9px}.menu-item{gap:7px;padding:7px;font-size:11px}}
+@media(max-width:700px){.section-layout{grid-template-columns:1fr;gap:12px}.section-sidebar{position:static}.section-sidebar nav{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}.menu-group{min-width:0}.section-content{padding:0}.content-heading h2{font-size:18px}}
+@media(max-width:420px){.section-sidebar nav{grid-template-columns:1fr 1fr}.menu-item{min-height:39px;font-size:10px}.menu-icon{width:24px;height:24px}}
 @media(max-width:1050px){.readiness-grid,.overview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-hero{align-items:flex-start;flex-direction:column}}
 @media(max-width:700px){.admin-page{gap:16px}.admin-hero{padding:22px;border-radius:16px}.hero-actions{width:100%}.hero-actions a{flex:1}.readiness-card{padding:16px}.readiness-grid{grid-template-columns:1fr 1fr}.admin-content :deep(.setup-grid),.admin-content :deep(.fields-two),.admin-content :deep(.tournament-form){grid-template-columns:1fr}.admin-content :deep(.setup-grid>.wide),.admin-content :deep(.wide){grid-column:1}.category-toolbar{align-items:stretch;flex-direction:column}.admin-content :deep(.panel){padding:17px}}
 @media(max-width:480px){.overview-grid{gap:8px}.overview-grid article{min-height:100px;padding:12px}.readiness-grid{grid-template-columns:1fr}.hero-actions a{min-width:0}.admin-tabs button{padding:11px;font-size:12px}}
+.admin-page{gap:12px}.tournament-header{min-height:46px;gap:8px}.tournament-strip{display:flex;flex:1 1 420px;min-width:0;min-height:46px;align-items:center;gap:14px;padding:7px 16px;border:1px solid #174e40;border-radius:12px;background:linear-gradient(100deg,#174e40,#2d755a);box-shadow:0 6px 16px #174e4020;color:#fff}.tournament-strip-name{min-width:0;max-width:42%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:800}.tournament-strip-venue{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#d7eadc;font-size:11px}.tournament-strip-status{flex:none;padding:4px 9px;border:1px solid #ffffff50;border-radius:999px;font-size:10px;font-weight:750}.section-sidebar nav{gap:0}.menu-group+.menu-group{margin-top:8px;padding-top:8px;border-top:1px solid #a8cfaf}.overview-grid article{min-height:100px;padding:13px 16px}.readiness-card{padding:15px 18px}
+@media(max-width:700px){.tournament-strip{flex-basis:100%;min-height:42px;gap:9px;padding:6px 11px}.tournament-strip-name{max-width:40%;font-size:12px}.tournament-strip-venue{font-size:10px}}
+.tournament-header{position:relative;justify-content:flex-start}.tournament-strip{position:absolute;left:50%;width:min(34vw,460px);min-width:300px;flex:none;transform:translateX(-50%)}
+@media(max-width:900px){.tournament-header{position:static}.tournament-strip{position:static;width:100%;min-width:0;flex:1 1 100%;transform:none}}
+.tournament-header-actions{position:absolute;top:50%;left:0;display:flex;align-items:center;gap:8px;direction:rtl;transform:translateY(-50%)}.tournament-header-actions .tournament-strip{position:static;width:min(34vw,460px);min-width:300px;flex:none;transform:none}.system-status-link{display:inline-flex;min-height:38px;flex:none;align-items:center;justify-content:center;padding:0 12px;border:1px solid #c8ddcb;border-radius:10px;background:#f6faf6;color:#286957;text-decoration:none;font-size:11px;font-weight:750;white-space:nowrap;transition:background-color 160ms ease,border-color 160ms ease}.system-status-link:hover{border-color:#8fbd9a;background:#eaf4ec}.system-status-link:focus-visible{outline:2px solid #78aa8b;outline-offset:2px}
+@media(max-width:900px){.tournament-header-actions{position:static;width:100%;align-items:stretch;flex-direction:column;transform:none}.tournament-header-actions .tournament-strip{width:100%;min-width:0;min-height:42px}.system-status-link{align-self:flex-start}}
 </style>
