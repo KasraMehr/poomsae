@@ -33,8 +33,10 @@ class MobileTestSeeder extends Seeder
             $this->command?->info('Performance ID: '.($performance?->id ?? '—'));
             $this->command?->info('Performance Status: '.($performance?->status ?? '—'));
             $this->command?->info('رمز عبور کلیه کاربران: '.$defaultPassword);
+            $this->command?->info('ایمیل مدیر: admin@poomsae.test');
             $this->command?->info('ایمیل اپراتور: operator@poomsae.test');
             $this->command?->info('ایمیل داوران: judge1@poomsae.test تا judge5@poomsae.test');
+            $this->command?->info('ایمیل نمایشگر (RTDS): display@poomsae.test');
             $this->command?->info('==================================================');
 
             return;
@@ -51,6 +53,11 @@ class MobileTestSeeder extends Seeder
                 ['name' => 'اپراتور تبلت', 'password' => Hash::make($defaultPassword), 'is_admin' => false, 'is_active' => true]
             );
 
+            $display = User::updateOrCreate(
+                ['email' => 'display@poomsae.test'],
+                ['name' => 'نمایشگر RTDS', 'password' => Hash::make($defaultPassword), 'is_admin' => false, 'is_active' => true]
+            );
+
             $tournament = app(CreateTournament::class)->handle($admin, [
                 'name' => 'مسابقه آزمایشی تبلت',
                 'starts_on' => now()->toDateString(),
@@ -61,6 +68,7 @@ class MobileTestSeeder extends Seeder
             $tournament->users()->syncWithoutDetaching([
                 $admin->id => ['role' => 'manager'],
                 $operator->id => ['role' => 'operator'],
+                $display->id => ['role' => 'display'],
             ]);
 
             $setup = app(CompetitionSetup::class);
@@ -129,8 +137,10 @@ class MobileTestSeeder extends Seeder
             $this->command?->info('Performance ID (آماده نمره‌دهی): '.$performance->id);
             $this->command?->info('Performance Status: '.$performance->status);
             $this->command?->info('رمز عبور کلیه کاربران: '.$defaultPassword);
+            $this->command?->info('ایمیل مدیر: admin@poomsae.test');
             $this->command?->info('ایمیل اپراتور: operator@poomsae.test');
             $this->command?->info('ایمیل داوران: judge1@poomsae.test تا judge5@poomsae.test');
+            $this->command?->info('ایمیل نمایشگر (RTDS): display@poomsae.test');
             $this->command?->info('==================================================');
         });
     }
