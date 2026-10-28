@@ -2,6 +2,7 @@
 import { computed } from "vue";
 import { useForm } from "@inertiajs/vue3";
 import FormErrors from "../../Shared/Components/FormErrors.vue";
+import CheckboxField from "../../Shared/Components/CheckboxField.vue";
 import ScoreCorrectionForm from "./ScoreCorrectionForm.vue";
 import PerformanceTiming from "./PerformanceTiming.vue";
 import { restRemaining, usePerformanceClock } from "../../Shared/Composables/usePerformanceTiming";
@@ -492,20 +493,12 @@ const badgeBase = "inline-block rounded-[5px] px-[9px] py-[3px] text-[10px]";
                         maxlength="900"
                     ></textarea>
                 </template>
-                <label
-                    class="flex cursor-pointer items-center gap-[9px] text-xs"
-                    ><input
-                        v-model="walkover.confirmed"
-                        type="checkbox"
-                        required
-                        class="h-[18px] w-[18px] min-h-[18px] shrink-0 accent-[#286957]"
-                    />I confirm that unapproved performances in
-                    {{
-                        bout.entries.length === 2
-                            ? 'this match will be cancelled and the winner recorded.'
-                            : 'this entry will be cancelled and the stage will continue.'
-                    }}</label
-                >
+                <CheckboxField
+                    :id="'walkover-confirm-' + bout.id"
+                    v-model="walkover.confirmed"
+                    required
+                    :label="`I confirm that unapproved performances in ${bout.entries.length === 2 ? 'this match will be cancelled and the winner recorded.' : 'this entry will be cancelled and the stage will continue.'}`"
+                />
                 <FormErrors :errors="walkover.errors" /><button
                     :class="[btnBase, btnSecondary, btnSize]"
                     class="mt-[15px]"
