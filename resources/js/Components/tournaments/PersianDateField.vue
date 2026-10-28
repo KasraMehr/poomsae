@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import {
     currentPersianDateParts,
     formatGregorianIsoAsPersian,
@@ -13,6 +13,7 @@ const props = defineProps({
     label: { type: String, required: true },
     modelValue: { type: String, default: '' },
     minIso: { type: String, default: '' },
+    maxIso: { type: String, default: '' },
     required: { type: Boolean, default: false },
     disabled: { type: Boolean, default: false },
 });
@@ -42,9 +43,11 @@ const persianNumberFormatter = new Intl.NumberFormat('fa-IR', { useGrouping: fal
 
 const input = ref(null);
 const root = ref(null);
+const calendarPanel = ref(null);
 const inputValue = ref(props.modelValue ? formatGregorianIsoAsPersian(props.modelValue) : '');
 const isEditing = ref(false);
 const isOpen = ref(false);
+const calendarPosition = ref({ top: 0, left: 0 });
 const initialParts = props.modelValue
     ? gregorianIsoToPersianParts(props.modelValue)
     : currentPersianDateParts();
@@ -118,6 +121,8 @@ function validateAndEmit(value) {
 
     if (props.minIso && isoDate < props.minIso) {
         input.value?.setCustomValidity('تاریخ پایان نمی‌تواند پیش از تاریخ شروع باشد.');
+    } else if (props.maxIso && isoDate > props.maxIso) {
+        input.value?.setCustomValidity('تاریخ انتخاب‌شده خارج از بازهٔ مجاز است.');
     } else {
         input.value?.setCustomValidity('');
     }
@@ -145,16 +150,47 @@ function openCalendar() {
     isOpen.value = true;
 
     if (!props.modelValue) {
-        const current = currentPersianDateParts();
-        visibleYear.value = current.year;
-        visibleMonth.value = current.month;
+        const today = new Date();
+        const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        const initialIso = props.maxIso && todayIso > props.maxIso
+            ? props.maxIso
+            : props.minIso && todayIso < props.minIso
+                ? props.minIso
+                : todayIso;
+        const initialParts = gregorianIsoToPersianParts(initialIso);
+
+        visibleYear.value = initialParts.year;
+        visibleMonth.value = initialParts.month;
     }
+
+    nextTick(positionCalendar);
+}
+
+function positionCalendar() {
+    if (!input.value || !calendarPanel.value) return;
+
+    const inputRect = input.value.getBoundingClientRect();
+    const panelWidth = calendarPanel.value.offsetWidth;
+    const panelHeight = calendarPanel.value.offsetHeight;
+    const edgePadding = 8;
+    const left = Math.min(Math.max(edgePadding, inputRect.right - panelWidth), window.innerWidth - panelWidth - edgePadding);
+    const spaceBelow = window.innerHeight - inputRect.bottom - edgePadding;
+    const spaceAbove = inputRect.top - edgePadding;
+    const top = spaceBelow >= panelHeight || spaceBelow >= spaceAbove
+        ? Math.min(inputRect.bottom + edgePadding, window.innerHeight - panelHeight - edgePadding)
+        : Math.max(edgePadding, inputRect.top - panelHeight - edgePadding);
+
+    calendarPosition.value = { top, left };
 }
 
 function handleDocumentPointerDown(event) {
-    if (root.value && !root.value.contains(event.target)) {
+    if (root.value && !root.value.contains(event.target) && !calendarPanel.value?.contains(event.target)) {
         isOpen.value = false;
     }
+}
+
+function repositionCalendar() {
+    if (isOpen.value) positionCalendar();
 }
 
 function moveMonth(amount) {
@@ -164,7 +200,7 @@ function moveMonth(amount) {
 }
 
 function selectDate(date) {
-    if (props.minIso && date.iso < props.minIso) {
+    if ((props.minIso && date.iso < props.minIso) || (props.maxIso && date.iso > props.maxIso)) {
         return;
     }
 
@@ -176,14 +212,14 @@ function selectDate(date) {
 }
 
 function isDateDisabled(date) {
-    return Boolean(props.minIso && date.iso < props.minIso);
+    return Boolean((props.minIso && date.iso < props.minIso) || (props.maxIso && date.iso > props.maxIso));
 }
 
 function isDateSelected(date) {
     return date.iso === props.modelValue;
 }
 
-watch(() => props.minIso, () => {
+watch(() => [props.minIso, props.maxIso], () => {
     if (inputValue.value) {
         validateAndEmit(inputValue.value);
     }
@@ -191,10 +227,14 @@ watch(() => props.minIso, () => {
 
 onMounted(() => {
     document.addEventListener('pointerdown', handleDocumentPointerDown);
+    window.addEventListener('resize', repositionCalendar);
+    window.addEventListener('scroll', repositionCalendar, true);
 });
 
 onBeforeUnmount(() => {
     document.removeEventListener('pointerdown', handleDocumentPointerDown);
+    window.removeEventListener('resize', repositionCalendar);
+    window.removeEventListener('scroll', repositionCalendar, true);
 });
 </script>
 
@@ -227,10 +267,13 @@ onBeforeUnmount(() => {
             </svg>
         </div>
 
+        <Teleport to="body">
         <div
             v-if="isOpen"
             :id="`${id}-calendar`"
-            class="absolute right-0 z-30 mt-2 w-[min(100%,20rem)] rounded-xl border border-[#e1e9e1] bg-white p-4 shadow-[0_12px_32px_#1e3c2d24]"
+            ref="calendarPanel"
+            class="fixed z-[1000] max-h-[calc(100vh-1rem)] w-[min(20rem,calc(100vw-1rem))] overflow-y-auto rounded-xl border border-[#e1e9e1] bg-white p-4 shadow-[0_12px_32px_#1e3c2d24]"
+            :style="{ top: `${calendarPosition.top}px`, left: `${calendarPosition.left}px` }"
             role="dialog"
             :aria-label="`انتخاب ${label}`"
             @keydown.esc.prevent="isOpen = false"
@@ -263,5 +306,6 @@ onBeforeUnmount(() => {
                 </span>
             </div>
         </div>
+        </Teleport>
     </div>
 </template>

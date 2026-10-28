@@ -277,7 +277,7 @@ defineExpose({ loadCategory });
 </template>
 <style scoped>
 .category-fields { display: block; border: 0; padding: 0; margin: 0; min-width: 0; }
-.category-form-section { min-width: 0; margin-top: 14px; padding: 16px; border: 1px solid #d8e6d9; border-radius: 12px; background: #f7fbf7; }
+.category-form-section { min-width: 0; margin-top: 14px; padding: 16px; border: 1px solid #c8ddcb; border-radius: 12px; background: #e7f1e8; }
 .category-form-section h3 { margin: 0 0 13px; color: #285b46; font-size: 14px; font-weight: 800; }
 .category-section-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
 .category-section-fields > .wide { grid-column: 1 / -1; }

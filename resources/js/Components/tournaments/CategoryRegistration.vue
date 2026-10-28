@@ -1,13 +1,17 @@
 <script setup>
 import { useForm } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import FormErrors from '../../Shared/Components/FormErrors.vue';
+import DropdownSelect from '../../Shared/Components/DropdownSelect.vue';
+import PersianDateField from './PersianDateField.vue';
 import EntryDetailsEditor from './EntryDetailsEditor.vue';
 const props = defineProps({ category: Object, tournament: Object, base: String, section: { type: String, default: 'all' } });
+const isEntryFormOpen = ref(props.category.entries.length === 0);
 const blankMember = () => ({ first_name: '', last_name: '', birth_date: '', gender: props.category.gender === 'female' ? 'female' : 'male', club: '' });
 const memberCount = computed(() => props.category.entry_type === 'team' ? 3 : props.category.entry_type === 'pair' ? 2 : 1);
 const ageCategory = computed(() => props.category.rules?.age_category);
 const maximumBirthDate = computed(() => ageCategory.value?.birth_date_max && ageCategory.value.birth_date_max < props.tournament.starts_on ? ageCategory.value.birth_date_max : props.tournament.starts_on);
+const genderOptions = [{ value: 'female', label: 'بانوان' }, { value: 'male', label: 'آقایان' }];
 const entry = useForm({ first_name: '', last_name: '', birth_date: '', gender: props.category.gender === 'female' ? 'female' : 'male', club: '', members: [blankMember(), blankMember(), blankMember()], music: null });
 const submitEntry = () => entry.transform(data => {
     const payload = { ...data };
@@ -63,34 +67,44 @@ const scheduleRound = () => schedule.post(props.base + '/categories/' + props.ca
         <p v-if="category.open_appeal_count" class="rounded-lg border border-[#dccf9c] bg-[#faf7eb] px-4 py-3 text-sm text-[#5f5430]">این رده {{ category.open_appeal_count }} اعتراض باز دارد. ساخت و شروع مرحلهٔ بعد پس از تعیین تکلیف رأی ناظر مجاز است.</p>
         <section v-if="category.discipline === 'freestyle'" class="mb-6 rounded-xl border border-[#e2e9df] bg-white p-5 min-[761px]:p-[27px]"><h2>ترتیب اجرای ابداعی</h2><p>{{ category.format === 'knockout' ? 'هر رقابت: ابتدا A، سپس B؛ یک اجرا با موسیقی برای هر ورودی.' : 'ورودی‌ها به‌ترتیب A، B، C و ... اجرا می‌کنند؛ یک اجرا با موسیقی برای هر ورودی در هر مرحله.' }}</p><p v-if="category.entry_type === 'pair'" class="my-3 text-xs leading-6 text-[#8b988a]">اعضای هر زوج با هم یک اجرا انجام می‌دهند؛ هر زوج یک ورودی مسابقه است.</p></section>
         <section v-if="category.management_source" class="mb-6 rounded-xl border border-[#e2e9df] bg-white p-5 min-[761px]:p-[27px]"><p>اطلاعات از {{ category.management_source }} دریافت شده است · نسخهٔ {{ category.management_version }}</p><p class="my-3 text-xs leading-6 text-[#8b988a]">نسخهٔ محلی ذخیره شده است؛ اجرای مرحلهٔ آماده به اتصال سیستم مدیریت وابسته نیست.</p></section>
-        <section class="mb-6 rounded-xl border border-[#e2e9df] bg-white p-5 min-[761px]:p-[27px]" v-if="(section === 'all' || section === 'registration') && !category.registration_locked && !category.management_source">
-            <h2>ثبت {{ category.entry_type === 'team' ? 'تیم' : category.entry_type === 'pair' ? 'زوج' : 'ورزشکار' }}</h2><p v-if="ageCategory" class="rounded-lg border border-[#dccf9c] bg-[#faf7eb] px-4 py-3 text-sm text-[#5f5430]">{{ ageCategory.label }} · {{ ageCategory.birth_date_label }}</p><p class="my-3 text-xs leading-6 text-[#8b988a]">{{ ageCategory ? 'تاریخ تولد هر عضو باید در بازهٔ ردهٔ انتخاب‌شده باشد.' : 'سن هر عضو در روز شروع مسابقه محاسبه می‌شود.' }} بعد از ساخت قرعه، فهرست رده قفل خواهد شد.</p>
+        <section class="mb-6 overflow-hidden rounded-xl border border-[#e2e9df] bg-white" v-if="(section === 'all' || section === 'registration') && !category.registration_locked && !category.management_source">
+            <button type="button" class="entry-form-toggle" :aria-expanded="isEntryFormOpen" :aria-controls="`entry-form-${category.id}`" @click="isEntryFormOpen = !isEntryFormOpen">
+                <span><strong>ثبت {{ category.entry_type === 'team' ? 'تیم' : category.entry_type === 'pair' ? 'زوج' : 'ورزشکار' }}</strong><small>{{ category.entries.length ? 'برای افزودن ورودی جدید، فرم را باز کنید.' : 'اطلاعات ورودی این رده را وارد کنید.' }}</small></span>
+                <svg aria-hidden="true" viewBox="0 0 20 20" :class="{ 'is-open': isEntryFormOpen }" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m5 7.5 5 5 5-5" stroke-linecap="round" stroke-linejoin="round" /></svg>
+            </button>
+            <Transition name="accordion">
+                <div v-if="isEntryFormOpen" :id="`entry-form-${category.id}`" class="entry-form-content">
+            <div class="p-5 min-[761px]:p-[27px]">
+            <p v-if="ageCategory" class="rounded-lg border border-[#dccf9c] bg-[#faf7eb] px-4 py-3 text-sm text-[#5f5430]">{{ ageCategory.label }} · {{ ageCategory.birth_date_label }}</p><p class="my-3 text-xs leading-6 text-[#8b988a]">{{ ageCategory ? 'تاریخ تولد هر عضو باید در بازهٔ ردهٔ انتخاب‌شده باشد.' : 'سن هر عضو در روز شروع مسابقه محاسبه می‌شود.' }} بعد از ساخت قرعه، فهرست رده قفل خواهد شد.</p>
             <form @submit.prevent="submitEntry" class="mt-[18px] grid grid-cols-1 gap-[18px] min-[761px]:grid-cols-3">
                 <template v-if="memberCount === 1">
                 <div><label :for="'first-'+category.id">نام</label><input :id="'first-'+category.id" v-model="entry.first_name" required maxlength="100"></div>
                 <div><label :for="'last-'+category.id">نام خانوادگی</label><input :id="'last-'+category.id" v-model="entry.last_name" required maxlength="100"></div>
-                <div><label :for="'birth-'+category.id">تاریخ تولد (میلادی)</label><input :id="'birth-'+category.id" v-model="entry.birth_date" type="date" required :min="ageCategory?.birth_date_min || undefined" :max="maximumBirthDate" dir="ltr"></div>
-                <div><label :for="'sex-'+category.id">جنسیت</label><select :id="'sex-'+category.id" v-model="entry.gender"><option value="female">بانوان</option><option value="male">آقایان</option></select></div>
+                <PersianDateField :id="`birth-${category.id}`" v-model="entry.birth_date" label="تاریخ تولد (شمسی)" required :min-iso="ageCategory?.birth_date_min || ''" :max-iso="maximumBirthDate" />
+                <DropdownSelect :id="`sex-${category.id}`" v-model="entry.gender" label="جنسیت" :options="genderOptions" />
                 <div><label :for="'club-'+category.id">باشگاه</label><input :id="'club-'+category.id" v-model="entry.club" maxlength="100"></div>
                 </template>
                 <div v-for="(member,index) in entry.members.slice(0, memberCount)" v-else :key="index" class="col-span-full grid grid-cols-1 gap-[18px] min-[761px]:grid-cols-2">
                     <h3 class="col-span-full">عضو {{ index + 1 }}</h3>
                     <div><label :for="`member-first-${category.id}-${index}`">نام</label><input :id="`member-first-${category.id}-${index}`" v-model="member.first_name" required maxlength="100"></div>
                     <div><label :for="`member-last-${category.id}-${index}`">نام خانوادگی</label><input :id="`member-last-${category.id}-${index}`" v-model="member.last_name" required maxlength="100"></div>
-                    <div><label :for="`member-birth-${category.id}-${index}`">تاریخ تولد (میلادی)</label><input :id="`member-birth-${category.id}-${index}`" v-model="member.birth_date" type="date" required :min="ageCategory?.birth_date_min || undefined" :max="maximumBirthDate" dir="ltr"></div>
-                    <div><label :for="`member-gender-${category.id}-${index}`">جنسیت</label><select :id="`member-gender-${category.id}-${index}`" v-model="member.gender"><option value="female">بانوان</option><option value="male">آقایان</option></select></div>
+                    <PersianDateField :id="`member-birth-${category.id}-${index}`" v-model="member.birth_date" label="تاریخ تولد (شمسی)" required :min-iso="ageCategory?.birth_date_min || ''" :max-iso="maximumBirthDate" />
+                    <DropdownSelect :id="`member-gender-${category.id}-${index}`" v-model="member.gender" label="جنسیت" :options="genderOptions" />
                     <div><label :for="`member-club-${category.id}-${index}`">باشگاه</label><input :id="`member-club-${category.id}-${index}`" v-model="member.club" maxlength="100"></div>
                 </div>
                 <div v-if="category.discipline === 'freestyle'"><label :for="`music-${category.id}`">فایل موسیقی (اختیاری - MP3، WAV یا M4A، حداکثر ۲۰ مگابایت)</label><input :id="`music-${category.id}`" type="file" accept=".mp3,.wav,.m4a,audio/*" @change="entry.music = $event.target.files[0] || null"></div>
                 <div class="flex items-end"><button class="inline-flex min-h-11 items-center justify-center rounded-lg border border-transparent bg-[#286957] px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-55" :disabled="entry.processing">ثبت ورزشکار</button></div>
                 <FormErrors class="col-span-full" :errors="entry.errors"/>
             </form>
+            </div>
+                </div>
+            </Transition>
         </section>
         <section v-if="section === 'all' || section === 'registration'" class="mb-6 rounded-xl border border-[#e2e9df] bg-white p-5 min-[761px]:p-[27px]">
             <div class="mb-5 flex flex-wrap items-center justify-between gap-3"><h2>فهرست و پذیرش ورودی‌ها</h2><span class="inline-block rounded-[5px] bg-[#f2f4ed] px-[9px] py-[3px] text-[10px] text-[#81896b]">{{ category.entries.filter(e => e.status === 'checked_in').length }} ورودی حاضر</span></div>
             <p v-if="category.round_count_automatic" class="rounded-lg border border-[#dccf9c] bg-[#faf7eb] px-4 py-3 text-sm text-[#5f5430]">{{ category.required_round_count ? `تعداد مراحل تک‌حذفی: ${category.required_round_count.toLocaleString('fa-IR')} مرحله تا فینال · محاسبهٔ خودکار بر اساس ورودی‌های حاضر` : 'تعداد مراحل تک‌حذفی پس از تأیید حضور حداقل دو ورودی، خودکار مشخص می‌شود.' }}<span v-if="!attendanceReady"> ابتدا حضور یا انصراف همهٔ ورودی‌ها را مشخص کنید.</span></p>
             <FormErrors :errors="status.errors"/>
-            <div class="overflow-x-auto"><table><thead><tr><th>ورودی</th><th>باشگاه</th><th>وضعیت</th><th v-if="!category.registration_locked && !category.management_source">پذیرش</th><th v-if="!category.management_source">ویرایش</th></tr></thead><tbody><tr v-for="athlete in category.entries" :key="athlete.id"><td>{{ athlete.name }}</td><td>{{ athlete.club || '—' }}</td><td>{{ {registered:'در انتظار حضور',checked_in:'حاضر',withdrawn:'منصرف',disqualified:'حذف‌شده'}[athlete.status] }}</td><td v-if="!category.registration_locked && !category.management_source" class="flex flex-wrap items-center gap-2.5"><button v-if="athlete.status !== 'checked_in'" class="inline-flex min-h-[34px] items-center justify-center rounded-lg border border-transparent bg-[#286957] px-3 py-1.5 text-[11px] font-semibold text-white disabled:cursor-wait disabled:opacity-55" :disabled="status.processing" @click="setStatus(athlete.id,'checked_in')">حاضر</button><button v-if="athlete.status !== 'withdrawn'" class="inline-flex min-h-[34px] items-center justify-center rounded-lg border border-transparent bg-[#e8eee7] px-3 py-1.5 text-[11px] font-semibold text-[#42664f] disabled:cursor-wait disabled:opacity-55" :disabled="status.processing" @click="setStatus(athlete.id,'withdrawn')">انصراف</button></td><td v-if="!category.management_source"><EntryDetailsEditor :entry="athlete" :category="category" :tournament="tournament" :base="base"/></td></tr></tbody></table></div>
+            <div class="overflow-x-auto"><table class="entry-list"><thead><tr><th>ورودی</th><th>باشگاه</th><th>وضعیت</th><th v-if="!category.registration_locked && !category.management_source">پذیرش</th><th v-if="!category.management_source">ویرایش</th></tr></thead><tbody><tr v-for="athlete in category.entries" :key="athlete.id"><td>{{ athlete.name }}</td><td>{{ athlete.club || '—' }}</td><td><span class="entry-status" :class="`entry-status--${athlete.status}`">{{ {registered:'در انتظار حضور',checked_in:'حاضر',withdrawn:'منصرف',disqualified:'حذف‌شده'}[athlete.status] }}</span></td><td v-if="!category.registration_locked && !category.management_source" class="flex flex-wrap items-center gap-2.5"><button v-if="athlete.status !== 'checked_in'" class="inline-flex min-h-[34px] items-center justify-center rounded-lg border border-transparent bg-[#286957] px-3 py-1.5 text-[11px] font-semibold text-white disabled:cursor-wait disabled:opacity-55" :disabled="status.processing" @click="setStatus(athlete.id,'checked_in')">حاضر</button><button v-if="athlete.status !== 'withdrawn'" class="inline-flex min-h-[34px] items-center justify-center rounded-lg border border-transparent bg-[#e8eee7] px-3 py-1.5 text-[11px] font-semibold text-[#42664f] disabled:cursor-wait disabled:opacity-55" :disabled="status.processing" @click="setStatus(athlete.id,'withdrawn')">انصراف</button></td><td v-if="!category.management_source"><EntryDetailsEditor :entry="athlete" :category="category" :tournament="tournament" :base="base"/></td></tr></tbody></table></div>
             <p v-if="!category.entries.length" class="my-3 text-xs leading-6 text-[#8b988a]">هنوز ورزشکاری ثبت نشده است.</p>
         </section>
         <section v-if="(section === 'all' || section === 'planning') && category.planned_round_count && category.discipline === 'recognized'" class="mb-6 rounded-xl border border-[#e2e9df] bg-white p-5 min-[761px]:p-[27px]">
@@ -120,3 +134,25 @@ const scheduleRound = () => schedule.post(props.base + '/categories/' + props.ca
         <section v-if="(section === 'all' || section === 'planning') && scheduledRounds.length" class="mb-6 rounded-xl border border-[#e2e9df] bg-white p-5 min-[761px]:p-[27px]"><h2>زمین‌های مراحل این رده</h2><div v-for="round in scheduledRounds" :key="round.id" class="mb-5 flex flex-wrap items-center justify-between gap-3"><span>{{ round.name }}</span><span>{{ round.court_ids.map(courtName).join('، ') }} · {{ round.status === 'completed' ? 'پایان همهٔ زمین‌ها' : 'در انتظار پایان مرحله' }}</span></div></section>
     </div>
 </template>
+<style scoped>
+.entry-form-toggle { display:flex; width:100%; align-items:center; justify-content:space-between; gap:16px; padding:17px 20px; border:0; background:#fff; color:#29463b; text-align:right; cursor:pointer; transition:background-color 160ms ease; }
+.entry-form-toggle:hover { background:#f5faf5; }
+.entry-form-toggle:focus-visible { outline:2px solid #78aa8b; outline-offset:-3px; }
+.entry-form-toggle span { display:grid; gap:4px; }
+.entry-form-toggle strong { font-size:14px; }
+.entry-form-toggle small { color:#849087; font-size:11px; }
+.entry-form-toggle svg { width:20px; height:20px; flex:none; color:#527263; transition:transform 300ms ease-in-out; }
+.entry-form-toggle svg.is-open { transform:rotate(180deg); }
+.entry-form-content { display:grid; grid-template-rows:1fr; border-top:1px solid #edf0eb; background:#fcfdfa; }
+.entry-form-content > div { min-height:0; }
+.accordion-enter-active,.accordion-leave-active { overflow:hidden; transition:grid-template-rows 280ms cubic-bezier(.22,1,.36,1),opacity 180ms ease; }
+.accordion-enter-from,.accordion-leave-to { grid-template-rows:0fr; opacity:0; }
+.accordion-enter-to,.accordion-leave-from { grid-template-rows:1fr; opacity:1; }
+.entry-list thead th { background:#286957 !important; color:#fff !important; }
+.entry-status { display:inline-flex; align-items:center; border:1px solid transparent; border-radius:999px; padding:4px 9px; font-size:11px; font-weight:700; white-space:nowrap; }
+.entry-status--registered { border-color:#f0d397; background:#fff7e6; color:#8c5b11; }
+.entry-status--checked_in { border-color:#b5d8bf; background:#e6f4eb; color:#236247; }
+.entry-status--withdrawn { border-color:#d6ded7; background:#f1f3f1; color:#66746a; }
+.entry-status--disqualified { border-color:#edc2c2; background:#fdecec; color:#963b3b; }
+@media (prefers-reduced-motion: reduce) { .entry-form-toggle svg,.accordion-enter-active,.accordion-leave-active { transition:none; } }
+</style>
