@@ -33,7 +33,7 @@ const category = computed(() => props.console.tournament.categories.find(item =>
 const round = computed(() => category.value?.rounds.find(item => item.id === match.value?.round_id));
 const bout = computed(() => round.value?.bouts.find(item => item.id === match.value?.id));
 const performance = computed(() => court.value?.active?.bout_id === match.value?.id ? court.value.active : court.value?.queue?.find(item => item.bout_id === match.value?.id) ?? bout.value?.performances.find(item => item.status === 'scoring' || item.status === 'running') ?? bout.value?.performances[0]);
-const stageForStatus = status => ({ pending: 'setup', running: 'live', scoring: 'result', approved: 'confirmed', completed: 'confirmed' })[status] ?? 'setup';
+const stageForStatus = status => ({ pending: 'setup', running: 'live', scoring: 'result', approved: 'confirmed', completed: 'confirmed', cancelled: 'confirmed' })[status] ?? 'setup';
 const currentStage = computed(() => stageForStatus(performance.value?.status));
 const saveStageForMatch = (matchKey, selected, lifecycle) => {
     if (!matchKey) return;
@@ -122,7 +122,7 @@ const time = value => value ? new Date(value).toLocaleTimeString('en-GB', { hour
             <section class="operator-center" aria-label="Match control">
                 <div class="operator-stage-head"><div><h1>{{ activeStage === 'live' ? 'SCORING' : activeStage.toUpperCase() }} <span>/ {{ performance?.status === 'scoring' ? 'RESULT READY' : (statusLabels[performance?.status] ?? 'MATCH CONTROL') }}</span></h1></div><div class="operator-steps" role="group" aria-label="Performance stages"><button v-for="stage in stages" :key="stage.id" type="button" :aria-pressed="activeStage === stage.id" :aria-current="currentStage === stage.id ? 'step' : undefined" :class="{ active: activeStage === stage.id, current: currentStage === stage.id }" @click="selectStage(stage.id)">{{ stage.label }}</button></div></div>
                 <div class="operator-stage-content">
-                <SetupStage v-if="activeStage === 'setup'" />
+                <SetupStage v-if="activeStage === 'setup'" :match="match" :category="category" :round="round" :bout="bout" :performance="performance" :judges="judges" :connection="connection" @continue="selectStage" />
                 <LiveStage v-else-if="activeStage === 'live'">
                 <template v-if="match">
                     <div class="operator-context"><strong class="operator-context-number">No.{{ match.sequence }}</strong><span class="operator-context-event">{{ match.category_name }} · {{ match.round_name }}</span><span v-if="performance" class="operator-context-form">{{ performance.form_name }} · FORM {{ performance.form_number }}</span></div>
