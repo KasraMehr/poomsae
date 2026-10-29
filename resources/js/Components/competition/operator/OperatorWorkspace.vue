@@ -4,7 +4,6 @@ import { Link, useForm } from '@inertiajs/vue3';
 import CourtConsole from './CourtConsole.vue';
 import ManualScorePanel from './ManualScorePanel.vue';
 import BoutPanel from '../BoutPanel.vue';
-import FormErrors from '../../../Shared/Components/FormErrors.vue';
 import SetupStage from './SetupStage.vue';
 import LiveStage from './LiveStage.vue';
 import ResultStage from './ResultStage.vue';
@@ -63,6 +62,8 @@ const action = useForm({ command: '', expected_version: 1 });
 const completion = useForm({});
 const detailsDialog = ref(null);
 const manualDialog = ref(null);
+const openDetailsDialog = () => detailsDialog.value?.showModal();
+const openManualDialog = () => manualDialog.value?.showModal();
 watch([courtId, matchId], () => manualDialog.value?.close());
 const manualPerformance = computed(() => court.value?.active?.id === performance.value?.id && performance.value?.status === 'scoring' ? performance.value : null);
 const judges = computed(() => (bout.value?.judges ?? []).map(judge => ({
@@ -90,11 +91,6 @@ const command = value => {
     action.expected_version = performance.value.version;
     action.post(`${props.urls.base}/performances/${performance.value.id}/command`, { preserveScroll: true });
 };
-const scoreFor = entry => match.value?.totals?.[entry.id] ?? [...(bout.value?.performances ?? [])].reverse().find(item => item.entry_id === entry.id && (item.result || item.preview_result))?.result ?? [...(bout.value?.performances ?? [])].reverse().find(item => item.entry_id === entry.id)?.preview_result ?? null;
-const detailedScoresFor = entry => [...(bout.value?.performances ?? [])].reverse().find(item => item.entry_id === entry.id && item.detailed_scores)?.detailed_scores ?? null;
-const scoreRows = computed(() => [...(performance.value?.scores ?? [])].sort((a, b) => a.seat - b.seat));
-const number = value => value == null ? '—' : Number(value).toFixed(2);
-const scorePart = (score, part) => score?.values?.[part] == null ? '—' : number(score.values[part] / 100);
 const statusLabels = { pending: 'READY', running: 'LIVE', scoring: 'SCORING', approved: 'APPROVED', completed: 'COMPLETED', cancelled: 'CANCELLED' };
 const eventLabels = { 'performance.start': 'Performance started', 'performance.finish': 'Performance finished', 'performance.approve': 'Result approved and published', 'score.submitted': 'Judge score submitted', 'score.proxy_submitted': 'Manual score submitted for review', 'score.proxy_confirmed': 'Manual score confirmed', 'bout.completed': 'Match completed', 'round.completed': 'Round completed', 'round.scheduled': 'Round scheduled', 'entry.created': 'Athlete registered', 'entry.status': 'Athlete status changed', 'category.saved': 'Division configured', 'court.created': 'Court created', 'member.added': 'Judge assigned', 'tournament.created': 'Competition created' };
 const time = value => value ? new Date(value).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—';
@@ -120,20 +116,11 @@ const time = value => value ? new Date(value).toLocaleTimeString('en-GB', { hour
             </aside>
 
             <section class="operator-center" aria-label="Match control">
-                <div class="operator-stage-head"><div><h1>{{ activeStage === 'live' ? 'SCORING' : activeStage.toUpperCase() }} <span>/ {{ performance?.status === 'scoring' ? 'RESULT READY' : (statusLabels[performance?.status] ?? 'MATCH CONTROL') }}</span></h1></div><div class="operator-steps" role="group" aria-label="Performance stages"><button v-for="stage in stages" :key="stage.id" type="button" :aria-pressed="activeStage === stage.id" :aria-current="currentStage === stage.id ? 'step' : undefined" :class="{ active: activeStage === stage.id, current: currentStage === stage.id }" @click="selectStage(stage.id)">{{ stage.label }}</button></div></div>
+                <div class="operator-stage-head"><div><h1>{{ activeStage.toUpperCase() }} <span>/ {{ performance?.status === 'scoring' ? 'RESULT READY' : (statusLabels[performance?.status] ?? 'MATCH CONTROL') }}</span></h1></div><div class="operator-steps" role="group" aria-label="Performance stages"><button v-for="stage in stages" :key="stage.id" type="button" :aria-pressed="activeStage === stage.id" :aria-current="currentStage === stage.id ? 'step' : undefined" :class="{ active: activeStage === stage.id, current: currentStage === stage.id }" @click="selectStage(stage.id)">{{ stage.label }}</button></div></div>
                 <div class="operator-stage-content">
                 <SetupStage v-if="activeStage === 'setup'" :match="match" :category="category" :round="round" :bout="bout" :performance="performance" :judges="judges" :connection="connection" @continue="selectStage" />
-                <LiveStage v-else-if="activeStage === 'live'">
-                <template v-if="match">
-                    <div class="operator-context"><strong class="operator-context-number">No.{{ match.sequence }}</strong><span class="operator-context-event">{{ match.category_name }} · {{ match.round_name }}</span><span v-if="performance" class="operator-context-form">{{ performance.form_name }} · FORM {{ performance.form_number }}</span></div>
-                    <div class="operator-score-cards"><article v-for="(entry, index) in match.entries" :key="entry.id" class="operator-score-card" :class="[index === 0 ? 'chung' : 'hong', { winner: match.winner_entry_id === entry.id }]"><div class="operator-card-header"><span>{{ entry.side?.toUpperCase() ?? (index === 0 ? 'CHUNG / BLUE' : 'HONG / RED') }}</span><b v-if="match.winner_entry_id === entry.id">★ WINNER</b></div><h2>{{ entry.short_name || entry.name }}</h2><div class="operator-card-scores"><div class="operator-card-components"><div><small>ACCURACY</small><strong>{{ number(detailedScoresFor(entry)?.accuracy) }}</strong></div><div><small>PRESENTATION</small><strong>{{ number(detailedScoresFor(entry)?.presentation) }}</strong></div></div><div class="operator-card-total"><small>{{ match.totals?.[entry.id] != null ? 'OFFICIAL TOTAL' : 'TOTAL' }}</small><strong class="operator-big-score">{{ number(scoreFor(entry)) }}</strong></div></div></article><article v-if="!match.entries.length" class="operator-score-card">No athletes assigned.</article></div>
-                    <div class="operator-judge-status"><div v-for="judge in judges" :key="judge.id" class="operator-judge" :class="{ submitted: judge.submitted, 'review-required': !judge.submitted && judge.pendingReview, pending: !judge.submitted && !judge.pendingReview }"><strong>J{{ judge.seat }} · {{ judge.name }}</strong><small>{{ judge.submitted ? '✓ SCORE SUBMITTED' : judge.pendingReview ? 'REVIEW REQUIRED' : 'SCORE PENDING' }}</small></div></div>
-                    <div class="operator-matrix"><div class="operator-matrix-head"><strong>JUDGE SCORE MATRIX</strong><span>{{ performance?.result != null ? `FINAL AVG: ${number(performance.result)}` : performance?.preview_result != null ? `PREVIEW: ${number(performance.preview_result)}` : `${performance?.submitted_count ?? 0} / ${performance?.judge_count ?? 0} SCORES` }}</span></div><div class="operator-table-wrap"><table><thead><tr><th>JUDGE</th><th>ACCURACY</th><th>PRESENTATION</th><th>TOTAL</th><th>STATUS</th></tr></thead><tbody><tr v-for="score in scoreRows" :key="score.id"><td>J{{ score.seat }}</td><td>{{ scorePart(score, 'accuracy') }}</td><td>{{ scorePart(score, 'presentation') }}</td><td>{{ score.values ? number((score.values.score ?? ((score.values.accuracy ?? 0) + (score.values.presentation ?? 0))) / 100) : '—' }}</td><td>{{ score.status === 'draft' ? 'MANUAL · REVIEW' : score.submission_mode === 'operator_proxy' ? 'MANUAL · CONFIRMED' : 'RECEIVED' }}</td></tr><tr v-if="!scoreRows.length"><td colspan="5">No scores received for this performance.</td></tr></tbody></table></div></div>
-                    <div class="operator-actions"><button v-if="performance?.status === 'pending' && court.queue.some(item => item.id === performance.id)" class="operator-primary" :disabled="action.processing" @click="command('start')">Start performance</button><button v-if="performance?.status === 'running'" class="operator-primary" :disabled="action.processing" @click="command('finish')">Finish and collect scores</button><button v-if="performance?.status === 'scoring'" class="operator-primary" :disabled="action.processing || performance.submitted_count !== performance.judge_count || performance.pending_review_seats?.length" @click="command('approve')">Confirm and publish result</button><span v-if="performance?.status === 'scoring' && performance.submitted_count !== performance.judge_count" class="operator-action-note">Waiting for all judge scores</span><button v-if="manualPerformance && (manualPerformance.missing_seats?.length || manualPerformance.pending_review_seats?.length)" type="button" class="operator-manual" @click="manualDialog?.showModal()">{{ manualPerformance.pending_review_seats?.length ? 'Review manual score' : 'Manual score / tablet issue' }}</button></div><FormErrors :errors="action.errors" />
-                    <button class="operator-details-button" type="button" @click="detailsDialog?.showModal()">Match controls and decisions ↗</button>
-                </template><div v-else class="operator-empty operator-center-empty">No matches are scheduled on this court.</div>
-                </LiveStage>
-                <ResultStage v-else-if="activeStage === 'result'" />
+                <LiveStage v-else-if="activeStage === 'live'" :match="match" :category="category" :performance="performance" :court="court" :processing="action.processing" :errors="action.errors" @command="command" @continue="selectStage" />
+                <ResultStage v-else-if="activeStage === 'result'" :match="match" :performance="performance" :bout="bout" :judges="judges" :manual-performance="manualPerformance" :processing="action.processing" :errors="action.errors" @command="command" @manual="openManualDialog" @details="openDetailsDialog" @continue="selectStage" />
                 <ConfirmedStage v-else />
                 </div>
             </section>
