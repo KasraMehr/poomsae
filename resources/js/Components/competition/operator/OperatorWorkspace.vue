@@ -5,12 +5,26 @@ import CourtConsole from './CourtConsole.vue';
 import ManualScorePanel from './ManualScorePanel.vue';
 import BoutPanel from '../BoutPanel.vue';
 import FormErrors from '../../../Shared/Components/FormErrors.vue';
+import SetupStage from './SetupStage.vue';
+import LiveStage from './LiveStage.vue';
+import ResultStage from './ResultStage.vue';
+import ConfirmedStage from './ConfirmedStage.vue';
 
 const props = defineProps({ console: Object, can: Object, urls: Object, onlineJudgeIds: Array, connection: String });
 const courtId = ref(props.console.courts[0]?.id ?? null);
 const matchesOpen = ref(true);
 const eventsOpen = ref(false);
 const matchId = ref(null);
+const activeStage = ref('setup');
+const stageByMatch = ref({});
+const stages = [
+    { id: 'setup', label: 'SETUP' },
+    { id: 'live', label: 'LIVE' },
+    { id: 'result', label: 'RESULT' },
+    { id: 'confirmed', label: 'CONFIRMED' },
+];
+const stageComponents = { setup: SetupStage, live: LiveStage, result: ResultStage, confirmed: ConfirmedStage };
+const selectedStageComponent = computed(() => stageComponents[activeStage.value]);
 const court = computed(() => props.console.courts.find(item => item.id === courtId.value) ?? props.console.courts[0]);
 const matches = computed(() => court.value?.matches ?? []);
 const match = computed(() => matches.value.find(item => item.id === matchId.value) ?? matches.value.find(item => item.id === court.value?.active?.bout_id) ?? matches.value.find(item => item.id === court.value?.queue?.[0]?.bout_id) ?? matches.value[0]);
@@ -19,6 +33,32 @@ const category = computed(() => props.console.tournament.categories.find(item =>
 const round = computed(() => category.value?.rounds.find(item => item.id === match.value?.round_id));
 const bout = computed(() => round.value?.bouts.find(item => item.id === match.value?.id));
 const performance = computed(() => court.value?.active?.bout_id === match.value?.id ? court.value.active : court.value?.queue?.find(item => item.bout_id === match.value?.id) ?? bout.value?.performances.find(item => item.status === 'scoring' || item.status === 'running') ?? bout.value?.performances[0]);
+const stageForStatus = status => ({ pending: 'setup', running: 'live', scoring: 'result', approved: 'confirmed', completed: 'confirmed' })[status] ?? 'setup';
+const currentStage = computed(() => stageForStatus(performance.value?.status));
+const saveStageForMatch = (matchKey, selected, lifecycle) => {
+    if (!matchKey) return;
+    stageByMatch.value = { ...stageByMatch.value, [matchKey]: { selected, lifecycle } };
+};
+const selectStage = stage => {
+    activeStage.value = stage;
+    saveStageForMatch(match.value?.id, stage, currentStage.value);
+};
+let observedMatchId = null;
+watch([() => match.value?.id, currentStage], ([matchKey, lifecycle]) => {
+    if (!matchKey) return;
+
+    const remembered = stageByMatch.value[matchKey];
+    if (matchKey !== observedMatchId) {
+        activeStage.value = remembered
+            ? remembered.selected === remembered.lifecycle && remembered.lifecycle !== lifecycle ? lifecycle : remembered.selected
+            : lifecycle;
+    } else if (remembered && remembered.selected === remembered.lifecycle && remembered.lifecycle !== lifecycle) {
+        activeStage.value = lifecycle;
+    }
+
+    saveStageForMatch(matchKey, activeStage.value, lifecycle);
+    observedMatchId = matchKey;
+}, { immediate: true });
 const action = useForm({ command: '', expected_version: 1 });
 const completion = useForm({});
 const detailsDialog = ref(null);
@@ -80,7 +120,10 @@ const time = value => value ? new Date(value).toLocaleTimeString('en-GB', { hour
             </aside>
 
             <section class="operator-center" aria-label="Match control">
-                <div class="operator-stage-head"><div><h1>SCORING <span>/ {{ performance?.status === 'scoring' ? 'RESULT READY' : (statusLabels[performance?.status] ?? 'MATCH CONTROL') }}</span></h1></div><div class="operator-steps"><span :class="{ active: performance?.status === 'pending' }">SETUP</span><span :class="{ active: performance?.status === 'running' }">LIVE</span><span :class="{ active: performance?.status === 'scoring' }">RESULT</span><span :class="{ active: performance?.status === 'approved' }">CONFIRMED</span></div></div>
+                <div class="operator-stage-head"><div><h1>{{ activeStage === 'live' ? 'SCORING' : activeStage.toUpperCase() }} <span>/ {{ performance?.status === 'scoring' ? 'RESULT READY' : (statusLabels[performance?.status] ?? 'MATCH CONTROL') }}</span></h1></div><div class="operator-steps" role="group" aria-label="Performance stages"><button v-for="stage in stages" :key="stage.id" type="button" :aria-pressed="activeStage === stage.id" :aria-current="currentStage === stage.id ? 'step' : undefined" :class="{ active: activeStage === stage.id, current: currentStage === stage.id }" @click="selectStage(stage.id)">{{ stage.label }}</button></div></div>
+                <div class="operator-stage-content">
+                <SetupStage v-if="activeStage === 'setup'" />
+                <LiveStage v-else-if="activeStage === 'live'">
                 <template v-if="match">
                     <div class="operator-context"><strong class="operator-context-number">No.{{ match.sequence }}</strong><span class="operator-context-event">{{ match.category_name }} · {{ match.round_name }}</span><span v-if="performance" class="operator-context-form">{{ performance.form_name }} · FORM {{ performance.form_number }}</span></div>
                     <div class="operator-score-cards"><article v-for="(entry, index) in match.entries" :key="entry.id" class="operator-score-card" :class="[index === 0 ? 'chung' : 'hong', { winner: match.winner_entry_id === entry.id }]"><div class="operator-card-header"><span>{{ entry.side?.toUpperCase() ?? (index === 0 ? 'CHUNG / BLUE' : 'HONG / RED') }}</span><b v-if="match.winner_entry_id === entry.id">★ WINNER</b></div><h2>{{ entry.short_name || entry.name }}</h2><div class="operator-card-scores"><div class="operator-card-components"><div><small>ACCURACY</small><strong>{{ number(detailedScoresFor(entry)?.accuracy) }}</strong></div><div><small>PRESENTATION</small><strong>{{ number(detailedScoresFor(entry)?.presentation) }}</strong></div></div><div class="operator-card-total"><small>{{ match.totals?.[entry.id] != null ? 'OFFICIAL TOTAL' : 'TOTAL' }}</small><strong class="operator-big-score">{{ number(scoreFor(entry)) }}</strong></div></div></article><article v-if="!match.entries.length" class="operator-score-card">No athletes assigned.</article></div>
@@ -89,6 +132,10 @@ const time = value => value ? new Date(value).toLocaleTimeString('en-GB', { hour
                     <div class="operator-actions"><button v-if="performance?.status === 'pending' && court.queue.some(item => item.id === performance.id)" class="operator-primary" :disabled="action.processing" @click="command('start')">Start performance</button><button v-if="performance?.status === 'running'" class="operator-primary" :disabled="action.processing" @click="command('finish')">Finish and collect scores</button><button v-if="performance?.status === 'scoring'" class="operator-primary" :disabled="action.processing || performance.submitted_count !== performance.judge_count || performance.pending_review_seats?.length" @click="command('approve')">Confirm and publish result</button><span v-if="performance?.status === 'scoring' && performance.submitted_count !== performance.judge_count" class="operator-action-note">Waiting for all judge scores</span><button v-if="manualPerformance && (manualPerformance.missing_seats?.length || manualPerformance.pending_review_seats?.length)" type="button" class="operator-manual" @click="manualDialog?.showModal()">{{ manualPerformance.pending_review_seats?.length ? 'Review manual score' : 'Manual score / tablet issue' }}</button></div><FormErrors :errors="action.errors" />
                     <button class="operator-details-button" type="button" @click="detailsDialog?.showModal()">Match controls and decisions ↗</button>
                 </template><div v-else class="operator-empty operator-center-empty">No matches are scheduled on this court.</div>
+                </LiveStage>
+                <ResultStage v-else-if="activeStage === 'result'" />
+                <ConfirmedStage v-else />
+                </div>
             </section>
 
             <aside id="operator-events-panel" class="operator-panel operator-events" :class="{ 'events-hidden': !eventsOpen }" :aria-hidden="!eventsOpen" :inert="!eventsOpen" aria-label="System events"><div class="operator-panel-head"><strong>SYSTEM EVENT LOG</strong><span>▤</span></div><ol><li v-for="event in props.console.recent_events" :key="event.id"><time :datetime="event.occurred_at">{{ time(event.occurred_at) }}</time><div><strong>{{ eventLabels[event.action] ?? event.action }}</strong><small>{{ event.actor_name ?? 'System' }}</small></div></li></ol><p v-if="!props.console.recent_events?.length" class="operator-empty">No events recorded.</p></aside>
@@ -181,6 +228,9 @@ const time = value => value ? new Date(value).toLocaleTimeString('en-GB', { hour
 @media(max-width:850px){.operator-events-toggle{display:none}}
 @media(max-width:740px){.operator-match-list{transition:max-height 280ms cubic-bezier(.2,.7,.2,1)}.operator-match-list.match-list-collapsed{max-height:145px}.operator-match-list.match-list-collapsed .operator-match-scroll{display:block}.operator-hardware{display:block}}
 @media(max-width:740px){.operator-context{grid-template-columns:auto minmax(0,1fr);gap:6px 10px}.operator-context .operator-context-number{grid-column:1;grid-row:1}.operator-context-event{grid-column:2;grid-row:1;justify-self:end;text-align:right}.operator-context-form{grid-column:1/-1;grid-row:2;justify-self:end}}
+.operator-center{display:flex;flex-direction:column;overflow:hidden;scrollbar-width:none}
+.operator-stage-head{position:sticky;top:0;z-index:3;flex:none}
+.operator-stage-content{flex:1;min-height:0;overflow-x:hidden;overflow-y:auto;scrollbar-width:thin}
 .operator-score-card{position:relative}
 .operator-score-card h2{margin:0 0 4px;text-align:center;font-size:clamp(25px,2.5vw,34px);font-weight:800;line-height:1.15}
 .operator-card-header{display:flex;position:relative;justify-content:center;align-items:center;min-height:22px}
@@ -196,6 +246,15 @@ const time = value => value ? new Date(value).toLocaleTimeString('en-GB', { hour
 .operator-card-total .operator-big-score{font-size:clamp(52px,5.5vw,78px);font-weight:800;letter-spacing:0}
 .operator-score-card.chung .operator-card-components>div{color:#2475bf}
 .operator-score-card.hong .operator-card-components>div{color:#c44750}
-@media(max-width:740px){.operator-score-card h2{font-size:clamp(21px,6vw,27px)}.operator-card-scores{gap:8px;margin-top:8px}.operator-card-components>div{padding:4px 6px}.operator-card-components strong{font-size:clamp(23px,6vw,30px)}.operator-card-total{padding-left:0}.operator-card-total .operator-big-score{font-size:clamp(42px,11vw,58px)}}
+.operator-steps{gap:22px}
+.operator-steps button{position:relative;min-width:78px;padding:9px 14px;border:0;background:#e1e6f0;color:#798291;font:inherit;font-size:10px;font-weight:800;text-align:center;cursor:pointer}
+.operator-steps button:not(:first-child)::before{position:absolute;top:50%;left:-20px;transform:translateY(-50%);color:#7b8799;font-size:15px;font-weight:600;content:"→";pointer-events:none}
+.operator-steps button:hover{background:#d2dbea;color:#0d192b}
+.operator-steps button:focus-visible{outline:2px solid #2475bf;outline-offset:2px}
+.operator-steps button.current:not(.active){box-shadow:inset 0 -2px #19a66a;color:#167651}
+.operator-steps button.current::after{position:absolute;top:2px;right:2px;width:5px;height:5px;border-radius:50%;background:#19a66a;content:""}
+.operator-steps button.active{background:#0d192b;color:#fff}
+.operator-steps button.active.current::after{background:#52db9d}
+@media(max-width:740px){.operator-score-card h2{font-size:clamp(21px,6vw,27px)}.operator-card-scores{gap:8px;margin-top:8px}.operator-card-components>div{padding:4px 6px}.operator-card-components strong{font-size:clamp(23px,6vw,30px)}.operator-card-total{padding-left:0}.operator-card-total .operator-big-score{font-size:clamp(42px,11vw,58px)}.operator-steps{width:100%;justify-content:space-between;gap:14px}.operator-steps button{min-width:0;padding:8px 9px;font-size:9px}.operator-steps button:not(:first-child)::before{left:-13px;font-size:12px}}
 @media(prefers-reduced-motion:reduce){.operator-columns,.operator-events,.operator-match-content,.operator-match-list,.operator-match,.operator-match-number,.operator-match-status,.operator-match strong,.operator-match small,.operator-events-toggle svg,.operator-match-toggle svg,.operator-match-head-actions svg,.operator-judge-devices-toggle svg{transition:none}}
 </style>
