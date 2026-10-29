@@ -1,4 +1,8 @@
 <script setup>
+import { Link, usePage } from "@inertiajs/vue3";
+
+const page = usePage();
+
 defineProps({
     stage: { type: String, default: "" },
     center: { type: String, default: "" },
@@ -11,6 +15,26 @@ defineProps({
         dir="ltr"
         class="relative min-h-screen w-full overflow-hidden bg-rtds-bg text-rtds-text font-rtds"
     >
+        <Link
+            :href="page.props.urls.logout"
+            method="post"
+            as="button"
+            aria-label="خروج از حساب کاربری"
+            title="خروج از حساب کاربری"
+            class="group fixed bottom-3 left-3 z-50 grid h-7 w-7 place-items-center rounded-md border border-white/80 bg-black/25 text-white opacity-0 shadow-sm transition-opacity duration-200 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+        >
+            <svg
+                aria-hidden="true"
+                viewBox="0 0 20 20"
+                class="h-3.5 w-3.5"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+            >
+                <path d="M8 4H4.8a.8.8 0 0 0-.8.8v10.4a.8.8 0 0 0 .8.8H8M12 6l4 4-4 4m4-4H7" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+        </Link>
+
         <!-- Broadcast Backdrop -->
         <div class="pointer-events-none absolute inset-0" aria-hidden="true">
             <!-- Up/left for blue -->
