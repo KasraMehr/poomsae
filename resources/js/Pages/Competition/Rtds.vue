@@ -40,6 +40,8 @@ const hasRanking = computed(() => {
     const category = latest.value?.category;
     return Boolean(category && (category.placements?.length || category.standings?.some(row => row.rank != null)));
 });
+const hasRoundResult = computed(() => latest.value?.bout.status === 'completed'
+    || current.value?.status === 'decision');
 
 // All RTDS phase durations are milliseconds. Queue timing starts when this display first sees a ready item.
 // TODO: If refreshes or multiple displays drift, replace this local clock with a shared server ready_at timestamp.
@@ -53,10 +55,10 @@ const phaseDurations = {
     draw: 20_000,
 };
 
-const resolvePresentation = ({ publishedAge, currentStatus, hasWinner, hasRanking, publishedAt, clockOffset, winnerConfirmedAt, now }) => {
+const resolvePresentation = ({ publishedAge, hasWinner, hasRanking, publishedAt, clockOffset, winnerConfirmedAt, now }) => {
     if (publishedAge === null) return null;
     const presentationAge = publishedAge - phaseDurations.scoring;
-    if (presentationAge < phaseDurations.result || currentStatus === 'decision') return 'result';
+    if (presentationAge < phaseDurations.result) return 'result';
 
     const winnerStart = Math.max(
         Date.parse(publishedAt) - clockOffset + phaseDurations.scoring + phaseDurations.result,
@@ -88,9 +90,9 @@ const resolvePhase = ({ currentStatus, finishDelayActive, publishedScoring, pres
 };
 
 const sequence = computed(() => [
-    { phase: 'result', duration: phaseDurations.result },
+    ...(hasRoundResult.value ? [{ phase: 'result', duration: phaseDurations.result }] : []),
     ...(hasWinner.value ? [{ phase: 'winner', duration: phaseDurations.winner }] : []),
-    ...(hasRanking.value ? [{ phase: 'ranking', duration: phaseDurations.ranking }] : []),
+    ...(hasRoundResult.value && hasRanking.value ? [{ phase: 'ranking', duration: phaseDurations.ranking }] : []),
 ]);
 const sequenceDuration = computed(() => sequence.value.reduce((total, step) => total + step.duration, 0));
 const publishedAge = computed(() => latest.value
@@ -112,9 +114,8 @@ const publishedScoring = computed(() => current.value?.status !== 'running'
     && publishedAge.value < phaseDurations.scoring);
 const presentation = computed(() => resolvePresentation({
     publishedAge: publishedAge.value,
-    currentStatus: current.value?.status,
     hasWinner: hasWinner.value,
-    hasRanking: hasRanking.value,
+    hasRanking: hasRoundResult.value && hasRanking.value,
     publishedAt: latest.value?.performance.result_published_at,
     clockOffset: clockOffset.value,
     winnerConfirmedAt: winnerConfirmedAt.value,
@@ -174,7 +175,7 @@ const phase = computed(() => resolvePhase({
     currentStatus: current.value?.status,
     finishDelayActive: finishDelayActive.value,
     publishedScoring: publishedScoring.value,
-    presentationPhase: presentation.value,
+    presentationPhase: hasRoundResult.value ? presentation.value : null,
     hasReadyPerformance: Boolean(firstReady.value),
     hasDrawData: Boolean(drawData.value?.forms.length),
     now: now.value,
@@ -223,7 +224,7 @@ const screenDisplay = computed(() => {
         :draw="phase === 'draw' ? drawData : null"
         :upcoming="upcoming"
         :focus-bout-id="(['result', 'winner'].includes(phase) || (phase === 'scoring' && publishedScoring)) ? latest?.bout.id : null"
-        :focus-form-number="(['result', 'winner'].includes(phase) || (phase === 'scoring' && publishedScoring)) ? latest?.performance.form_number : null"
+        :focus-form-number="phase === 'scoring' && publishedScoring ? latest?.performance.form_number : null"
         :focus-performance-id="phase === 'scoring' && publishedScoring ? latest?.performance.id : null"
     />
 </template>
