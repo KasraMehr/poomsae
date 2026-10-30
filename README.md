@@ -37,6 +37,54 @@ php artisan db:seed --class=PilotSeeder
 
 این seeder یک مسابقه و حساب‌های آزمایشی با رمز تصادفی می‌سازد و رمزها را فقط در همان خروجی فرمان نشان می‌دهد. آن را روی دیتابیس مسابقهٔ واقعی اجرا نکنید.
 
+### اجرای زنده با Mercure در Docker (Windows)
+
+این روش برای تست هم‌زمان پنل داور، اپراتور و RTDS است. Docker Desktop باید روشن باشد. در `.env` این مقادیر را تنظیم کنید؛ `APP_URL` باید دقیقاً با نشانی مرورگر یکی باشد، چون Mercure صادرکنندهٔ توکن را با آن تطبیق می‌دهد:
+
+```dotenv
+APP_URL=http://localhost:8000
+BROADCAST_CONNECTION=mercure
+QUEUE_CONNECTION=database
+MERCURE_URL=http://127.0.0.1:3000/.well-known/mercure
+MERCURE_PUBLIC_URL=http://127.0.0.1:3000/.well-known/mercure
+VITE_MERCURE_HUB_URL="${MERCURE_PUBLIC_URL}"
+VITE_MERCURE_ENABLED=true
+```
+
+`MERCURE_JWT_SECRET` را نیز در `.env` با یک مقدار تصادفی طولانی تنظیم کنید. فایل `compose.mercure.yaml` همین مقدار را برای کانتینر می‌خواند. پس از تغییر `.env`، سرور و worker را از نو راه‌اندازی و فرانت را دوباره اجرا کنید. از ریشهٔ همین پروژه چهار ترمینال باز کنید:
+
+```powershell
+# ترمینال ۱: هاب Mercure
+docker compose -f compose.mercure.yaml up -d
+```
+
+```powershell
+# ترمینال ۲: Laravel
+php artisan serve --host=localhost --port=8000
+```
+
+```powershell
+# ترمینال ۳: Vite
+npm run dev
+```
+
+```powershell
+# ترمینال ۴: ارسال رویدادهای صف
+php artisan queue:work --tries=3
+```
+
+سپس `http://localhost:8000` را باز کنید. برای دیدن وضعیت هاب از `docker compose -f compose.mercure.yaml ps` استفاده کنید. اگر رویدادها در worker با `FAIL` ثبت شدند، `storage/logs/laravel.log` و `docker compose -f compose.mercure.yaml logs --tail=50 mercure` را بررسی کنید. خطای `401` با پیام `untrusted issuer` معمولاً یعنی `APP_URL` با صادرکنندهٔ مورد اعتماد در کانتینر هماهنگ نیست؛ بعد از اصلاح `.env`، `docker compose -f compose.mercure.yaml up -d` را دوباره اجرا کنید. `DONE` یعنی ارسال کار به هاب موفق بوده است؛ دریافت آن در مرورگر را با تغییر نمره و به‌روزرسانی بدون رفرش پنل اپراتور و RTDS بررسی کنید.
+
+برای ساخت دادهٔ تکرارپذیر تست، فقط در محیط `local` یا `testing` اجرا کنید:
+
+```powershell
+php artisan db:seed --class=CompetitionPlaygroundSeeder
+```
+
+این سیدر ۱۳ سناریوی انفرادی، زوجی، تیمی و ابداعی با دو زمین و پنل‌های داوری مستقل می‌سازد. حساب‌های `playground.admin@example.test`، `playground.operator@example.test`، `playground.display@example.test` و `playground.judge01@example.test` تا `playground.judge14@example.test` همگی رمز `demoJudge123` دارند. اجرای دوبارهٔ سیدر مسابقهٔ موجود را دست‌نخورده می‌گذارد و دادهٔ تکراری نمی‌سازد. این حساب‌ها فقط برای تست محلی‌اند.
+
+فرمان `php artisan poomsae:realtime --hub-binary="C:\مسیر\واقعی\mercure.exe"` روش **جایگزین** Docker است، نه ترمینال پنجم. این فرمان خودش Laravel، Mercure و worker را اجرا می‌کند؛ فایل اجرایی واقعی Mercure و تنظیمات same-origin پورت ۸۰۰۰ مطابق `.env.example` لازم دارد. مسیر `C:\path\to\mercure.exe` نمونه است و بدون نصب فایل کار نمی‌کند.
+
 ## نقش‌ها و مسیر یک مسابقه
 
 | نقش | صفحهٔ ورود پس از انتخاب مسابقه | مسئولیت |
