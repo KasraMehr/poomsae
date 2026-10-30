@@ -157,6 +157,10 @@ class CompetitionController extends Controller
 
         $performance->load(['result', 'scoreSheets.judgeAssignment.user', 'form']);
         $components = DB::table('score_components')->whereIn('score_sheet_id', $performance->scoreSheets->pluck('id'))->get()->groupBy('score_sheet_id');
+        $published = $performance->result?->published_at !== null;
+        $operate = $request->user()->can('operate', $tournament);
+        $judgeCanViewOwn = $request->user()->hasTournamentRole($tournament, ['judge']);
+        $visibleSheets = $performance->scoreSheets->filter(fn ($sheet) => $operate || $published || $judgeCanViewOwn && $sheet->judgeAssignment?->user_id === $request->user()->id)->values();
 
         return response()->json([
             'data' => [
@@ -169,7 +173,7 @@ class CompetitionController extends Controller
                     'calculation' => $performance->result->calculation_snapshot,
                     'published_at' => $performance->result->published_at?->toISOString(),
                 ] : null,
-                'scores' => $performance->scoreSheets->map(fn ($sheet) => [
+                'scores' => $visibleSheets->map(fn ($sheet) => [
                     'id' => $sheet->id,
                     'seat' => $sheet->judgeAssignment?->seat,
                     'judge_name' => $sheet->judgeAssignment?->user?->name,
