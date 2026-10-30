@@ -39,41 +39,45 @@ const hasRanking = computed(() => {
     const category = latest.value?.category;
     return Boolean(category && (category.placements?.length || category.standings?.some(row => row.rank != null)));
 });
+// Timed result screens use milliseconds. Live/scoring remain backend-driven.
+const stageDurations = { result: 10_000, winner: 10_000, ranking: 10_000 };
 const sequence = computed(() => [
-    { phase: 'result', duration: 6000 },
-    ...(hasWinner.value ? [{ phase: 'winner', duration: 7000 }] : []),
-    ...(hasRanking.value ? [{ phase: 'ranking', duration: 8000 }] : []),
+    { phase: 'result', duration: stageDurations.result },
+    ...(hasWinner.value ? [{ phase: 'winner', duration: stageDurations.winner }] : []),
+    ...(hasRanking.value ? [{ phase: 'ranking', duration: stageDurations.ranking }] : []),
 ]);
 const sequenceDuration = computed(() => sequence.value.reduce((total, step) => total + step.duration, 0));
 const publishedAge = computed(() => latest.value
     ? Math.max(0, now.value + clockOffset.value - Date.parse(latest.value.performance.result_published_at)) : null);
 const presentation = computed(() => {
     if (publishedAge.value === null) return null;
-    if (publishedAge.value < 6000 || current.value?.status === 'decision') return 'result';
+    if (publishedAge.value < stageDurations.result || current.value?.status === 'decision') return 'result';
     const winnerStart = Math.max(
-        Date.parse(latest.value.performance.result_published_at) - clockOffset.value + 6000,
+        Date.parse(latest.value.performance.result_published_at) - clockOffset.value + stageDurations.result,
         winnerConfirmedAt.value ?? 0,
     );
-    if (hasWinner.value && now.value < winnerStart + 7000) return 'winner';
-    if (hasRanking.value && now.value < (hasWinner.value ? winnerStart + 15000 :
-        Date.parse(latest.value.performance.result_published_at) - clockOffset.value + 14000)) return 'ranking';
+    if (hasWinner.value && now.value < winnerStart + stageDurations.winner) return 'winner';
+    const rankingStart = hasWinner.value
+        ? winnerStart + stageDurations.winner
+        : Date.parse(latest.value.performance.result_published_at) - clockOffset.value + stageDurations.result;
+    if (hasRanking.value && now.value < rankingStart + stageDurations.ranking) return 'ranking';
     return null;
 });
 const phase = computed(() => {
     if (current.value?.status === 'running') return 'live';
     if (current.value?.status === 'scoring') return 'scoring';
     if (presentation.value) return presentation.value;
-    if (!firstReady.value) return 'waiting';
+    if (!firstReady.value) return 'standby';
     const winnerEnd = hasWinner.value && winnerConfirmedAt.value
-        ? winnerConfirmedAt.value + (hasRanking.value ? 15000 : 7000)
+        ? winnerConfirmedAt.value + stageDurations.winner + (hasRanking.value ? stageDurations.ranking : 0)
         : 0;
     const presentationEnd = latest.value
         ? Date.parse(latest.value.performance.result_published_at) - clockOffset.value + sequenceDuration.value
         : 0;
     const waitingAge = now.value - Math.max(queueSince.value, presentationEnd, winnerEnd);
-    return waitingAge < 4000 ? 'waiting' : 'call';
+    return waitingAge < 4000 ? 'standby' : 'call';
 });
-const screens = { waiting: Standby, call: Standby, live: LiveBoard, scoring: Scoring, result: Result, winner: Winner, ranking: Ranking };
+const screens = { standby: Standby, call: LiveBoard, live: LiveBoard, scoring: Scoring, result: Result, winner: Winner, ranking: Ranking };
 const screen = computed(() => screens[phase.value]);
 
 // Each RTDS URL shows only its own court. A result on another court cannot
