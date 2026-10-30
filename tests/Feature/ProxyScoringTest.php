@@ -52,7 +52,7 @@ class ProxyScoringTest extends TestCase
         $this->assertSame('draft', $active['scores'][0]['status']);
     }
 
-    public function test_proxy_score_requires_operator_a_missing_seat_and_a_reason(): void
+    public function test_proxy_score_requires_operator_and_a_missing_seat(): void
     {
         $fixture = $this->competition();
         $this->schedule($fixture);
@@ -67,8 +67,6 @@ class ProxyScoringTest extends TestCase
         ];
 
         $this->actingAs($fixture['judges'][0])->post($url, $payload)->assertForbidden();
-        $this->actingAs($fixture['operator'])->post($url, $payload)->assertSessionHasErrors('reason');
-
         $this->actingAs($fixture['judges'][0])->post(route('judging.store', [$fixture['tournament'], $performance]), [
             'request_id' => (string) Str::uuid(), 'expected_version' => $performance->fresh()->version,
             'expected_revision' => 0, ...$this->detailedScoreInput('2.50', '6.00'),
@@ -76,6 +74,50 @@ class ProxyScoringTest extends TestCase
 
         $this->actingAs($fixture['operator'])->post($url, [...$payload, 'request_id' => (string) Str::uuid(), 'reason' => 'ارتباط داور قطع شده است.'])
             ->assertStatus(409);
+    }
+
+    public function test_operator_can_correct_an_existing_judge_score_after_device_failure(): void
+    {
+        $fixture = $this->competition();
+        $this->schedule($fixture);
+        $performance = Performance::query()->firstOrFail();
+        $this->startScoring($fixture, $performance);
+        $judge = $fixture['judges'][0];
+        $assignment = $performance->bout->judges()->where('user_id', $judge->id)->firstOrFail();
+
+        $this->actingAs($judge)->post(route('judging.store', [$fixture['tournament'], $performance]), [
+            'request_id' => (string) Str::uuid(), 'expected_version' => $performance->fresh()->version,
+            'expected_revision' => 0, ...$this->detailedScoreInput('2.50', '6.00'),
+        ])->assertSessionHasNoErrors();
+
+        $url = route('operations.proxy-score', [$fixture['tournament'], $performance]);
+        $replacement = [
+            'request_id' => (string) Str::uuid(), 'judge_assignment_id' => $assignment->id,
+            'expected_version' => $performance->fresh()->version, 'expected_revision' => 1,
+            ...$this->detailedScoreInput('3.00', '5.50'), 'reason' => 'خراب',
+        ];
+        $this->actingAs($fixture['operator'])->post($url, [...$replacement, 'reason' => ''])->assertSessionHasErrors('reason');
+        $this->post($url, $replacement)->assertSessionHasNoErrors();
+
+        $sheet = ScoreSheet::where('judge_assignment_id', $assignment->id)->firstOrFail();
+        $this->assertSame(2, $sheet->revision);
+        $this->assertSame('operator_proxy', $sheet->submission_mode);
+        $this->assertSame('draft', $sheet->status);
+        $this->assertNull($sheet->confirmed_by);
+        $this->assertDatabaseHas('score_revisions', ['score_sheet_id' => $sheet->id, 'revision' => 1, 'changed_by' => $judge->id]);
+        $this->assertDatabaseHas('score_revisions', ['score_sheet_id' => $sheet->id, 'revision' => 2, 'changed_by' => $fixture['operator']->id, 'reason' => 'خراب']);
+
+        $this->actingAs($fixture['operator'])->post(route('operations.proxy-score.confirm', [$fixture['tournament'], $performance, $sheet]), [
+            'expected_revision' => 2,
+        ])->assertSessionHasNoErrors();
+        $this->assertSame('submitted', $sheet->fresh()->status);
+        $this->assertSame($fixture['operator']->id, $sheet->fresh()->confirmed_by);
+
+        $this->actingAs($judge)->post(route('judging.store', [$fixture['tournament'], $performance]), [
+            'request_id' => (string) Str::uuid(), 'expected_version' => $performance->fresh()->version,
+            'expected_revision' => 2, ...$this->detailedScoreInput('2.50', '6.00'),
+            'reason' => 'ارسال دوباره پس از تعمیر تبلت',
+        ])->assertSessionHasErrors('operation');
     }
 
     public function test_proxy_score_can_be_confirmed_by_the_same_operator_before_publication(): void
