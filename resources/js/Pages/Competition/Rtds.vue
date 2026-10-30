@@ -46,9 +46,9 @@ const hasRanking = computed(() => {
 const phaseDurations = {
     finishDelay: 10_000,
     scoring: 30_000,
-    result: 10_000,
-    winner: 10_000,
-    ranking: 10_000,
+    result: 30_000,
+    winner: 30_000,
+    ranking: 20_000,
     standby: 20_000,
     draw: 20_000,
 };
