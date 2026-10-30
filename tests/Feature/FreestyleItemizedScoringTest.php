@@ -179,6 +179,47 @@ class FreestyleItemizedScoringTest extends TestCase
         $this->assertCount(5, $approved['detailed_scores']['judges']);
     }
 
+    public function test_operator_can_submit_itemized_freestyle_score_without_a_long_failure_note(): void
+    {
+        $fixture = $this->freestyle();
+        $performance = $fixture['performance'];
+        $this->startScoring($fixture, $performance);
+        $judge = $performance->bout->judges()->orderBy('seat')->firstOrFail();
+
+        $this->actingAs($fixture['operator'])->post(route('operations.proxy-score', [$fixture['tournament'], $performance]), [
+            ...$this->itemizedPayload($performance),
+            'judge_assignment_id' => $judge->id,
+            'reason' => 'خرابی',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $sheet = ScoreSheet::query()->firstOrFail();
+        $this->assertSame('draft', $sheet->status);
+        $this->assertSame('operator_proxy', $sheet->submission_mode);
+        $this->assertSame([80, 90, 80, 70], $sheet->breakdown['accuracy_components_hundredths']);
+        $this->assertSame([90, 80, 80, 90, 70, 80], $sheet->breakdown['presentation_components_hundredths']);
+        $this->assertDatabaseHas('score_revisions', ['score_sheet_id' => $sheet->id, 'reason' => 'خرابی']);
+
+        $this->actingAs($fixture['operator'])->post(route('operations.proxy-score.confirm', [$fixture['tournament'], $performance, $sheet]), [
+            'expected_revision' => $sheet->revision,
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('submitted', $sheet->fresh()->status);
+    }
+
+    public function test_operator_may_leave_manual_score_note_empty(): void
+    {
+        $fixture = $this->freestyle();
+        $performance = $fixture['performance'];
+        $this->startScoring($fixture, $performance);
+        $judge = $performance->bout->judges()->orderBy('seat')->firstOrFail();
+
+        $this->actingAs($fixture['operator'])->post(route('operations.proxy-score', [$fixture['tournament'], $performance]), [
+            ...$this->itemizedPayload($performance),
+            'judge_assignment_id' => $judge->id,
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('score_sheets', ['judge_assignment_id' => $judge->id, 'submission_mode' => 'operator_proxy']);
+    }
+
     public function test_invalid_freestyle_itemized_component_counts_and_limits_are_rejected(): void
     {
         $fixture = $this->freestyle();
