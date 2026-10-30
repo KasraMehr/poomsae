@@ -39,44 +39,76 @@ const hasRanking = computed(() => {
     const category = latest.value?.category;
     return Boolean(category && (category.placements?.length || category.standings?.some(row => row.rank != null)));
 });
-// Timed result screens use milliseconds. Live/scoring remain backend-driven.
-const stageDurations = { result: 10_000, winner: 10_000, ranking: 10_000 };
+
+// All RTDS phase durations are milliseconds. Live/scoring remain backend-driven.
+const phaseDurations = {
+    result: 10_000,
+    winner: 10_000,
+    ranking: 10_000,
+    standbyBeforeCall: 4_000,
+};
+
+const resolvePresentation = ({ publishedAge, currentStatus, hasWinner, hasRanking, publishedAt, clockOffset, winnerConfirmedAt, now }) => {
+    if (publishedAge === null) return null;
+    if (publishedAge < phaseDurations.result || currentStatus === 'decision') return 'result';
+
+    const winnerStart = Math.max(
+        Date.parse(publishedAt) - clockOffset + phaseDurations.result,
+        winnerConfirmedAt ?? 0,
+    );
+    if (hasWinner && now < winnerStart + phaseDurations.winner) return 'winner';
+
+    const rankingStart = hasWinner
+        ? winnerStart + phaseDurations.winner
+        : Date.parse(publishedAt) - clockOffset + phaseDurations.result;
+    if (hasRanking && now < rankingStart + phaseDurations.ranking) return 'ranking';
+
+    return null;
+};
+
+const resolvePhase = ({ currentStatus, presentationPhase, hasReadyPerformance, now, queueSince, presentationEnd, winnerEnd }) => {
+    if (currentStatus === 'running') return 'live';
+    if (currentStatus === 'scoring') return 'scoring';
+    if (presentationPhase) return presentationPhase;
+    if (!hasReadyPerformance) return 'standby';
+
+    const waitingAge = now - Math.max(queueSince, presentationEnd, winnerEnd);
+    return waitingAge < phaseDurations.standbyBeforeCall ? 'standby' : 'call';
+};
+
 const sequence = computed(() => [
-    { phase: 'result', duration: stageDurations.result },
-    ...(hasWinner.value ? [{ phase: 'winner', duration: stageDurations.winner }] : []),
-    ...(hasRanking.value ? [{ phase: 'ranking', duration: stageDurations.ranking }] : []),
+    { phase: 'result', duration: phaseDurations.result },
+    ...(hasWinner.value ? [{ phase: 'winner', duration: phaseDurations.winner }] : []),
+    ...(hasRanking.value ? [{ phase: 'ranking', duration: phaseDurations.ranking }] : []),
 ]);
 const sequenceDuration = computed(() => sequence.value.reduce((total, step) => total + step.duration, 0));
 const publishedAge = computed(() => latest.value
     ? Math.max(0, now.value + clockOffset.value - Date.parse(latest.value.performance.result_published_at)) : null);
-const presentation = computed(() => {
-    if (publishedAge.value === null) return null;
-    if (publishedAge.value < stageDurations.result || current.value?.status === 'decision') return 'result';
-    const winnerStart = Math.max(
-        Date.parse(latest.value.performance.result_published_at) - clockOffset.value + stageDurations.result,
-        winnerConfirmedAt.value ?? 0,
-    );
-    if (hasWinner.value && now.value < winnerStart + stageDurations.winner) return 'winner';
-    const rankingStart = hasWinner.value
-        ? winnerStart + stageDurations.winner
-        : Date.parse(latest.value.performance.result_published_at) - clockOffset.value + stageDurations.result;
-    if (hasRanking.value && now.value < rankingStart + stageDurations.ranking) return 'ranking';
-    return null;
-});
-const phase = computed(() => {
-    if (current.value?.status === 'running') return 'live';
-    if (current.value?.status === 'scoring') return 'scoring';
-    if (presentation.value) return presentation.value;
-    if (!firstReady.value) return 'standby';
-    const winnerEnd = hasWinner.value && winnerConfirmedAt.value
-        ? winnerConfirmedAt.value + stageDurations.winner + (hasRanking.value ? stageDurations.ranking : 0)
-        : 0;
-    const presentationEnd = latest.value
-        ? Date.parse(latest.value.performance.result_published_at) - clockOffset.value + sequenceDuration.value
-        : 0;
-    const waitingAge = now.value - Math.max(queueSince.value, presentationEnd, winnerEnd);
-    return waitingAge < 4000 ? 'standby' : 'call';
-});
+const presentation = computed(() => resolvePresentation({
+    publishedAge: publishedAge.value,
+    currentStatus: current.value?.status,
+    hasWinner: hasWinner.value,
+    hasRanking: hasRanking.value,
+    publishedAt: latest.value?.performance.result_published_at,
+    clockOffset: clockOffset.value,
+    winnerConfirmedAt: winnerConfirmedAt.value,
+    now: now.value,
+}));
+const winnerEnd = computed(() => hasWinner.value && winnerConfirmedAt.value
+    ? winnerConfirmedAt.value + phaseDurations.winner + (hasRanking.value ? phaseDurations.ranking : 0)
+    : 0);
+const presentationEnd = computed(() => latest.value
+    ? Date.parse(latest.value.performance.result_published_at) - clockOffset.value + sequenceDuration.value
+    : 0);
+const phase = computed(() => resolvePhase({
+    currentStatus: current.value?.status,
+    presentationPhase: presentation.value,
+    hasReadyPerformance: Boolean(firstReady.value),
+    now: now.value,
+    queueSince: queueSince.value,
+    presentationEnd: presentationEnd.value,
+    winnerEnd: winnerEnd.value,
+}));
 const screens = { standby: Standby, call: LiveBoard, live: LiveBoard, scoring: Scoring, result: Result, winner: Winner, ranking: Ranking };
 const screen = computed(() => screens[phase.value]);
 
