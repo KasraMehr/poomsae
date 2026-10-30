@@ -4,10 +4,12 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import AppLayout from '../../Shared/Layouts/AppLayout.vue';
 
 const props = defineProps({ tournament: Object, system: Object, backUrl: String });
+const ready = computed(() => props.system.database === 'online' && props.system.realtime === 'online'
+    && ['online', 'inline'].includes(props.system.queue_worker));
 const checks = computed(() => [
     { name: 'Database', value: props.system.database, detail: 'Application data connection', healthy: props.system.database === 'online' },
-    { name: 'Realtime', value: props.system.realtime, detail: props.system.realtime === 'polling' ? 'Polling fallback is in use' : 'Broadcast transport is configured', healthy: props.system.realtime === 'configured' },
-    { name: 'Queue', value: props.system.queue, detail: 'Background job connection', healthy: Boolean(props.system.queue) },
+    { name: 'Mercure', value: props.system.realtime, detail: props.system.realtime === 'online' ? 'Hub responded to a live check' : props.system.realtime === 'polling' ? 'Polling fallback is in use' : 'Hub is unavailable or misconfigured', healthy: props.system.realtime === 'online' },
+    { name: 'Queue worker', value: props.system.queue_worker, detail: `Background jobs · ${props.system.queue} connection`, healthy: ['online', 'inline'].includes(props.system.queue_worker) },
     { name: 'Cache', value: props.system.cache, detail: 'Configured cache store', healthy: Boolean(props.system.cache) },
 ]);
 const refreshedAt = computed(() => new Date(props.system.server_time).toLocaleString('en-GB'));
@@ -22,7 +24,7 @@ const refreshedAt = computed(() => new Date(props.system.server_time).toLocaleSt
                 <div class="system-actions"><Link :href="backUrl">← Back to competition</Link><button type="button" @click="router.reload({ only: ['system'] })">Refresh status</button></div>
             </header>
 
-            <section class="status-summary"><div class="summary-icon" :class="system.database">{{ system.database === 'online' ? '✓' : '!' }}</div><div><span>CURRENT STATUS</span><h2>{{ system.database === 'online' ? 'Database available' : 'Database unavailable' }}</h2><p>Last checked {{ refreshedAt }}</p></div><span class="summary-environment">{{ system.environment }}</span></section>
+            <section class="status-summary"><div class="summary-icon" :class="{ offline: !ready }">{{ ready ? '✓' : '!' }}</div><div><span>CURRENT STATUS</span><h2>{{ ready ? 'Competition services ready' : 'Service attention needed' }}</h2><p>Last checked {{ refreshedAt }}</p></div><span class="summary-environment">{{ system.environment }}</span></section>
 
             <div class="system-section-heading"><div><span>INFRASTRUCTURE</span><h2>Service checks</h2></div><p>Configuration and connection status for this competition</p></div>
             <section class="checks-grid" aria-label="Service checks"><article v-for="check in checks" :key="check.name"><div class="check-top"><span>{{ check.name }}</span><i :class="{ healthy: check.healthy, warning: !check.healthy }"></i></div><strong>{{ check.value }}</strong><p>{{ check.detail }}</p></article></section>
