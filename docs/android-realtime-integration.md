@@ -1,50 +1,54 @@
-# راهنمای جامع اتصال اپلیکیشن Android به بک‌اند (REST API و Mercure SSE)
+# راهنمای جامع اتصال اپلیکیشن اندروید داوران (Thin-Client / Active-State)
 
-این مستند راهنمای فنی و گام‌به‌گام برای توسعه‌دهندهٔ اندروید جهت پیاده‌سازی اپلیکیشن تبلت داوران (مارکر) مسابقات پومسه تکواندو است. اپراتور مسابقه تبلت ندارد و کلیه وظایف خود را منحصراً از طریق کنسول تحت وب انجام می‌دهد. ارتباطات تبلت داوران بر پایهٔ **REST API (Laravel 13 + Sanctum)** و ارتباط بلادرنگ بر پایهٔ **Mercure SSE (Server-Sent Events)** طراحی شده است.
+این مستند راهنمای فنی، گام‌به‌گام و ساده‌شده برای توسعه‌دهندهٔ اندروید جهت پیاده‌سازی اپلیکیشن تبلت داوران (مارکر) مسابقات پومسه تکواندو است.
+
+> **نکتهٔ بسیار مهم:** اپراتور مسابقه هیچ تبلتی ندارد و کلیه وظایف و فرامین خود را (مانند Start، Finish، تغییر ورزشکار و Approve) منحصراً از طریق پنل وب انجام می‌دهد. اپلیکیشن اندروید منحصراً برای داوران (مارکر) جهت مشاهده وضعیت اجرای زنده و ثبت نمرات طراحی شده است.
 
 ---
 
-## ۱. چرخهٔ حیات و نقشهٔ کلی ارتباط (Workflow)
+## ۱. معماری و چرخه حیات سبک (Thin-Client Architecture)
+
+در این معماری، اپلیکیشن تبلت داور دیگر نیازی به دریافت کل درخت مسابقات، گروه‌ها، دورها و محاسبات پیچیده کلاینت ندارد. کلاینت کاملاً State-Driven (مبتنی بر وضعیت فعال) عمل می‌کند:
 
 ```text
-[ تبلت اندروید داور ]                    [ سرور بک‌اند لاراول ]                 [ کنسول اپراتور / اسکوربورد ]
-        |                                          |                                          |
- 1. لاگین و دریافت توکن (REST) ------------------> | (تولید Sanctum Bearer Token)             |
- 2. دریافت لیست مسابقات (REST) ------------------> | (برگرداندن مسابقه مربوط به داور)          |
- 3. دریافت اسنپ‌شات مسابقه (REST) ----------------> | (اطلاعات زمین، رده و صندلی داوری)         |
- 4. اتصال پایدار به هاب Mercure (SSE) -----------> | (برقراری لولهٔ باز گوش به زنگ)            |
-        |                                          |                                          |
-        |   <--- رویداد شروع مسابقه: start (SSE) - | <--- ارسال فرمان Start توسط اپراتور ---- |
- (فعال شدن تایمر روی تبلت)                         |                                          |
-        |   <--- رویداد پایان مسابقه: finish (SSE) | <--- ارسال فرمان Finish توسط اپراتور --- |
- (باز شدن پد نمره‌دهی داور)                        |                                          |
-        |                                          |                                          |
- 5. ارسال نمره داور (REST POST) -----------------> | (اعتبارسنجی و ثبت موقت نمره)             |
-        |                                          | --- رویداد ثبت نمره (SSE) -------------> | (سبز شدن صندلی داور)
-        |                                          |                                          |
-        |                                          | <--- تأیید نهایی (Approve) توسط اپراتور - |
-        |                                          | [محاسبه، حذف min/max، میانگین، برنده]    |
-        |   <--- نتیجه رسمی و برنده (SSE) -------- | --- انتشار زنده نتیجه رسمی (SSE) ------> | [نمایشگر سالن RTDS]
+[ تبلت اندروید داور ]                    [ سرور لاراول ]                        [ کنسول اپراتور (وب) ]
+        |                                       |                                       |
+ 1. لاگین و دریافت توکن ----------------------> | (تولید Sanctum Bearer Token)          |
+        |                                       |                                       |
+ 2. دریافت وضعیت فعال فعلی -------------------> | (بازگرداندن اجرای جاری + Mercure Token)|
+        |                                       |                                       |
+ 3. برقراری اتصال زنده SSE به Mercure ---------> | (شنود رویدادهای زنده مسابقه)          |
+        |                                       |                                       |
+        |                                       | <--- کلیک روی Start / Finish -------- |
+        | <--- دریافت رویداد زنده (SSE) -------- |                                       |
+        |      (شامل active_performance جدید)   |                                       |
+        |                                       |                                       |
+ 4. ارسال مستقیم نمرات (دقت + ارائه) ---------> | (ثبت نمره داور)                       |
+        |                                       | --- ارسال رویداد ثبت نمره -----------> | (سبز شدن صندلی در وب)
+        |                                       |                                       |
+        |                                       | <--- تأیید نهایی نمرات (Approve) ----- |
+        | <--- رویداد نتیجه و اجرای بعدی (SSE) - |                                       |
 ```
 
 ---
 
-## ۲. مشخصات هدرهای عمومی (Headers)
+## ۲. هدرهای عمومی درخواست‌ها (Headers)
 
 به جز متد لاگین، در تمام درخواست‌های ارسالی به سرور باید هدرهای زیر قرار داده شوند:
 
 ```http
-Authorization: Bearer {token}
+Authorization: Bearer {sanctum_token}
 Accept: application/json
 Content-Type: application/json
 ```
 
 ---
 
-## ۳. مراحل گام‌به‌گام پیاده‌سازی در اندروید
+## ۳. چرخه ۳ مرحله‌ای ارتباط در اندروید
 
-### گام اول: احراز هویت و دریافت توکن (Login)
-داور ایمیل، رمز عبور و نام دستگاه خود را وارد می‌کند:
+### گام اول: احراز هویت داور (Login)
+
+داور با ایمیل و کلمه عبور وارد می‌شود:
 
 ```http
 POST /api/v1/auth/token
@@ -70,141 +74,87 @@ Content-Type: application/json
   }
 }
 ```
-> **اقدام اندروید:** فیلد `token` را در `EncryptedSharedPreferences` ذخیره کرده و در هدر درخواست‌های بعدی استفاده کنید.
+> **اقدام اندروید:** مقدار `token` را ذخیره کنید تا در هدر تمام درخواست‌های بعدی ارسال شود.
 
 ---
 
-### گام دوم: دریافت لیست مسابقات و استخراج `tournament_id`
-داور نیازی به دانستن یا وارد کردن دستی شناسه مسابقه ندارد. این اندپوینت مسابقاتی که این داور در آن‌ها ثبت شده است را برمی‌گرداند:
+### گام دوم: دریافت وضعیت فعال (Current State)
+
+داور بلافاصله پس از ورود، اندپوینت وضعیت جاری را فراخوانی می‌کند:
 
 ```http
-GET /api/v1/tournaments
-Authorization: Bearer {token}
+GET /api/v1/judge/current-state
+Authorization: Bearer {sanctum_token}
 Accept: application/json
 ```
 
-#### پاسخ سرور (200 OK):
-```json
-{
-  "data": [
-    {
-      "id": 8,
-      "name": "مسابقه آزمایشی تبلت",
-      "venue": "سالن مسابقات",
-      "starts_on": "2026-10-28",
-      "ends_on": null,
-      "status": "running"
-    }
-  ]
-}
-```
-> **اقدام اندروید:** اگر کاربر فقط در یک مسابقه فعال حضور دارد، عدد `data[0].id` (در اینجا `8`) را به عنوان شناسهٔ مسابقه بردارید و وارد صفحهٔ قضاوت شوید.
-
----
-
-### گام سوم: دریافت اسنپ‌شات کامل مسابقه (Snapshot)
-با داشتن شناسهٔ مسابقه، اطلاعات زمین، صندلی داوری، رده‌ها و اجرای فعال دریافت می‌شود:
-
-```http
-GET /api/v1/tournaments/8/competition
-Authorization: Bearer {token}
-Accept: application/json
-```
-
-#### پاسخ سرور (200 OK):
+#### پاسخ سرور زمانی که مسابقه و اجرایی در جریان است (200 OK):
 ```json
 {
   "data": {
-    "id": 8,
-    "name": "مسابقه آزمایشی تبلت",
-    "status": "running",
-    "courts": [
-      {
-        "id": 13,
-        "name": "زمین ۱"
+    "judge": {
+      "id": 27,
+      "name": "داور 1",
+      "email": "judge1@poomsae.test",
+      "seat_number": 1
+    },
+    "tournament": {
+      "id": 8,
+      "name": "مسابقه قهرمانی پومسه",
+      "court_id": 13,
+      "court_name": "زمین ۱"
+    },
+    "realtime": {
+      "protocol": "mercure-sse",
+      "hub_url": "http://127.0.0.1:8000/.well-known/mercure",
+      "channel": "private-tournaments.8",
+      "mercure_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    },
+    "active_performance": {
+      "id": 15,
+      "tournament_id": 8,
+      "status": "scoring",
+      "started_at": "2026-10-30T10:15:00.000000Z",
+      "category_name": "انفرادی استاندارد مردان",
+      "round_name": "فینال",
+      "poomsae_name": "کوریو (Koryo)",
+      "athlete": {
+        "id": 101,
+        "name": "علی حسینی",
+        "team_or_club": "باشگاه عقاب"
+      },
+      "rules": {
+        "judge_count": 5,
+        "input_method": "standard_wt",
+        "accuracy_max": 4.0,
+        "presentation_max": 6.0
+      },
+      "my_submission": {
+        "is_submitted": false,
+        "accuracy": null,
+        "presentation": null
       }
-    ],
-    "categories": [
-      {
-        "id": 1,
-        "name": "انفرادی مردان",
-        "rules": {
-          "judge_count": 5,
-          "input_method": "standard_wt"
-        },
-        "rounds": [...]
-      }
-    ]
-  },
-  "realtime": {
-    "protocol": "mercure-sse",
-    "hub_url": "http://127.0.0.1:8000/.well-known/mercure",
-    "auth_endpoint": "http://127.0.0.1:8000/api/v1/broadcasting/auth",
-    "channel": "private-tournaments.8",
-    "presence_channel": "presence-tournaments.8.judges",
-    "event": "competition.updated"
+    }
   }
 }
 ```
 
----
-
-### گام چهارم: برقراری اتصال زنده Mercure SSE (Real-Time Hub)
-
-برای اینکه تبلت داور به محض زدن دکمه توسط اپراتور فرمان‌ها را دریافت کند:
-
-#### ۱. دریافت مجوز کانال خصوصی از لاراول:
-```http
-POST /api/v1/broadcasting/auth
-Authorization: Bearer {token}
-Content-Type: application/json
-
-{
-  "channel_name": "private-tournaments.8"
-}
-```
-پاسخ سرور شامل توکن/کوکی مجوز اشتراک هاب Mercure است.
-
-#### ۲. باز نگه داشتن کانکشن پایدار SSE به هاب Mercure:
-اندروید یک اتصال `EventSource` (با OkHttp یا کتابخانه‌های SSE) به آدرس زیر باز می‌کند:
-```http
-GET http://127.0.0.1:8000/.well-known/mercure?topic=private-tournaments.8
-Authorization: Bearer {auth_token_یا_cookie}
-Accept: text/event-stream
-```
-
-#### ۳. نمونه پیامی که سرور در حین مسابقه روی این کانال می‌فرستد:
-```json
-event: message
-data: {
-  "tournament_id": 8,
-  "revision": 12,
-  "action": "finish",
-  "subject": {
-    "type": "performance",
-    "id": 15
-  }
-}
-```
-* **اگر `action == "start"` باشد:** تبلت داور تایمر اجرای فرم را روشن می‌کند.
-* **اگر `action == "finish"` باشد:** تبلت داور پد ورود نمره را فعال و آنلاک می‌کند.
-* **اگر `action == "approve"` باشد:** وضعیت اجرا تمام شده و فرم جدید آماده می‌شود.
+> **نکته:** اگر در زمین داور هیچ اجرایی در جریان نباشد، مقدار `"active_performance": null` خواهد بود و تبلت وضعیت «در انتظار شروع مسابقه توسط اپراتور» را نمایش می‌دهد.
+>
+> **توجه مهم درباره SSE:** فیلد `realtime.mercure_token` مستقیماً در همین پاسخ تولید و تحویل داده می‌شود. بنابراین نیازی به فراخوانی جداگانه اندپوینت broadcasting/auth نیست.
 
 ---
 
-### گام پنجم: ارسال نمره داور (Submit Score)
+### گام سوم: ارسال نمره داور (Submit Score)
 
-پس از اعلام پایان اجرا، داور نمرات دقت (`accuracy`)، ارائه (`presentation`) و ریزخطاها را وارد کرده و ارسال می‌کند:
+هنگامی که اجرای بازیکن پایان یافته (`status == "scoring"`) یا حین اجرا (`status == "running"`):
 
 ```http
-POST /api/v1/tournaments/8/performances/15/scores
-Authorization: Bearer {token}
+POST /api/v1/performances/15/scores
+Authorization: Bearer {sanctum_token}
 Content-Type: application/json
 
 {
-  "request_id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
-  "expected_version": 3,
-  "expected_revision": 0,
   "accuracy": "3.50",
   "presentation": "4.20",
   "accuracy_penalties": ["0.10", "0.10", "0.30"],
@@ -212,96 +162,185 @@ Content-Type: application/json
 }
 ```
 
-* `request_id`: یک UUID v4 یکتا (برای Idempotency که در صورت چندبار زدن دکمه، نمره تکراری ثبت نشود).
-* `expected_version`: نسخهٔ اجرای فعلی (از اسنپ‌شات دریافت شده).
-* `expected_revision`: برای ثبت اولیه عدد `0`، و برای ویرایش نمره قبلی، شماره نسخهٔ قبلی.
+> **ساده‌سازی اساسی:** 
+> - فیلدهای همزمانی مانند `request_id`، `expected_version` و `expected_revision` کاملاً اختیاری (Nullable) شده‌اند. تبلت اندروید نیازی به محاسبه یا نگهداری آن‌ها ندارد.
+> - خطای `409 Conflict` در ارسال نمره حذف شده و سرور خودکار نسخه‌ها را مدیریت می‌کند.
+> - مسیر بلند قبلی (`POST /api/v1/tournaments/{tournament}/performances/{performance}/scores`) نیز همچنان به عنوان نام مستعار معتبر است.
 
 #### پاسخ سرور (200 OK):
 ```json
 {
-  "message": "نمرهٔ شما با موفقیت ذخیره شد."
+  "data": {
+    "score_sheet_id": 42,
+    "score": "7.70",
+    "accuracy": "3.50",
+    "presentation": "4.20"
+  }
 }
 ```
-> **اقدام اندروید:** دکمه‌های نمره‌دهی را غیرفعال کنید و پیام «نمره ثبت شد؛ منتظر اجرای بعدی باشید» نمایش دهید.
 
 ---
 
-## ۴. نمونه کد پیاده‌سازی اتصال SSE در اندروید (OkHttp EventSource)
+## ۴. ارتباط بلادرنگ با Mercure SSE
+
+تبلت پس از دریافت پاسخ `current-state`، یک اتصال رویدادخوان (EventSource) برقرار می‌کند:
+
+* **آدرس اتصال:** `hub_url + "?topic=" + channel`  
+  (مثال: `http://127.0.0.1:8000/.well-known/mercure?topic=private-tournaments.8`)
+* **هدر احراز هویت Mercure:** `Authorization: Bearer {mercure_token}`
+
+### نمونه پی‌آمدهای ارسال‌شده از سرور (SSE Payload):
+
+هنگامی که اپراتور وب وضعیتی را تغییر می‌دهد (مانند Start، Finish یا تغییر ورزشکار)، رویدادی شبیه به زیر دریافت می‌شود:
+
+```json
+event: message
+data: {
+  "tournament_id": 8,
+  "action": "finish",
+  "should_refresh": true,
+  "active_performance": {
+    "id": 15,
+    "tournament_id": 8,
+    "status": "scoring",
+    "started_at": "2026-10-30T10:15:00.000000Z",
+    "category_name": "انفرادی استاندارد مردان",
+    "round_name": "فینال",
+    "poomsae_name": "کوریو (Koryo)",
+    "athlete": {
+      "id": 101,
+      "name": "علی حسینی",
+      "team_or_club": "باشگاه عقاب"
+    },
+    "rules": {
+      "judge_count": 5,
+      "input_method": "standard_wt",
+      "accuracy_max": 4.0,
+      "presentation_max": 6.0
+    },
+    "my_submission": {
+      "is_submitted": false,
+      "accuracy": null,
+      "presentation": null
+    }
+  }
+}
+```
+
+- اگر `should_refresh == true` باشد، تبلت مستقیماً از شیء `active_performance` در پی‌لود استفاده می‌کند یا متد `GET /api/v1/judge/current-state` را بازخوانی می‌کند.
+- اگر `active_performance.status == "running"` باشد: تایمر و صفحه اجرای فرم فعال می‌شود.
+- اگر `active_performance.status == "scoring"` باشد: پد نمره‌دهی داور باز می‌شود.
+
+---
+
+## ۵. نمونه کد کاتلین (OkHttp EventSource با قابلیت اتصال مجدد خودکار)
 
 ```kotlin
+package com.poomsae.marker.network
+
+import android.os.Handler
+import android.os.Looper
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.sse.EventSource
 import okhttp3.sse.EventSourceListener
 import okhttp3.sse.EventSources
+import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
-class MercureRealtimeService(private val token: String) {
-
+class RealtimeJudgeManager(
+    private val hubUrl: String,
+    private val channel: String,
+    private val mercureToken: String,
+    private val onStateUpdateRequired: (JSONObject?) -> Unit
+) {
     private val client = OkHttpClient.Builder()
-        .readTimeout(0, TimeUnit.MILLISECONDS) // برای باز ماندن دائمی لوله SSE
+        .readTimeout(0, TimeUnit.MILLISECONDS) // باز نگه داشتن لوله برای SSE
+        .retryOnConnectionFailure(true)
         .build()
 
-    fun connectToTournament(tournamentId: Int, onEventReceived: (String) -> Unit) {
-        val hubUrl = "http://127.0.0.1:8000/.well-known/mercure?topic=private-tournaments.$tournamentId"
+    private var eventSource: EventSource? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var isConnected = false
 
+    fun startListening() {
+        val streamUrl = "$hubUrl?topic=$channel"
         val request = Request.Builder()
-            .url(hubUrl)
-            .addHeader("Authorization", "Bearer $token")
+            .url(streamUrl)
+            .addHeader("Authorization", "Bearer $mercureToken")
             .addHeader("Accept", "text/event-stream")
             .build()
 
-        EventSources.createFactory(client).newEventSource(request, object : EventSourceListener() {
+        eventSource = EventSources.createFactory(client).newEventSource(request, object : EventSourceListener() {
             override fun onOpen(eventSource: EventSource, response: Response) {
-                println("اتصال پایدار به Mercure برقرار شد.")
+                isConnected = true
+                println("Mercure SSE: اتصال زنده برقرار شد.")
             }
 
             override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
-                // دریافت بلادرنگ رویداد مسابقه
-                println("پیام زنده مسابقه: $data")
-                onEventReceived(data)
+                try {
+                    val json = JSONObject(data)
+                    mainHandler.post {
+                        if (json.optBoolean("should_refresh", false)) {
+                            val activePerf = json.optJSONObject("active_performance")
+                            onStateUpdateRequired(activePerf)
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
 
             override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
-                println("خطای شبکه یا قطعی موقت: ${t?.message} - سیستم خودکار تلاش مجدد می‌کند.")
+                isConnected = false
+                println("Mercure SSE قطع شد: ${t?.message}. تلاش مجدد پس از ۳ ثانیه...")
+                // بازخوانی وضعیت پس از برقراری مجدد برای جلوگیری از جا ماندن تغییرات
+                mainHandler.postDelayed({
+                    onStateUpdateRequired(null) // فراخوانی مجدد GET current-state
+                    startListening()
+                }, 3000)
             }
 
             override fun onClosed(eventSource: EventSource) {
-                println("اتصال بسته شد.")
+                isConnected = false
+                println("Mercure SSE بسته شد.")
             }
         })
+    }
+
+    fun stopListening() {
+        eventSource?.cancel()
     }
 }
 ```
 
 ---
 
-## ۵. اطلاعات تست در محیط محلی (Local Test Sandbox)
+## ۶. محیط آزمایشی لوکال (Local Test Sandbox)
 
-برای تست اپلیکیشن اندروید روی سرور لوکال می‌توانید از داده‌های زیر استفاده کنید:
+جهت تست اپلیکیشن بر روی سرور محلی:
 
-* **آدرس سرور لوکال:** `http://10.0.2.2:8000` (در ایمولاتور اندروید) یا آدرس آی‌پی سیستم در شبکه LAN (مثلاً `http://192.168.1.100:8000`)
-* **شناسه مسابقه آماده (Tournament ID):** `8`
-* **شناسه اجرا آماده تست (Performance ID):** `15` (در وضعیت `scoring`)
+* **آدرس سرور:** `http://10.0.2.2:8000` (ایمولاتور) یا آی‌پی شبکه محلی سیستم (مانند `http://192.168.1.100:8000`)
+* **شناسه مسابقه:** `8`
+* **شناسه اجرای آماده قضاوت:** `15` (وضعیت اولیه: `scoring`)
 * **رمز عبور تمام کاربران:** `password123`
 
 | نقش | ایمیل تست | مسئولیت |
 |---|---|---|
-| **داور ۱ (مارکر)** | `judge1@poomsae.test` | ثبت نمره صندلی ۱ |
-| **داور ۲ (مارکر)** | `judge2@poomsae.test` | ثبت نمره صندلی ۲ |
-| **داور ۳ تا ۵** | `judge3@poomsae.test` تا `judge5@poomsae.test` | ثبت نمرات سایر صندلی‌ها |
-| **اپراتور مسابقه (پنل وب)** | `operator@poomsae.test` | صدور فرمان‌های start, finish, approve (منحصراً از طریق پنل وب) |
+| **داور ۱ (مارکر)** | `judge1@poomsae.test` | صندلی شماره ۱ (ورود از تبلت اندروید) |
+| **داور ۲ (مارکر)** | `judge2@poomsae.test` | صندلی شماره ۲ (ورود از تبلت اندروید) |
+| **داوران ۳ تا ۵** | `judge3@poomsae.test` تا `judge5@poomsae.test` | سایر صندلی‌ها |
+| **اپراتور مسابقه** | `operator@poomsae.test` | کنترل مسابقه **فقط از طریق کنسول تحت وب** |
 
 ---
 
-## ۶. جدول خطاهای رایج HTTP
+## ۷. جدول کدهای وضعیت HTTP
 
-| کد خطا | علت | اقدام اپلیکیشن اندروید |
+| کد وضعیت | شرح | واکنش اپلیکیشن اندروید |
 |---|---|---|
-| `200 / 201` | عملیات موفق | رندر داده‌ها یا ذخیره توکن |
-| `401 Unauthorized` | توکن نامعتبر یا منقضی | هدایت داور به صفحه لاگین مجدد |
-| `403 Forbidden` | کاربر داور این مسابقه نیست | نمایش پیام خطای سطح دسترسی |
-| `404 Not Found` | مسابقه یا اجرای مورد نظر پیدا نشد | بررسی مجدد شناسه مسابقه یا اجرا |
-| `409 Conflict` | تضاد نسخه (`expected_version`) | بارگذاری مجدد Snapshot و ارسال نسخه جدید |
-| `422 Unprocessable` | ورودی نامعتبر (مثلاً نمره خارج از بازه) | بررسی محدوده مجاز نمرات (دقت بین ۰ تا ۴، ارائه بین ۰ تا ۶) |
+| `200 / 201` | موفقیت‌آمیز | به‌روزرسانی UI یا ذخیره توکن |
+| `401 Unauthorized` | توکن نامعتبر یا منقضی شده | هدایت به صفحه لاگین مجدد |
+| `403 Forbidden` | کاربر به عنوان داور این مسابقه منتسب نشده | نمایش پیام خطای دسترسی |
+| `404 Not Found` | اجرا یا مسابقه وجود ندارد | بررسی مجدد شناسه‌ها |
+| `422 Unprocessable Content` | مقادیر ارسالی نمره نامعتبر است | بررسی فرمت و بازه نمرات (مثلاً نمره دقت بین ۰ تا ۴) |

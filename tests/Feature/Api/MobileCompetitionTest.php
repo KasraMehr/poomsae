@@ -2,9 +2,11 @@
 
 namespace Tests\Feature\Api;
 
+use App\Events\CompetitionUpdated;
 use App\Models\Performance;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 use Tests\CreatesCompetition;
@@ -168,5 +170,89 @@ class MobileCompetitionTest extends TestCase
             ->assertOk()
             ->assertJsonPath('changed', true);
         $this->assertNotNull($displayResponse->json('data.revision'));
+    }
+
+    public function test_judge_can_fetch_thin_client_current_state(): void
+    {
+        $fixture = $this->competition();
+        $this->schedule($fixture);
+        $performance = Performance::query()->firstOrFail();
+        $this->startScoring($fixture, $performance);
+
+        $judge = $fixture['judges'][0];
+        Sanctum::actingAs($judge, ['tournaments:read', 'scores:write']);
+
+        $response = $this->getJson('/api/v1/judge/current-state')->assertOk();
+
+        $response->assertJsonPath('judge.id', $judge->id)
+            ->assertJsonPath('judge.name', $judge->name)
+            ->assertJsonPath('judge.seat_number', 1)
+            ->assertJsonPath('tournament.id', $fixture['tournament']->id)
+            ->assertJsonPath('realtime.protocol', 'mercure-sse')
+            ->assertJsonPath('realtime.channel', 'private-tournaments.'.$fixture['tournament']->id)
+            ->assertJsonPath('active_performance.id', $performance->id)
+            ->assertJsonPath('active_performance.status', 'scoring')
+            ->assertJsonPath('active_performance.rules.judge_count', 5)
+            ->assertJsonPath('active_performance.my_submission.is_submitted', false);
+
+        $this->assertNotEmpty($response->json('realtime.mercure_token'));
+    }
+
+    public function test_judge_can_submit_score_via_simplified_endpoint_without_concurrency_fields(): void
+    {
+        $fixture = $this->competition();
+        $this->schedule($fixture);
+        $performance = Performance::query()->firstOrFail();
+        $this->startScoring($fixture, $performance);
+
+        $judge = $fixture['judges'][1];
+        Sanctum::actingAs($judge, ['tournaments:read', 'scores:write']);
+
+        // Simplified payload with only score components, omitting request_id, expected_version, expected_revision
+        $this->postJson('/api/v1/performances/'.$performance->id.'/scores', [
+            ...$this->detailedScoreInput('3.20', '5.50'),
+        ])->assertOk()->assertJsonPath('data.revision', 1);
+
+        $this->assertDatabaseHas('score_sheets', [
+            'performance_id' => $performance->id,
+            'submitted_by' => $judge->id,
+            'submission_mode' => 'judge',
+            'status' => 'submitted',
+        ]);
+
+        // After submit, current-state reflects my_submission
+        $stateResponse = $this->getJson('/api/v1/judge/current-state')->assertOk();
+        $stateResponse->assertJsonPath('active_performance.my_submission.is_submitted', true)
+            ->assertJsonPath('active_performance.my_submission.accuracy', '3.20')
+            ->assertJsonPath('active_performance.my_submission.presentation', '5.50');
+    }
+
+    public function test_operator_command_publishes_enriched_mercure_payload(): void
+    {
+        Event::fake([CompetitionUpdated::class]);
+
+        $fixture = $this->competition();
+        $this->schedule($fixture);
+        $performance = Performance::query()->firstOrFail();
+
+        // Operator starts performance via web route
+        $this->actingAs($fixture['operator'])->post(
+            route('operations.command', [$fixture['tournament'], $performance]),
+            [
+                'command' => 'start',
+                'expected_version' => $performance->version,
+            ]
+        )->assertRedirect();
+
+        Event::assertDispatched(CompetitionUpdated::class, function ($event) use ($fixture, $performance) {
+            $data = $event->broadcastWith();
+
+            return $data['tournament_id'] === $fixture['tournament']->id
+                && $data['action'] === 'start'
+                && ($data['should_refresh'] ?? false) === true
+                && isset($data['active_performance'])
+                && $data['active_performance']['id'] === $performance->id
+                && $data['active_performance']['status'] === 'running';
+        });
     }
 }

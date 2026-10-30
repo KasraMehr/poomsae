@@ -9,7 +9,10 @@ class SubmitScoreRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()->hasTournamentRole($this->route('tournament'), ['judge']);
+        $tournament = $this->route('tournament')
+            ?? $this->route('performance')?->bout?->category?->tournament;
+
+        return $tournament && $this->user()->hasTournamentRole($tournament, ['judge']);
     }
 
     public function rules(): array
@@ -20,8 +23,9 @@ class SubmitScoreRequest extends FormRequest
         $freestyleComponents = $method === 'freestyle_components_v1';
 
         return [
-            'request_id' => ['required', 'uuid'], 'expected_version' => ['required', 'integer', 'min:1'],
-            'expected_revision' => ['required', 'integer', 'min:0'],
+            'request_id' => ['nullable', 'uuid'],
+            'expected_version' => ['nullable', 'integer', 'min:1'],
+            'expected_revision' => ['nullable', 'integer', 'min:0'],
             'score' => [$singleScore ? 'required' : 'prohibited', 'string', 'regex:/^\d{1,2}(?:\.\d{1,2})?$/D'],
             'accuracy' => [$singleScore ? 'prohibited' : 'required', 'string', 'regex:/^\\d{1,2}(?:\\.\\d{1,2})?$/D'],
             'presentation' => [$singleScore ? 'prohibited' : 'required', 'string', 'regex:/^\\d{1,2}(?:\\.\\d{1,2})?$/D'],

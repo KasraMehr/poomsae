@@ -40,11 +40,17 @@ class CompetitionController extends Controller
         ]);
     }
 
-    public function score(SubmitScoreRequest $request, Tournament $tournament, Performance $performance, SubmitScore $submit): JsonResponse
+    public function score(SubmitScoreRequest $request, Performance $performance, SubmitScore $submit): JsonResponse
     {
+        $tournament = $performance->bout->category->tournament;
         $result = $submit->handle($request->user(), $tournament, $performance, $request->validated());
 
         return response()->json(['data' => $result]);
+    }
+
+    public function scoreTournament(SubmitScoreRequest $request, Tournament $tournament, Performance $performance, SubmitScore $submit): JsonResponse
+    {
+        return $this->score($request, $performance, $submit);
     }
 
     public function result(Request $request, Tournament $tournament, Performance $performance): JsonResponse

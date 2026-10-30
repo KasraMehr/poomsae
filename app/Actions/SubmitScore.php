@@ -11,6 +11,7 @@ use App\Models\ScoreSheet;
 use App\Models\Tournament;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 class SubmitScore
@@ -32,9 +33,20 @@ class SubmitScore
                 ? JudgeAssignment::where('bout_id', $bout->id)->whereKey($data['judge_assignment_id'])->first()
                 : JudgeAssignment::where('bout_id', $bout->id)->where('user_id', $actor->id)->first();
             abort_unless($judge, 403);
+
+            $sheet = ScoreSheet::where('performance_id', $performance->id)->where('judge_assignment_id', $judge->id)->first();
+
+            $requestId = ! empty($data['request_id']) ? (string) $data['request_id'] : (string) Str::uuid();
+            $expectedVersion = isset($data['expected_version']) && $data['expected_version'] !== null && $data['expected_version'] !== ''
+                ? (int) $data['expected_version']
+                : $performance->version;
+            $expectedRevision = isset($data['expected_revision']) && $data['expected_revision'] !== null && $data['expected_revision'] !== ''
+                ? (int) $data['expected_revision']
+                : ($sheet?->revision ?? 0);
+
             $rules = $category->scoringRuleSet->definition;
             $singleScore = ($rules['input_method'] ?? null) === 'single_score_v1';
-            $payload = ['performance_id' => $performance->id, 'judge_assignment_id' => $judge->id, 'proxy' => $proxy, 'expected_version' => (int) $data['expected_version'], 'expected_revision' => (int) $data['expected_revision'], 'score' => $data['score'] ?? null, 'accuracy' => $data['accuracy'] ?? null, 'presentation' => $data['presentation'] ?? null, 'reason' => $data['reason'] ?? null];
+            $payload = ['performance_id' => $performance->id, 'judge_assignment_id' => $judge->id, 'proxy' => $proxy, 'expected_version' => $expectedVersion, 'expected_revision' => $expectedRevision, 'score' => $data['score'] ?? null, 'accuracy' => $data['accuracy'] ?? null, 'presentation' => $data['presentation'] ?? null, 'reason' => $data['reason'] ?? null];
             if (array_key_exists('accuracy_penalties', $data) || array_key_exists('presentation_components', $data)) {
                 $payload['accuracy_penalties'] = $data['accuracy_penalties'] ?? null;
                 $payload['presentation_components'] = $data['presentation_components'] ?? null;
@@ -44,15 +56,15 @@ class SubmitScore
                 $payload['accuracy_components'] = $data['accuracy_components'] ?? null;
             }
             $hash = hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR));
-            $existing = DB::table('idempotency_keys')->where('user_id', $actor->id)->where('request_id', $data['request_id'])->first();
+            $existing = DB::table('idempotency_keys')->where('user_id', $actor->id)->where('request_id', $requestId)->first();
             if ($existing) {
                 abort_unless(hash_equals($existing->payload_hash, $hash), 409, 'این شناسهٔ درخواست برای اطلاعات دیگری استفاده شده است.');
 
                 return json_decode($existing->response_body, true, 512, JSON_THROW_ON_ERROR);
             }
-            abort_unless($performance->version === (int) $data['expected_version'], 409, 'وضعیت اجرا تغییر کرده؛ صفحه را تازه کنید.');
+            abort_unless($performance->version === $expectedVersion, 409, 'وضعیت اجرا تغییر کرده؛ صفحه را تازه کنید.');
             $publishedCorrection = $performance->status === 'approved';
-            $this->setup->check(in_array($tournament->status, ['running', 'completed'], true) && in_array($performance->status, ['scoring', 'approved'], true), 'ثبت یا اصلاح نمره فقط پس از پایان اجرا مجاز است.');
+            $this->setup->check(in_array($tournament->status, ['running', 'completed'], true) && in_array($performance->status, ['running', 'scoring', 'approved'], true), 'ثبت یا اصلاح نمره فقط در زمان اجرا یا پس از پایان اجرا مجاز است.');
             if ($publishedCorrection) {
                 if ($approvedAppeal !== null) {
                     $approvedAppeal = CompetitionAppeal::lockForUpdate()->findOrFail($approvedAppeal->id);
@@ -64,8 +76,7 @@ class SubmitScore
                     ->exists();
                 $this->setup->check(! $laterRoundStarted, 'با شروع مرحلهٔ بعد این رده، اصلاح نمرهٔ مرحلهٔ قبل مجاز نیست.');
             }
-            $sheet = ScoreSheet::where('performance_id', $performance->id)->where('judge_assignment_id', $judge->id)->first();
-            abort_unless(($sheet?->revision ?? 0) === (int) $data['expected_revision'], 409, 'نمره در دستگاه دیگری تغییر کرده است؛ نسخهٔ تازه را دریافت کنید.');
+            abort_unless(($sheet?->revision ?? 0) === $expectedRevision, 409, 'نمره در دستگاه دیگری تغییر کرده است؛ نسخهٔ تازه را دریافت کنید.');
             $this->setup->check(! $publishedCorrection || $sheet !== null, 'برای اصلاح نتیجهٔ نهایی باید نمرهٔ قبلی همین صندلی موجود باشد.');
             $this->setup->check($publishedCorrection || $proxy || ! $sheet || $sheet->submission_mode !== 'operator_proxy' || $sheet->status === 'draft', 'نمرهٔ دستی تأیید شده است و داور نمی‌تواند آن را بازنویسی کند.');
             $this->setup->check($proxy || ! $sheet || mb_strlen(trim($data['reason'] ?? '')) >= 5, 'برای اصلاح نمره، دلیل حداقل ۵ کاراکتری بنویسید.');
@@ -80,10 +91,10 @@ class SubmitScore
             }
             DB::table('score_revisions')->insert(['score_sheet_id' => $sheet->id, 'changed_by' => $actor->id, 'revision' => $sheet->revision, 'snapshot' => json_encode([...$values, 'breakdown' => $breakdown], JSON_THROW_ON_ERROR), 'reason' => $data['reason'] ?? null, 'created_at' => now()]);
             if ($publishedCorrection) {
-                $this->run->recalculateApprovedResult($actor, $tournament, $performance, $data['reason']);
+                $this->run->recalculateApprovedResult($actor, $tournament, $performance, (string) ($data['reason'] ?? ''));
             }
             $response = ['score_sheet_id' => $sheet->id, 'revision' => $sheet->revision, 'requires_confirmation' => $sheet->status === 'draft'];
-            DB::table('idempotency_keys')->insert(['user_id' => $actor->id, 'request_id' => $data['request_id'], 'payload_hash' => $hash, 'response_status' => 200, 'response_body' => json_encode($response, JSON_THROW_ON_ERROR), 'created_at' => now()]);
+            DB::table('idempotency_keys')->insert(['user_id' => $actor->id, 'request_id' => $requestId, 'payload_hash' => $hash, 'response_status' => 200, 'response_body' => json_encode($response, JSON_THROW_ON_ERROR), 'created_at' => now()]);
             $this->setup->audit($actor, $tournament, $proxy ? 'score.proxy_submitted' : 'score.submitted', 'score_sheet', $sheet->id, ['revision' => $sheet->revision, 'judge_assignment_id' => $judge->id, 'reason' => $data['reason'] ?? null]);
 
             return $response;

@@ -17,11 +17,35 @@ class PublishCompetitionUpdate
 {
     public function handle(AuditLog $audit): void
     {
+        $action = $audit->action;
+        $shortAction = str_starts_with($action, 'performance.') ? substr($action, 12) : $action;
+
+        $activePerformanceData = null;
+        if ($audit->subject_type === 'performance') {
+            $perf = Performance::with(['bout.category', 'entry.athletes'])->find($audit->subject_id);
+            if ($perf) {
+                $category = $perf->bout?->category;
+                $athlete = $perf->entry?->athletes?->first();
+                $activePerformanceData = [
+                    'id' => $perf->id,
+                    'status' => $perf->status,
+                    'category_name' => $category?->name ?? '—',
+                    'athlete' => [
+                        'id' => $athlete?->id ?? $perf->entry?->id ?? 0,
+                        'name' => $athlete ? trim($athlete->first_name.' '.$athlete->last_name) : ($perf->entry?->display_name ?? '—'),
+                    ],
+                ];
+            }
+        }
+
         $change = [
-            'action' => $audit->action,
+            'action' => $shortAction,
+            'raw_action' => $audit->action,
+            'should_refresh' => true,
             'subject' => ['type' => $audit->subject_type, 'id' => $audit->subject_id],
             'context' => $this->context($audit),
             'occurred_at' => $audit->created_at->toISOString(),
+            'active_performance' => $activePerformanceData,
         ];
 
         CompetitionUpdated::dispatch($audit->tournament_id, $audit->id, $change);

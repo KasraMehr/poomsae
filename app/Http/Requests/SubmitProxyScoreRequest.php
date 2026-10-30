@@ -23,9 +23,15 @@ class SubmitProxyScoreRequest extends FormRequest
      */
     public function rules(): array
     {
-        $method = $this->route('performance')?->bout?->category?->scoringRuleSet?->definition['input_method'] ?? null;
+        $performance = $this->route('performance');
+        $method = $performance?->bout?->category?->scoringRuleSet?->definition['input_method'] ?? null;
+        $rules = self::scoreRules($method);
 
-        return self::scoreRules($method);
+        if ($performance?->result?->published_at !== null) {
+            $rules['reason'] = ['required', 'string', 'min:10', 'max:500'];
+        }
+
+        return $rules;
     }
 
     /** @return array<string, array<mixed>> */

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\CompetitionController;
+use App\Http\Controllers\Api\V1\JudgeStateController;
 use App\Http\Controllers\Api\V1\TkdhubController;
 use App\Http\Controllers\Api\V1\TokenController;
 use App\Http\Controllers\Api\V1\TournamentController;
@@ -15,6 +16,7 @@ Route::prefix('v1')->group(function () {
         Route::delete('/auth/token', [TokenController::class, 'destroy']);
         Route::get('/me', fn (Request $request) => ['data' => $request->user()->only('id', 'name', 'email')]);
         Route::middleware('abilities:tournaments:read')->group(function () {
+            Route::get('/judge/current-state', [JudgeStateController::class, 'currentState']);
             Route::get('/tournaments', [TournamentController::class, 'index']);
             Route::get('/tournaments/{tournament}', [TournamentController::class, 'show']);
             Route::get('/tournaments/{tournament}/competition', [CompetitionController::class, 'show']);
@@ -22,7 +24,8 @@ Route::prefix('v1')->group(function () {
             Route::get('/tournaments/{tournament}/performances/{performance}/result', [CompetitionController::class, 'result']);
             Route::get('/tournaments/{tournament}/tkdhub/divisions/{division}/results', [TkdhubController::class, 'results'])->name('api.tkdhub.results');
         });
-        Route::post('/tournaments/{tournament}/performances/{performance}/scores', [CompetitionController::class, 'score'])->middleware(['abilities:scores:write', 'panel:judge']);
+        Route::post('/performances/{performance}/scores', [CompetitionController::class, 'score'])->middleware(['abilities:scores:write', 'panel:judge']);
+        Route::post('/tournaments/{tournament}/performances/{performance}/scores', [CompetitionController::class, 'scoreTournament'])->middleware(['abilities:scores:write', 'panel:judge']);
         Route::put('/tournaments/{tournament}/categories/{category}/management-snapshot', [CompetitionController::class, 'import'])->scopeBindings()->middleware(['abilities:competition:manage', 'panel:admin']);
         Route::post('/tournaments/{tournament}/categories', [CompetitionController::class, 'category'])->middleware(['abilities:competition:manage', 'panel:admin']);
         Route::prefix('/tournaments/{tournament}/tkdhub')->middleware(['abilities:competition:manage', 'panel:admin'])->group(function () {
