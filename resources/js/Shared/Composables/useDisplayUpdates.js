@@ -11,13 +11,14 @@ export function useDisplayUpdates(initialDisplay, endpoint) {
     let timer;
     let clock;
     let controller;
+    let stopConnectionListener;
     let stopped = true;
     let busy = false;
     let requested = false;
 
     const connection = computed(() => {
         if (accessDenied.value) return 'denied';
-        if (now.value - lastReceived.value > 3000) return 'stale';
+        if (now.value - lastReceived.value > 20000) return 'stale';
         return echo?.connectionStatus() === 'connected' ? 'connected' : 'polling';
     });
 
@@ -29,7 +30,7 @@ export function useDisplayUpdates(initialDisplay, endpoint) {
         clearTimeout(timer);
         controller = new AbortController();
         const timeout = setTimeout(() => controller?.abort(), 3000);
-        let delay = 500;
+        let delay = echo?.connectionStatus() === 'connected' ? 15000 : 1000;
         try {
             const url = new URL(endpoint, window.location.origin);
             url.searchParams.set('revision', display.value.revision);
@@ -47,7 +48,7 @@ export function useDisplayUpdates(initialDisplay, endpoint) {
             if (payload.changed && payload.data.revision >= display.value.revision) display.value = payload.data;
             lastReceived.value = Date.now();
         } catch {
-            delay = 1000;
+            delay = 2000;
         } finally {
             clearTimeout(timeout);
             busy = false;
@@ -60,6 +61,9 @@ export function useDisplayUpdates(initialDisplay, endpoint) {
         stopped = false;
         clock = setInterval(() => now.value = Date.now(), 250);
         echo = getRealtime();
+        stopConnectionListener = echo?.connector.onConnectionChange(status => {
+            if (status === 'connected') refresh();
+        });
         echo?.private('tournaments.' + initialDisplay.tournament.id).listen('.competition.updated', refresh);
         refresh();
     });
@@ -68,6 +72,7 @@ export function useDisplayUpdates(initialDisplay, endpoint) {
         clearTimeout(timer);
         clearInterval(clock);
         controller?.abort();
+        stopConnectionListener?.();
         echo?.leave('tournaments.' + initialDisplay.tournament.id);
     });
     return { display, now, lastReceived, connection };
