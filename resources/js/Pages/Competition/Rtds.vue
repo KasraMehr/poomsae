@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue';
 import { useDisplayUpdates } from '../../Shared/Composables/useDisplayUpdates';
 import Standby from '../Scoreboard/Standby.vue';
 import LiveBoard from '../Scoreboard/LiveBoard.vue';
+import Draw from '../Scoreboard/Draw.vue';
 import Scoring from '../Scoreboard/Scoring.vue';
 import Result from '../Scoreboard/Result.vue';
 import Winner from '../Scoreboard/Winner.vue';
@@ -40,12 +41,14 @@ const hasRanking = computed(() => {
     return Boolean(category && (category.placements?.length || category.standings?.some(row => row.rank != null)));
 });
 
-// All RTDS phase durations are milliseconds. Live/scoring remain backend-driven.
+// All RTDS phase durations are milliseconds. Queue timing starts when this display first sees a ready item.
+// TODO: If refreshes or multiple displays drift, replace this local clock with a shared server ready_at timestamp.
 const phaseDurations = {
     result: 10_000,
     winner: 10_000,
     ranking: 10_000,
-    standbyBeforeCall: 4_000,
+    standby: 20_000,
+    draw: 20_000,
 };
 
 const resolvePresentation = ({ publishedAge, currentStatus, hasWinner, hasRanking, publishedAt, clockOffset, winnerConfirmedAt, now }) => {
@@ -66,14 +69,17 @@ const resolvePresentation = ({ publishedAge, currentStatus, hasWinner, hasRankin
     return null;
 };
 
-const resolvePhase = ({ currentStatus, presentationPhase, hasReadyPerformance, now, queueSince, presentationEnd, winnerEnd }) => {
+const resolvePhase = ({ currentStatus, presentationPhase, hasReadyPerformance, hasDrawData, now, queueSince, presentationEnd, winnerEnd }) => {
     if (currentStatus === 'running') return 'live';
     if (currentStatus === 'scoring') return 'scoring';
     if (presentationPhase) return presentationPhase;
     if (!hasReadyPerformance) return 'standby';
 
     const waitingAge = now - Math.max(queueSince, presentationEnd, winnerEnd);
-    return waitingAge < phaseDurations.standbyBeforeCall ? 'standby' : 'call';
+    if (waitingAge < phaseDurations.standby) return 'standby';
+    if (hasDrawData && waitingAge < phaseDurations.standby + phaseDurations.draw) return 'draw';
+
+    return 'call';
 };
 
 const sequence = computed(() => [
@@ -100,16 +106,61 @@ const winnerEnd = computed(() => hasWinner.value && winnerConfirmedAt.value
 const presentationEnd = computed(() => latest.value
     ? Date.parse(latest.value.performance.result_published_at) - clockOffset.value + sequenceDuration.value
     : 0);
+const drawTarget = computed(() => firstReady.value
+    ? courtBouts.value.find(item => String(item.bout.id) === String(firstReady.value.bout_id)) ?? null
+    : null);
+const drawData = computed(() => {
+    if (!drawTarget.value) return null;
+
+    const { category, round, bout } = drawTarget.value;
+    const performancesByNumber = new Map();
+    for (const performance of bout.performances ?? []) {
+        if (!performancesByNumber.has(performance.form_number)) {
+            performancesByNumber.set(performance.form_number, performance);
+        }
+    }
+
+    const forms = (round.form_names ?? []).length
+        ? round.form_names.map((formName, index) => {
+            const formNumber = index + 1;
+            const performance = performancesByNumber.get(formNumber);
+
+            return {
+                round_label: `R - ${formNumber}`,
+                form_number: formNumber,
+                symbol_key: performance?.form_badge ?? performance?.form_number ?? null,
+                form_name: performance?.form_name ?? formName ?? '',
+            };
+        })
+        : [...performancesByNumber.values()]
+            .sort((left, right) => left.form_number - right.form_number)
+            .map(performance => ({
+                round_label: `R - ${performance.form_number}`,
+                form_number: performance.form_number,
+                symbol_key: performance.form_badge ?? performance.form_number ?? null,
+                form_name: performance.form_name ?? '',
+            }));
+
+    return {
+        mode: bout.entries?.length > 1 ? 'double' : 'single',
+        stage: round.stage_label ?? round.name ?? '',
+        title: display.value.tournament.name ?? '',
+        category: category.name ?? '',
+        entries: bout.entries ?? [],
+        forms,
+    };
+});
 const phase = computed(() => resolvePhase({
     currentStatus: current.value?.status,
     presentationPhase: presentation.value,
     hasReadyPerformance: Boolean(firstReady.value),
+    hasDrawData: Boolean(drawData.value?.forms.length),
     now: now.value,
     queueSince: queueSince.value,
     presentationEnd: presentationEnd.value,
     winnerEnd: winnerEnd.value,
 }));
-const screens = { standby: Standby, call: LiveBoard, live: LiveBoard, scoring: Scoring, result: Result, winner: Winner, ranking: Ranking };
+const screens = { standby: Standby, draw: Draw, call: LiveBoard, live: LiveBoard, scoring: Scoring, result: Result, winner: Winner, ranking: Ranking };
 const screen = computed(() => screens[phase.value]);
 
 // Each RTDS URL shows only its own court. A result on another court cannot
@@ -146,6 +197,7 @@ const screenDisplay = computed(() => {
         :court-id="courtId"
         :phase="phase"
         :focus-item="firstReady"
+        :draw="phase === 'draw' ? drawData : null"
         :upcoming="upcoming"
         :focus-bout-id="latest?.bout.id"
         :focus-form-number="latest?.performance.form_number"

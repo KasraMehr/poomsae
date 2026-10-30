@@ -27,6 +27,7 @@ const props = defineProps({
     display: { type: Object, default: null },
     tournament: { type: Object, default: null },
     courtId: { type: [Number, String], default: null },
+    focusItem: { type: Object, default: null },
 });
 
 // Accept the production display envelope and the standalone lab snapshot.
@@ -96,24 +97,37 @@ const findSnapshotBout = (boutId) =>
 const current = computed(() => {
     if (displayCourt.value) {
         const item = displayCourt.value.current;
-        if (!item) return null;
+        if (item) {
+            const bout = findSnapshotBout(item.bout_id);
+            if (!bout) return null;
 
-        const bout = findSnapshotBout(item.bout_id);
-        if (!bout) return null;
+            const performance =
+                item.performances?.find((p) =>
+                    ["running", "scoring"].includes(p.status),
+                ) ?? bout.performances[0];
+            if (!performance) return null;
 
-        const performance =
-            item.performances?.find((p) =>
-                ["running", "scoring"].includes(p.status),
-            ) ?? bout.performances[0];
-        if (!performance) return null;
+            return {
+                bout,
+                performance,
+                state: ["running", "scoring"].includes(item.status)
+                    ? item.status
+                    : "approved",
+            };
+        }
 
-        return {
-            bout,
-            performance,
-            state: ["running", "scoring"].includes(item.status)
-                ? item.status
-                : "approved",
-        };
+        if (props.focusItem?.bout_id) {
+            const bout = findSnapshotBout(props.focusItem.bout_id);
+            const performance = bout?.performances?.find(
+                (item) => String(item.id) === String(props.focusItem.id),
+            );
+
+            if (bout && performance) {
+                return { bout, performance, state: "pending" };
+            }
+        }
+
+        return null;
     }
 
     const bout = courtBouts.value.find(
@@ -183,7 +197,9 @@ const previous = computed(() => {
  */
 const next = computed(() => {
     if (displayCourt.value) {
-        const upcoming = displayCourt.value.upcoming?.[0];
+        const upcoming = displayCourt.value.upcoming?.find(
+            (item) => String(item.bout_id) !== String(current.value?.bout?.id),
+        );
 
         return upcoming ? findSnapshotBout(upcoming.bout_id) : null;
     }
@@ -196,12 +212,14 @@ const next = computed(() => {
 });
 
 const stateLabels = {
+    pending: "READY",
     running: "LIVE",
     scoring: "AWAITING SCORES",
     approved: "RESULT APPROVED",
 };
 
 const stateClasses = {
+    pending: "border-rtds-success text-rtds-success",
     running: "border-rtds-blue text-rtds-blue-soft",
     scoring: "border-rtds-yellow text-rtds-yellow",
     approved: "border-rtds-success text-rtds-success",
@@ -332,7 +350,9 @@ const formSymbolKeyOf = (bout, performance = bout.performances?.[0]) => {
                     current
                         ? current.state === 'running'
                             ? 'border-rtds-blue bg-rtds-blue/5'
-                            : 'border-rtds-yellow bg-rtds-yellow/5'
+                            : current.state === 'pending'
+                                ? 'border-rtds-success bg-rtds-success/5'
+                                : 'border-rtds-yellow bg-rtds-yellow/5'
                         : 'border-rtds-border bg-rtds-bg-card'
                 "
             >
@@ -381,12 +401,15 @@ const formSymbolKeyOf = (bout, performance = bout.performances?.[0]) => {
 
                         <!-- Timer کوچک؛ همان سه حالت Standby، کنترل از پنل اپراتور -->
                         <Timer
-                            v-if="durationSeconds != null"
+                            v-if="durationSeconds != null && current.state !== 'pending'"
                             size="sm"
                             :duration-seconds="durationSeconds"
                             :started-at="current.performance.started_at"
                             :ended-at="current.performance.ended_at"
                         />
+                        <span v-else-if="current.state === 'pending'" class="text-sm font-semibold text-rtds-success">
+                            Awaiting operator start
+                        </span>
                         <span v-else class="text-sm text-rtds-text-secondary">
                             Timer data unavailable
                         </span>
