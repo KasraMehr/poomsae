@@ -2,6 +2,7 @@
 
 namespace App\Actions;
 
+use App\Models\Entry;
 use App\Models\JudgeAssignment;
 use App\Models\Performance;
 use App\Models\ScoreSheet;
@@ -99,7 +100,8 @@ class JudgeCurrentState
         $ruleDef = $category->scoringRuleSet?->definition ?? [];
 
         $entry = $performance->entry;
-        $athlete = $entry?->athletes()->first();
+        $athletesList = $this->formatAthletes($entry);
+        $side = $entry ? $bout->entries()->where('entries.id', $entry->id)->first()?->pivot?->side : null;
 
         $sheet = $assignment
             ? ScoreSheet::where('performance_id', $performance->id)
@@ -119,19 +121,68 @@ class JudgeCurrentState
             ? number_format($components['presentation'] / 100, 2, '.', '')
             : null;
 
+        $simultaneous = $category->format === 'knockout' && $category->execution_mode === 'simultaneous';
+        $pairedPerformance = null;
+        if ($simultaneous) {
+            $paired = Performance::where('bout_id', $bout->id)
+                ->where('id', '!=', $performance->id)
+                ->where('form_number', $performance->form_number)
+                ->first();
+
+            if ($paired) {
+                $pairedEntry = $paired->entry;
+                $pairedAthletes = $this->formatAthletes($pairedEntry);
+                $pairedSheet = $assignment
+                    ? ScoreSheet::where('performance_id', $paired->id)
+                        ->where('judge_assignment_id', $assignment->id)
+                        ->first()
+                    : null;
+
+                $pairedComponents = $pairedSheet
+                    ? DB::table('score_components')->where('score_sheet_id', $pairedSheet->id)->pluck('value_hundredths', 'criterion')
+                    : collect();
+
+                $pairedAccuracy = isset($pairedComponents['accuracy'])
+                    ? number_format($pairedComponents['accuracy'] / 100, 2, '.', '')
+                    : (isset($pairedComponents['score']) ? number_format($pairedComponents['score'] / 100, 2, '.', '') : null);
+
+                $pairedPresentation = isset($pairedComponents['presentation'])
+                    ? number_format($pairedComponents['presentation'] / 100, 2, '.', '')
+                    : null;
+
+                $pairedSide = $pairedEntry ? $bout->entries()->where('entries.id', $pairedEntry->id)->first()?->pivot?->side : null;
+
+                $pairedPerformance = [
+                    'id' => $paired->id,
+                    'entry_id' => $paired->entry_id,
+                    'status' => $paired->status,
+                    'side' => $pairedSide,
+                    'entry_display_name' => $pairedEntry?->display_name ?? '—',
+                    'athlete' => $pairedAthletes[0] ?? null,
+                    'athletes' => $pairedAthletes,
+                    'my_submission' => [
+                        'is_submitted' => $pairedSheet?->status === 'submitted',
+                        'accuracy' => $pairedAccuracy,
+                        'presentation' => $pairedPresentation,
+                    ],
+                ];
+            }
+        }
+
         return [
             'id' => $performance->id,
             'tournament_id' => $category->tournament_id,
             'status' => $performance->status,
             'started_at' => $performance->started_at?->toISOString(),
             'category_name' => $category->name,
+            'entry_type' => $category->entry_type ?? 'individual',
+            'entry_display_name' => $entry?->display_name ?? ($athletesList[0]['name'] ?? '—'),
+            'side' => $side,
             'round_name' => $bout->round?->name ?? 'دور مسابقه',
             'poomsae_name' => $performance->form?->name ?? ('فرم '.$performance->form_number),
-            'athlete' => [
-                'id' => $athlete?->id ?? $entry?->id ?? 0,
-                'name' => $athlete ? trim($athlete->first_name.' '.$athlete->last_name) : ($entry?->display_name ?? '—'),
-                'team_or_club' => $athlete?->club ?: ($athlete?->country_code ?: ($entry?->display_name ?: '—')),
-            ],
+            'athlete' => $athletesList[0] ?? null,
+            'athletes' => $athletesList,
+            'paired_performance' => $pairedPerformance,
             'rules' => [
                 'judge_count' => (int) ($category->judge_count ?? 5),
                 'input_method' => $ruleDef['input_method'] ?? 'standard_wt',
@@ -144,6 +195,44 @@ class JudgeCurrentState
                 'presentation' => $presentation,
             ],
         ];
+    }
+
+    /**
+     * Format the list of athletes for an entry.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function formatAthletes(?Entry $entry): array
+    {
+        if (! $entry) {
+            return [];
+        }
+
+        $athletes = $entry->athletes()->orderBy('entry_members.position')->get();
+
+        if ($athletes->isEmpty()) {
+            return [
+                [
+                    'id' => $entry->id,
+                    'name' => $entry->display_name ?? '—',
+                    'first_name' => '',
+                    'last_name' => '',
+                    'team_or_club' => $entry->display_name ?? '—',
+                    'position' => 1,
+                ],
+            ];
+        }
+
+        return $athletes->map(function ($ath) use ($entry): array {
+            return [
+                'id' => $ath->id,
+                'name' => trim($ath->first_name.' '.$ath->last_name),
+                'first_name' => $ath->first_name,
+                'last_name' => $ath->last_name,
+                'team_or_club' => $ath->club ?: ($ath->country_code ?: ($entry->display_name ?: '—')),
+                'position' => (int) ($ath->pivot->position ?? 1),
+            ];
+        })->values()->all();
     }
 
     /**

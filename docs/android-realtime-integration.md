@@ -115,14 +115,39 @@ Accept: application/json
       "tournament_id": 8,
       "status": "scoring",
       "started_at": "2026-10-30T10:15:00.000000Z",
-      "category_name": "انفرادی استاندارد مردان",
+      "category_name": "تیمی دونفره (جفتی)",
+      "entry_type": "pair",
+      "entry_display_name": "علی حسینی / رضا اکبری",
+      "side": "chung",
       "round_name": "فینال",
       "poomsae_name": "کوریو (Koryo)",
       "athlete": {
         "id": 101,
         "name": "علی حسینی",
-        "team_or_club": "باشگاه عقاب"
+        "first_name": "علی",
+        "last_name": "حسینی",
+        "team_or_club": "باشگاه عقاب",
+        "position": 1
       },
+      "athletes": [
+        {
+          "id": 101,
+          "name": "علی حسینی",
+          "first_name": "علی",
+          "last_name": "حسینی",
+          "team_or_club": "باشگاه عقاب",
+          "position": 1
+        },
+        {
+          "id": 102,
+          "name": "رضا اکبری",
+          "first_name": "رضا",
+          "last_name": "اکبری",
+          "team_or_club": "باشگاه عقاب",
+          "position": 2
+        }
+      ],
+      "paired_performance": null,
       "rules": {
         "judge_count": 5,
         "input_method": "standard_wt",
@@ -139,6 +164,35 @@ Accept: application/json
 }
 ```
 
+> **انواع مسابقات (`entry_type`):**
+> - `individual`: انفرادی (آرایه `athletes` دارای ۱ عضو است).
+> - `pair`: جفتی / دونفره (آرایه `athletes` دارای ۲ عضو است).
+> - `team`: تیمی ۳ نفره (آرایه `athletes` دارای ۳ عضو است).
+> - فیلد `athlete` همواره عضو اول را جهت سازگاری کدهای قبلی برمی‌گرداند.
+>
+> **مسابقات تک‌حذفی همزمان (Knockout Simultaneous):**
+> در این نوع مسابقات دو بازیکن یا دو تیم (طرف آبی `chung` و طرف قرمز `hong`) همزمان داخل زمین فرم اجرا می‌کنند. در این حالت فیلد `paired_performance` حاوی اطلاعات اجرای طرف مقابل است:
+> ```json
+> "paired_performance": {
+>   "id": 16,
+>   "entry_id": 22,
+>   "status": "scoring",
+>   "side": "hong",
+>   "entry_display_name": "محمد رضایی / امیر طاهری",
+>   "athlete": { ... },
+>   "athletes": [ ... ],
+>   "my_submission": {
+>     "is_submitted": false,
+>     "accuracy": null,
+>     "presentation": null
+>   }
+> }
+> ```
+> داور تبلت برای هر اجرا نمره را جداگانه ثبت می‌کند:
+> ۱. نمره اجرای اول: `POST /api/v1/performances/15/scores`
+> ۲. نمره اجرای همزمان: `POST /api/v1/performances/16/scores`
+> تبلت می‌تواند با داشتن `paired_performance` دو پد نمره‌دهی (یا دکمه سوئیچ بین آبی و قرمز) نمایش دهد تا داور هر دو را همزمان نمره دهد.
+>
 > **نکته:** اگر در زمین داور هیچ اجرایی در جریان نباشد، مقدار `"active_performance": null` خواهد بود و تبلت وضعیت «در انتظار شروع مسابقه توسط اپراتور» را نمایش می‌دهد.
 >
 > **توجه مهم درباره SSE:** فیلد `realtime.mercure_token` مستقیماً در همین پاسخ تولید و تحویل داده می‌شود. بنابراین نیازی به فراخوانی جداگانه اندپوینت broadcasting/auth نیست.

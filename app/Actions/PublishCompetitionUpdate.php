@@ -24,17 +24,7 @@ class PublishCompetitionUpdate
         if ($audit->subject_type === 'performance') {
             $perf = Performance::with(['bout.category', 'entry.athletes'])->find($audit->subject_id);
             if ($perf) {
-                $category = $perf->bout?->category;
-                $athlete = $perf->entry?->athletes?->first();
-                $activePerformanceData = [
-                    'id' => $perf->id,
-                    'status' => $perf->status,
-                    'category_name' => $category?->name ?? '—',
-                    'athlete' => [
-                        'id' => $athlete?->id ?? $perf->entry?->id ?? 0,
-                        'name' => $athlete ? trim($athlete->first_name.' '.$athlete->last_name) : ($perf->entry?->display_name ?? '—'),
-                    ],
-                ];
+                $activePerformanceData = app(JudgeCurrentState::class)->formatPerformance($perf);
             }
         }
 

@@ -18,6 +18,16 @@
    - متد: `GET /api/v1/judge/current-state`
    - هدر: `Authorization: Bearer {token}`
    - دریافت اطلاعات صندلی داور، زمین، `mercure_token` برای SSE، و مشخصات اجرای فعال (`active_performance`). اگر هیچ اجرایی فعال نباشد مقدار آن `null` است.
+   - **پشتیبانی از انواع مسابقات (`entry_type`):**
+     - `individual`: انفرادی (آرایه `athletes` دارای ۱ عضو است).
+     - `pair`: جفتی/دونفره (آرایه `athletes` دارای ۲ عضو است).
+     - `team`: تیمی ۳ نفره (آرایه `athletes` دارای ۳ عضو است).
+     - فیلد `athlete` برای سازگاری عقب‌رو همواره عضو اول را بازمی‌گرداند.
+   - **مسابقات تک‌حذفی همزمان (Knockout Simultaneous):**
+     - در این حالت دو اجرا (آبی `chung` و قرمز `hong`) همزمان انجام می‌شوند. شیء اجرای دوم در فیلد `paired_performance` قرار دارد.
+     - داور برای هر اجرا نمره را جداگانه ثبت می‌کند:
+       - اجرای اول: `POST /api/v1/performances/{active_performance.id}/scores`
+       - اجرای دوم: `POST /api/v1/performances/{paired_performance.id}/scores`
 3. **ارسال نمره (Submit Score):**
    - متد: `POST /api/v1/performances/{performance}/scores`
    - بدنه ساده: فقط مقادیر نمره (`accuracy`, `presentation`, `accuracy_penalties`, `presentation_components`). نیازی به ارسال `request_id`, `expected_version`, `expected_revision` نیست!
