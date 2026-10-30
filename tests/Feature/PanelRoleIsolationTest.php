@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Actions\CompetitionView;
+use App\Models\Performance;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\CreatesCompetition;
@@ -71,5 +73,24 @@ class PanelRoleIsolationTest extends TestCase
         $this->actingAs($account)->get(route('judging.index', $first['tournament']))->assertForbidden();
         $this->get(route('tournaments.show', $second['tournament']))->assertForbidden();
         $this->get(route('dashboard'))->assertForbidden();
+    }
+
+    public function test_judge_snapshot_keeps_other_judges_unpublished_details_private(): void
+    {
+        $fixture = $this->competition();
+        $this->schedule($fixture);
+        $performance = Performance::query()->firstOrFail();
+        $this->startScoring($fixture, $performance);
+        $this->scoreAll($fixture, $performance);
+
+        $judgeView = app(CompetitionView::class)->snapshot($fixture['tournament'], $fixture['judges'][0]);
+        $judgePerformance = $judgeView['categories'][0]['rounds'][0]['bouts'][0]['performances'][0];
+        $this->assertNull($judgePerformance['detailed_scores']);
+        $this->assertSame('submitted', $judgePerformance['own_score']['status']);
+        $this->assertSame('judge', $judgePerformance['own_score']['submission_mode']);
+
+        $operatorView = app(CompetitionView::class)->snapshot($fixture['tournament'], $fixture['operator']);
+        $operatorPerformance = $operatorView['categories'][0]['rounds'][0]['bouts'][0]['performances'][0];
+        $this->assertCount(5, $operatorPerformance['detailed_scores']['judges']);
     }
 }
