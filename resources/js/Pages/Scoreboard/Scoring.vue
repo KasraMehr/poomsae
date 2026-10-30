@@ -13,6 +13,9 @@ import FreestyleScoringTable from "../../Components/scoreboard/tables/FreestyleS
 const props = defineProps({
     display: { type: Object, default: null },
     tournament: { type: Object, default: null },
+    focusBoutId: { type: [Number, String], default: null },
+    focusFormNumber: { type: [Number, String], default: null },
+    focusPerformanceId: { type: [Number, String], default: null },
 });
 
 // Read the production Inertia envelope while keeping standalone lab snapshots supported.
@@ -51,10 +54,13 @@ const scoringPanels = computed(() =>
     (tournament.value?.categories ?? []).flatMap((category) =>
         (category.rounds ?? []).flatMap((round) =>
             (round.bouts ?? [])
-                .filter((bout) => bout.status === "running")
+                .filter((bout) => props.focusBoutId != null
+                    ? String(bout.id) === String(props.focusBoutId)
+                    : bout.status === "running")
                 .flatMap((bout) => {
                     const variant = scoringVariant(category);
                     const performances = bout.performances ?? [];
+                    const focusGroup = props.focusPerformanceId != null;
                     const groups =
                         variant === "double"
                             ? Array.from(
@@ -73,11 +79,19 @@ const scoringPanels = computed(() =>
                                   ),
                               ).map(([, group]) => group)
                             : performances
-                                  .filter(isActivePerformance)
+                                  .filter((performance) => focusGroup
+                                      ? String(performance.id) === String(props.focusPerformanceId)
+                                      : isActivePerformance(performance))
                                   .map((performance) => [performance]);
 
-                    return groups
-                        .filter((group) => group.some(isActivePerformance))
+                    const visibleGroups = focusGroup
+                        ? groups.filter(group => variant === "double"
+                            ? String(group[0]?.form_number ?? "") === String(props.focusFormNumber ?? "")
+                            : String(group[0]?.id) === String(props.focusPerformanceId))
+                        : groups;
+
+                    return visibleGroups
+                        .filter((group) => focusGroup || group.some(isActivePerformance))
                         .map((group) => ({
                             id:
                                 String(bout.id) +
