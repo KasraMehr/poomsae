@@ -406,6 +406,7 @@ const formSymbolKeyOf = (bout, performance = bout.performances?.[0]) => {
                             :duration-seconds="durationSeconds"
                             :started-at="current.performance.started_at"
                             :ended-at="current.performance.ended_at"
+                            :server-now="current.performance.server_now"
                         />
                         <span v-else-if="current.state === 'pending'" class="text-sm font-semibold text-rtds-success">
                             Awaiting operator start

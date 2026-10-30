@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 /**
  * تایمر مسابقه — نمایش «زمان باقی‌مانده» طبق طرح.
@@ -8,13 +8,12 @@ import { computed, onBeforeUnmount, onMounted, ref } from "vue";
  * کنترل کامل از پنل اپراتور است و وضعیت از snapshot می‌آید (`started_at` / `ended_at`).
  * یعنی هر چند نمایشگری که به یک مسابقه وصل باشند، همگی یک لحظه شروع و پایان را می‌بینند.
  *
- * سه حالت، همه از روی props مشتق می‌شوند (هیچ prop بولی جداگانه‌ای وجود ندارد):
- *  1. پیش از شروع  → `startedAt` خالی است → مدت کل (`execution_duration_seconds`) نمایش داده می‌شود
- *  2. حین اجرا     → `startedAt` هست و `endedAt` خالی است → شمارش معکوس از مدت کل به صفر
- *  3. پایان‌یافته   → `endedAt` هم هست → روی زمان باقی‌مانده در لحظهٔ پایان متوقف می‌شود
+ * حالت‌های نمایشی از timestampهای اپراتور مشتق می‌شوند و ساعت سرور، اختلاف ساعت مرورگر را جبران می‌کند:
+ *  1. پیش از شروع  → `startedAt` خالی است → مدت کل نمایش داده می‌شود
+ *  2. حین اجرا     → شمارش معکوس تا صفر؛ در صفر قرمز می‌شود و می‌ایستد
+ *  3. پایان‌یافته   → `endedAt` هست → زمان باقی‌ماندهٔ لحظهٔ پایان چشمک‌زن می‌ماند
  *
- * در رسیدن به صفر، شمارنده متوقف و روی ۰۰:۰۰ می‌ایستد (نه منفی، نه قرمز، نه پیامی):
- * اعلام پایان زمان وظیفهٔ بک‌اند/اپراتور است، نه این کامپوننت.
+ * این کامپوننت فقط نمایش می‌دهد؛ شروع و پایان را پنل اپراتور ثبت می‌کند.
  */
 const props = defineProps({
     /** مدت استاندارد اجرا به ثانیه — از تنظیمات مسابقه (`execution_duration_seconds`). */
@@ -23,6 +22,8 @@ const props = defineProps({
     startedAt: { type: [Number, String], default: null },
     /** پایان اجرا (epoch ms یا ISO) — خالی یعنی هنوز متوقف نشده. */
     endedAt: { type: [Number, String], default: null },
+    /** Server clock sample used to align display timers with the operator console. */
+    serverNow: { type: [Number, String], default: null },
     /** اندازه — `lg` برای Standby (ابعاد طرح)، `sm` برای LiveBoard. */
     size: { type: String, default: "lg" },
 });
@@ -35,15 +36,22 @@ const toMs = (value) => {
 };
 
 const now = ref(Date.now());
+const clockOffset = ref(0);
 let timerId = null;
 
 const startMs = computed(() => toMs(props.startedAt));
 const endMs = computed(() => toMs(props.endedAt));
+const syncedNow = computed(() => now.value + clockOffset.value);
+
+watch(() => props.serverNow, (value) => {
+    const serverMs = toMs(value);
+    if (serverMs != null) clockOffset.value = serverMs - Date.now();
+}, { immediate: true });
 
 /** ثانیهٔ گذشته از شروع اجرا. */
 const elapsedSeconds = computed(() => {
     if (startMs.value == null) return 0;
-    const end = endMs.value ?? now.value;
+    const end = endMs.value ?? syncedNow.value;
     return Math.max(0, Math.floor((end - startMs.value) / 1000));
 });
 
@@ -56,8 +64,10 @@ const remainingSeconds = computed(() =>
 const state = computed(() => {
     if (startMs.value == null) return "idle"; // پیش از شروع
     if (endMs.value != null) return "stopped"; // پایان‌یافته (اپراتور متوقف کرده)
+    if (remainingSeconds.value === 0) return "expired";
     return "running"; // حین اجرا
 });
+const alertState = computed(() => ["stopped", "expired"].includes(state.value));
 
 const display = computed(() => {
     const total = remainingSeconds.value;
@@ -92,7 +102,7 @@ onMounted(() => {
     // و تضمین می‌کند لحظهٔ رسیدن به صفر دقیقاً رندر شود.
     timerId = setInterval(() => {
         now.value = Date.now();
-    }, 1000);
+    }, 250);
 });
 
 onBeforeUnmount(() => {
@@ -110,14 +120,26 @@ onBeforeUnmount(() => {
 
         <!-- کادر + عدد -->
         <div
-            class="flex flex-col items-center justify-center border-rtds-yellow"
-            :class="s.box"
+            class="flex flex-col items-center justify-center"
+            :class="[s.box, alertState ? 'border-rtds-error' : 'border-rtds-yellow']"
         >
             <span
-                class="tabular-nums text-rtds-yellow"
-                :class="s.digits"
+                class="tabular-nums"
+                :class="[s.digits, alertState ? 'text-rtds-error' : 'text-rtds-yellow', state === 'stopped' ? 'timer-stopped' : '']"
                 >{{ display }}</span
             >
         </div>
     </div>
 </template>
+
+<style scoped>
+@keyframes timer-blink {
+    50% {
+        visibility: hidden;
+    }
+}
+
+.timer-stopped {
+    animation: timer-blink 1s steps(1, end) infinite;
+}
+</style>

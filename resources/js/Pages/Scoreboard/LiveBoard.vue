@@ -225,6 +225,7 @@ const courts = computed(() => tournament.value?.courts ?? []);
                                 currentExecution.performance.started_at
                             "
                             :ended-at="currentExecution.performance.ended_at"
+                            :server-now="currentExecution.performance.server_now"
                         />
                         <span
                             v-else
