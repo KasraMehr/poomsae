@@ -83,6 +83,30 @@ class MultiCourtCompetitionTest extends TestCase
         $this->assertDatabaseHas('audit_logs', ['action' => 'round.scheduled', 'subject_id' => $round->id]);
     }
 
+    public function test_rtds_data_contains_only_the_selected_court(): void
+    {
+        $fixture = $this->multiCourtCompetition(16);
+        $this->scheduleOnCourts($fixture);
+        $courtId = $fixture['court_panels'][0]['court_id'];
+        $display = app(CompetitionDisplay::class);
+        $full = $display->snapshot($fixture['tournament'], $fixture['admin']);
+        $scoped = $display->snapshot($fixture['tournament'], $fixture['admin'], $courtId);
+
+        $this->assertCount(4, $full['courts']);
+        $this->assertSame([$courtId], array_column($scoped['courts'], 'id'));
+        $this->assertSame([$courtId], array_column($scoped['tournament']['courts'], 'id'));
+        $bouts = collect($scoped['tournament']['categories'])->flatMap(fn (array $category) => $category['rounds'])
+            ->flatMap(fn (array $round) => $round['bouts']);
+        $this->assertCount(2, $bouts);
+        $this->assertSame([$courtId], $bouts->pluck('court_id')->unique()->values()->all());
+
+        $viewer = User::factory()->create();
+        $fixture['tournament']->users()->attach($viewer, ['role' => 'display']);
+        $this->actingAs($viewer)->getJson(route('scoreboard.data', ['tournament' => $fixture['tournament'], 'court' => $courtId]))
+            ->assertOk()->assertJsonCount(1, 'data.courts');
+        $this->getJson(route('scoreboard.data', ['tournament' => $fixture['tournament'], 'court' => 999]))->assertNotFound();
+    }
+
     public function test_four_courts_run_the_same_knockout_category_and_merge_winners_until_the_final(): void
     {
         $this->travelTo(now()->setDate(2026, 10, 1)->setTime(6, 0));

@@ -17,9 +17,9 @@ class CompetitionDisplay
     }
 
     /** @return array<string, mixed> */
-    public function snapshot(Tournament $tournament, User $actor): array
+    public function snapshot(Tournament $tournament, User $actor, ?int $courtId = null): array
     {
-        return DB::transaction(function () use ($tournament, $actor): array {
+        return DB::transaction(function () use ($tournament, $actor, $courtId): array {
             $tournament = Tournament::findOrFail($tournament->id);
             $revision = $this->revision($tournament);
             $snapshot = $this->view->snapshot($tournament, $actor, true);
@@ -95,6 +95,20 @@ class CompetitionDisplay
 
                 return [...$court, 'current' => $current, 'upcoming' => $upcoming, 'previous_bout_id' => $previousBout['id'] ?? null];
             })->all();
+
+            if ($courtId !== null) {
+                $courts = array_values(array_filter($courts, fn (array $court): bool => $court['id'] === $courtId));
+                $snapshot['courts'] = collect($snapshot['courts'])->filter(fn (array $court): bool => $court['id'] === $courtId)->values()->all();
+                $snapshot['categories'] = collect($snapshot['categories'])->map(function (array $category) use ($courtId): array {
+                    $category['rounds'] = collect($category['rounds'])->map(function (array $round) use ($courtId): array {
+                        $round['bouts'] = collect($round['bouts'])->filter(fn (array $bout): bool => $bout['court_id'] === $courtId)->values()->all();
+
+                        return $round;
+                    })->filter(fn (array $round): bool => $round['bouts'] !== [])->values()->all();
+
+                    return $category;
+                })->filter(fn (array $category): bool => $category['rounds'] !== [])->values()->all();
+            }
 
             return ['tournament' => $snapshot, 'courts' => $courts, 'revision' => $revision, 'generated_at' => now()->toISOString()];
         });

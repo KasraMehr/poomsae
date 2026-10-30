@@ -57,34 +57,38 @@ class ScoreboardController extends Controller
     {
         Gate::authorize('view', $tournament);
 
-        $snapshot = $display->snapshot($tournament, $request->user());
-        $courtId = $request->integer('court');
-        if ($courtId !== 0) {
+        $courtId = $request->integer('court') ?: $tournament->courts()->orderBy('id')->value('id');
+        $snapshot = $display->snapshot($tournament, $request->user(), $courtId);
+        if ($courtId !== null) {
             abort_unless(collect($snapshot['courts'])->contains('id', $courtId), 404);
         }
 
         return Inertia::render('Competition/Rtds', [
             'display' => $snapshot,
-            'displayUrls' => $this->urls($tournament),
-            'courtId' => $courtId ?: ($snapshot['courts'][0]['id'] ?? null),
+            'displayUrls' => $this->urls($tournament, $courtId),
+            'courtId' => $courtId,
         ]);
     }
 
     public function data(Request $request, Tournament $tournament, CompetitionDisplay $display): JsonResponse
     {
         Gate::authorize('view', $tournament);
+        $courtId = $request->integer('court');
+        if ($courtId !== 0) {
+            abort_unless($tournament->courts()->whereKey($courtId)->exists(), 404);
+        }
         $revision = $display->revision($tournament);
         if ($request->query('revision') !== null && (string) $revision === $request->query('revision')) {
             return response()->json(['changed' => false, 'revision' => $revision, 'generated_at' => now()->toISOString()])->header('Cache-Control', 'no-store, private');
         }
 
-        return response()->json(['changed' => true, 'data' => $display->snapshot($tournament, $request->user())])->header('Cache-Control', 'no-store, private');
+        return response()->json(['changed' => true, 'data' => $display->snapshot($tournament, $request->user(), $courtId ?: null)])->header('Cache-Control', 'no-store, private');
     }
 
     /** @return array<string, string> */
-    private function urls(Tournament $tournament): array
+    private function urls(Tournament $tournament, ?int $courtId = null): array
     {
-        return ['data' => route('scoreboard.data', $tournament), 'scoreboard' => route('scoreboard.show', $tournament),
+        return ['data' => route('scoreboard.data', $courtId === null ? $tournament : ['tournament' => $tournament, 'court' => $courtId]), 'scoreboard' => route('scoreboard.show', $tournament),
             'rtds' => route('scoreboard.rtds', $tournament), 'back' => route('scoreboard.rtds', $tournament)];
     }
 
