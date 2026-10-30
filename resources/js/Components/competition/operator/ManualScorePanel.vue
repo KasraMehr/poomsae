@@ -21,11 +21,10 @@ const total = score => (props.rules.input_method === 'single_score_v1'
 
 <template>
     <div class="manual-panel">
-        <p class="manual-intro">Use this when a judge cannot submit from their device. Record the score given by that judge; a short note is optional. The entry is logged and must be confirmed before the result can be published.</p>
+        <p class="manual-intro">Use this when a judge cannot submit or correct a score from their device. Select the judge's seat, enter the replacement score, and confirm it before publishing. Corrections require a reason and keep the previous score in the audit history.</p>
         <div class="manual-stage"><strong>PERFORMANCE {{ performance.id }}</strong><span>{{ performance.entry_name }} · {{ performance.form_name }}</span><span>{{ performance.submitted_count }} / {{ performance.judge_count }} confirmed scores</span></div>
         <div v-if="drafts.length" class="manual-review"><h3>Scores awaiting confirmation</h3><div v-for="score in drafts" :key="score.id" class="manual-review-row"><div><strong>J{{ score.seat }} · {{ judgeName(score.seat) }}</strong><span><template v-if="rules.input_method !== 'single_score_v1'">Accuracy {{ (score.values.accuracy / 100).toFixed(2) }} · Presentation {{ (score.values.presentation / 100).toFixed(2) }} · </template>Total {{ total(score) }}</span><small>Review this score against the judge's record before confirming.</small></div><button type="button" :disabled="confirmation.processing" @click="confirm(score)">Confirm score</button></div><FormErrors :errors="confirmation.errors" /></div>
-        <ProxyScoreForm v-if="performance.missing_seats?.length" :key="performance.id" :performance="performance" :rules="rules" :endpoint="`${base}/performances/${performance.id}/proxy-scores`" expanded />
-        <p v-else-if="!drafts.length" class="manual-complete">All judge seats have confirmed scores.</p>
+        <ProxyScoreForm :key="performance.id" :performance="performance" :rules="rules" :endpoint="`${base}/performances/${performance.id}/proxy-scores`" expanded />
     </div>
 </template>
 

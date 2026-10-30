@@ -25,8 +25,7 @@ const detailedScoresFor = entry => [...(props.bout?.performances ?? [])]
     .reverse()
     .find(item => item.entry_id === entry.id && item.detailed_scores)?.detailed_scores
     ?? null;
-const hasManualScoreAction = computed(() => props.manualPerformance
-    && (props.manualPerformance.missing_seats?.length || props.manualPerformance.pending_review_seats?.length));
+const hasManualScoreAction = computed(() => Boolean(props.manualPerformance));
 const statusMessage = computed(() => ({
     pending: 'Results and judge scoring will appear here after the performance is finished.',
     running: 'The performance is still live. Finish it from the Live tab to collect scores here.',
@@ -106,7 +105,7 @@ const statusMessage = computed(() => ({
 
             <div class="operator-result-actions">
                 <button v-if="performance?.status === 'scoring'" type="button" class="operator-result-primary" :disabled="processing || performance.submitted_count !== performance.judge_count || performance.pending_review_seats?.length" @click="emit('command', 'approve')">Confirm and publish result</button>
-                <button v-if="hasManualScoreAction" type="button" class="operator-result-manual" @click="emit('manual')">{{ manualPerformance.pending_review_seats?.length ? 'Review manual score' : 'Manual score / tablet issue' }}</button>
+                <button v-if="hasManualScoreAction" type="button" class="operator-result-manual" @click="emit('manual')">{{ manualPerformance.pending_review_seats?.length ? 'Review manual score' : 'Manual score / correct judge score' }}</button>
                 <button type="button" class="operator-result-details" @click="emit('details')">Match controls and decisions ↗</button>
             </div>
         </template>

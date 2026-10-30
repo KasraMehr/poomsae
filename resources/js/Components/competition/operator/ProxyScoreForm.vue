@@ -16,11 +16,9 @@ const props = defineProps({
     endpoint: String,
     expanded: { type: Boolean, default: false },
 });
-const missingJudges = computed(() =>
-    props.performance.judges.filter((judge) =>
-        props.performance.missing_seats.includes(judge.seat),
-    ),
-);
+const selectedScore = computed(() => (props.performance.scores ?? []).find(
+    (score) => score.judge_assignment_id === form.judge_assignment_id,
+));
 const form = useForm({
     request_id: requestId(),
     judge_assignment_id: "",
@@ -31,7 +29,13 @@ const form = useForm({
     ...scoreDetailFields(props.rules.input_method),
     reason: "",
 });
-const canSubmit = computed(() => scoreComponentsComplete(form));
+const canSubmit = computed(() => scoreComponentsComplete(form) && (!selectedScore.value || form.reason.trim().length > 0));
+watch(() => form.judge_assignment_id, () => {
+    form.expected_revision = selectedScore.value?.revision ?? 0;
+});
+watch(() => props.performance.scores, () => {
+    form.expected_revision = selectedScore.value?.revision ?? 0;
+});
 watch(
     () => props.performance.version,
     (version) => (form.expected_version = version),
@@ -67,12 +71,12 @@ const primaryButton =
 <template>
     <!-- Keep emergency scoring compatible with every configured score method. -->
     <details
-        v-if="missingJudges.length"
+        v-if="performance.judges?.length"
         :open="expanded"
         class="mt-5 border-t border-[#c4c9d2] pt-4"
     >
         <summary class="cursor-pointer font-bold text-[#0d192b]">
-            Manual score for a missing judge seat
+            Manual score or correction for a judge seat
         </summary>
         <form
             class="mt-3 grid gap-3 rounded-xl border border-[#c4c9d2] bg-[#f7f8fc] p-4 sm:p-5"
@@ -83,7 +87,7 @@ const primaryButton =
             >
                 <b class="text-sm text-[#755019]">Operator responsibility</b
                 ><span class="text-xs text-[#755019]"
-                    >The operator, judge seat, score, and optional note are stored in the competition audit trail.</span
+                    >A correction keeps the previous score in the audit trail and requires a reason. The replacement must be reviewed before publishing.</span
                 >
             </div>
             <label :for="`proxy-seat-${performance.id}`" :class="labelClass"
@@ -97,13 +101,16 @@ const primaryButton =
             >
                 <option value="" disabled>Select judge seat</option>
                 <option
-                    v-for="judge in missingJudges"
+                    v-for="judge in performance.judges"
                     :key="judge.id"
                     :value="judge.id"
                 >
-                    Seat {{ judge.seat }} · {{ judge.name }}
+                    Seat {{ judge.seat }} · {{ judge.name }}{{ performance.scores?.some(score => score.judge_assignment_id === judge.id) ? ' · score received' : ' · missing' }}
                 </option>
             </select>
+            <p v-if="selectedScore" class="rounded-lg border border-[#e7c894] bg-[#fff7e8] px-4 py-3 text-sm text-[#755019]">
+                Existing score: {{ ((Number(selectedScore.values?.accuracy ?? selectedScore.values?.score ?? 0) + Number(selectedScore.values?.presentation ?? 0)) / 100).toFixed(2) }} · revision {{ selectedScore.revision }}. Enter the replacement score below.
+            </p>
             <ScoreEntryFields
                 :form="form"
                 :rules="rules"
@@ -113,13 +120,14 @@ const primaryButton =
                 theme="light"
             />
             <label :for="`proxy-reason-${performance.id}`" :class="labelClass"
-                >Reason for manual entry <span class="font-normal text-[#64748b]">(optional)</span></label
+                >Reason for manual entry <span class="font-normal text-[#64748b]">{{ selectedScore ? '(required for correction)' : '(optional)' }}</span></label
             >
             <textarea
                 :id="`proxy-reason-${performance.id}`"
                 v-model="form.reason"
                 :class="fieldClass"
                 maxlength="500"
+                :required="Boolean(selectedScore)"
                 rows="2"
                 placeholder="For example: device issue"
             ></textarea>
