@@ -99,3 +99,42 @@ test('judge presence handles connection and disconnection with numeric user iden
     module.unmount();
     assert.deepEqual(left, ['tournaments.4.judges']);
 });
+
+test('competition polling slows down on live connection and speeds up after disconnect', async () => {
+    const mounted = [];
+    const unmounted = [];
+    const polls = [];
+    let observe;
+    const context = createContext({});
+    const source = await readFile(new URL('../../resources/js/Shared/Composables/useCompetitionPolling.js', import.meta.url), 'utf8');
+    const module = new SourceTextModule(source, { context });
+    await module.link(specifier => {
+        const exports = specifier === 'vue'
+            ? {
+                onMounted: callback => mounted.push(callback),
+                onUnmounted: callback => unmounted.push(callback),
+                watch: (_connection, callback, options) => {
+                    observe = callback;
+                    if (options.immediate) callback('polling');
+                    return () => {};
+                },
+            }
+            : { usePoll: interval => {
+                const poll = { interval, active: false, start() { this.active = true; }, stop() { this.active = false; } };
+                polls.push(poll);
+                return poll;
+            } };
+        return new SyntheticModule(Object.keys(exports), function () {
+            for (const [name, value] of Object.entries(exports)) this.setExport(name, value);
+        }, { context });
+    });
+    await module.evaluate();
+    module.namespace.useCompetitionPolling({ value: 'polling' }, ['console']);
+    mounted.forEach(callback => callback());
+    assert.deepEqual(polls.map(poll => [poll.interval, poll.active]), [[2000, true], [15000, false]]);
+    observe('connected');
+    assert.deepEqual(polls.map(poll => poll.active), [false, true]);
+    observe('polling');
+    assert.deepEqual(polls.map(poll => poll.active), [true, false]);
+    unmounted.forEach(callback => callback());
+});

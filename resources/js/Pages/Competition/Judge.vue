@@ -1,7 +1,8 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
-import { Head, Link, usePage, usePoll } from '@inertiajs/vue3';
+import { Head, Link, usePage } from '@inertiajs/vue3';
 import { useCompetitionUpdates } from '../../Shared/Composables/useCompetitionUpdates';
+import { useCompetitionPolling } from '../../Shared/Composables/useCompetitionPolling';
 import { useJudgePresence } from '../../Shared/Composables/useJudgePresence';
 import { usePerformanceClock } from '../../Shared/Composables/usePerformanceTiming';
 import { elapsed } from '../../Shared/Services/display';
@@ -48,7 +49,7 @@ const serverNow = usePerformanceClock(() => clockPerformance.value?.server_now);
 const clock = computed(() => clockPerformance.value?.started_at ? elapsed(clockPerformance.value, serverNow.value) : '00:00');
 const clockRunning = computed(() => sides.value.some(item => item.performance.status === 'running'));
 const approved = computed(() => props.tournament.categories.flatMap(category => category.rounds.filter(round => round.score_correction_open).flatMap(round => round.bouts.flatMap(bout => bout.performances.filter(performance => performance.is_assigned && performance.status === 'approved' && performance.own_score).map(performance => ({ category, round, bout, performance }))))));
-const offline = computed(() => !online.value || heartbeat.value - lastSync.value > 10000);
+const offline = computed(() => !online.value || heartbeat.value - lastSync.value > 20000);
 const syncState = computed(() => offline.value ? 'offline' : connection.value === 'connected' ? 'connected' : 'polling');
 const setOnline = () => { online.value = navigator.onLine; };
 onMounted(() => {
@@ -62,7 +63,7 @@ onUnmounted(() => {
     window.removeEventListener('offline', setOnline);
     window.clearInterval(heartbeatTimer);
 });
-usePoll(2000, { only: ['tournament'], onSuccess: () => { lastSync.value = Date.now(); setOnline(); } });
+useCompetitionPolling(connection, ['tournament'], () => { lastSync.value = Date.now(); setOnline(); });
 </script>
 
 <template>
