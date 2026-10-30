@@ -29,6 +29,20 @@ const latest = computed(() => courtBouts.value.flatMap(item => (item.bout.perfor
     .filter(performance => performance.result !== null && performance.result_published_at)
     .map(performance => ({ ...item, performance })))
     .sort((left, right) => Date.parse(right.performance.result_published_at) - Date.parse(left.performance.result_published_at))[0] ?? null);
+const latestFormPerformances = computed(() => (latest.value?.bout.performances ?? [])
+    .filter(performance => String(performance.form_number) === String(latest.value?.performance.form_number)));
+const isLatestFormComplete = computed(() => {
+    const entries = latest.value?.bout.entries ?? [];
+    return entries.length > 0 && entries.every(entry => latestFormPerformances.value.some(performance =>
+        String(performance.entry_id) === String(entry.id)
+        && performance.status === 'approved'
+        && performance.result !== null
+        && performance.result_published_at));
+});
+const hasFinalBoutResult = computed(() => latest.value?.bout.status === 'completed');
+const hasRoundResult = computed(() => isLatestFormComplete.value
+    || hasFinalBoutResult.value
+    || current.value?.status === 'decision');
 const hasWinner = computed(() => latest.value?.bout.status === 'completed'
     && latest.value.bout.winner_entry_id != null && latest.value.bout.entries?.length === 2);
 const winnerConfirmedAt = ref(null);
@@ -40,8 +54,6 @@ const hasRanking = computed(() => {
     const category = latest.value?.category;
     return Boolean(category && (category.placements?.length || category.standings?.some(row => row.rank != null)));
 });
-const hasRoundResult = computed(() => latest.value?.bout.status === 'completed'
-    || current.value?.status === 'decision');
 
 // All RTDS phase durations are milliseconds. Queue timing starts when this display first sees a ready item.
 // TODO: If refreshes or multiple displays drift, replace this local clock with a shared server ready_at timestamp.
@@ -92,7 +104,7 @@ const resolvePhase = ({ currentStatus, finishDelayActive, publishedScoring, pres
 const sequence = computed(() => [
     ...(hasRoundResult.value ? [{ phase: 'result', duration: phaseDurations.result }] : []),
     ...(hasWinner.value ? [{ phase: 'winner', duration: phaseDurations.winner }] : []),
-    ...(hasRoundResult.value && hasRanking.value ? [{ phase: 'ranking', duration: phaseDurations.ranking }] : []),
+    ...(hasFinalBoutResult.value && hasRanking.value ? [{ phase: 'ranking', duration: phaseDurations.ranking }] : []),
 ]);
 const sequenceDuration = computed(() => sequence.value.reduce((total, step) => total + step.duration, 0));
 const publishedAge = computed(() => latest.value
@@ -115,7 +127,7 @@ const publishedScoring = computed(() => current.value?.status !== 'running'
 const presentation = computed(() => resolvePresentation({
     publishedAge: publishedAge.value,
     hasWinner: hasWinner.value,
-    hasRanking: hasRoundResult.value && hasRanking.value,
+    hasRanking: hasFinalBoutResult.value && hasRanking.value,
     publishedAt: latest.value?.performance.result_published_at,
     clockOffset: clockOffset.value,
     winnerConfirmedAt: winnerConfirmedAt.value,
@@ -130,6 +142,8 @@ const presentationEnd = computed(() => latest.value
 const drawTarget = computed(() => firstReady.value
     ? courtBouts.value.find(item => String(item.bout.id) === String(firstReady.value.bout_id)) ?? null
     : null);
+const showDraw = computed(() => Boolean(drawTarget.value)
+    && (!latest.value || String(drawTarget.value.bout.id) !== String(latest.value.bout.id)));
 const drawData = computed(() => {
     if (!drawTarget.value) return null;
 
@@ -177,7 +191,7 @@ const phase = computed(() => resolvePhase({
     publishedScoring: publishedScoring.value,
     presentationPhase: hasRoundResult.value ? presentation.value : null,
     hasReadyPerformance: Boolean(firstReady.value),
-    hasDrawData: Boolean(drawData.value?.forms.length),
+    hasDrawData: Boolean(showDraw.value && drawData.value?.forms.length),
     now: now.value,
     queueSince: queueSince.value,
     presentationEnd: presentationEnd.value,
@@ -221,10 +235,10 @@ const screenDisplay = computed(() => {
         :court-id="courtId"
         :phase="phase"
         :focus-item="firstReady"
-        :draw="phase === 'draw' ? drawData : null"
+        :draw="phase === 'draw' && showDraw ? drawData : null"
         :upcoming="upcoming"
         :focus-bout-id="(['result', 'winner'].includes(phase) || (phase === 'scoring' && publishedScoring)) ? latest?.bout.id : null"
-        :focus-form-number="phase === 'scoring' && publishedScoring ? latest?.performance.form_number : null"
+        :focus-form-number="phase === 'scoring' && publishedScoring ? latest?.performance.form_number : (phase === 'result' && !hasFinalBoutResult ? latest?.performance.form_number : null)"
         :focus-performance-id="phase === 'scoring' && publishedScoring ? latest?.performance.id : null"
     />
 </template>
