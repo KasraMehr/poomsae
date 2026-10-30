@@ -63,7 +63,7 @@ class ProxyScoringTest extends TestCase
         $payload = [
             'request_id' => (string) Str::uuid(), 'judge_assignment_id' => $assignment->id,
             'expected_version' => $performance->fresh()->version, 'expected_revision' => 0,
-            ...$this->detailedScoreInput('2.50', '6.00'), 'reason' => 'کوتاه',
+            ...$this->detailedScoreInput('2.50', '6.00'), 'reason' => str_repeat('a', 501),
         ];
 
         $this->actingAs($fixture['judges'][0])->post($url, $payload)->assertForbidden();

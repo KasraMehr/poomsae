@@ -1,6 +1,6 @@
 # راهنمای جامع اتصال اپلیکیشن Android به بک‌اند (REST API و Mercure SSE)
 
-این مستند راهنمای فنی و گام‌به‌گام برای توسعه‌دهندهٔ اندروید جهت پیاده‌سازی اپلیکیشن تبلت داوران (مارکر) و اپراتور مسابقات پومسه تکواندو است. ارتباطات بر پایهٔ **REST API (Laravel 13 + Sanctum)** و ارتباط بلادرنگ بر پایهٔ **Mercure SSE (Server-Sent Events)** طراحی شده است.
+این مستند راهنمای فنی و گام‌به‌گام برای توسعه‌دهندهٔ اندروید جهت پیاده‌سازی اپلیکیشن تبلت داوران (مارکر) مسابقات پومسه تکواندو است. اپراتور مسابقه تبلت ندارد و کلیه وظایف خود را منحصراً از طریق کنسول تحت وب انجام می‌دهد. ارتباطات تبلت داوران بر پایهٔ **REST API (Laravel 13 + Sanctum)** و ارتباط بلادرنگ بر پایهٔ **Mercure SSE (Server-Sent Events)** طراحی شده است.
 
 ---
 
@@ -226,27 +226,6 @@ Content-Type: application/json
 
 ---
 
-### گام ششم: فرمان‌های اپراتور (ویژه تبلت اپراتور مسابقه)
-
-تبلت اپراتور می‌تواند دستورات کنترل مسابقه را با متد زیر صادر کند:
-
-```http
-POST /api/v1/tournaments/8/performances/15/command
-Authorization: Bearer {token}
-Content-Type: application/json
-
-{
-  "command": "finish",
-  "expected_version": 2
-}
-```
-* مقادیر معتبر `command`:
-  * `"start"`: شروع اجرای فرم و استارت تایمر
-  * `"finish"`: پایان اجرای فرم و باز شدن پد داوران برای نمره‌دهی
-  * `"approve"`: تأیید نهایی نمرات تمام داوران، محاسبهٔ میانگین با حذف min/max، و انتشار رسمی نتیجه
-
----
-
 ## ۴. نمونه کد پیاده‌سازی اتصال SSE در اندروید (OkHttp EventSource)
 
 ```kotlin
@@ -312,7 +291,7 @@ class MercureRealtimeService(private val token: String) {
 | **داور ۱ (مارکر)** | `judge1@poomsae.test` | ثبت نمره صندلی ۱ |
 | **داور ۲ (مارکر)** | `judge2@poomsae.test` | ثبت نمره صندلی ۲ |
 | **داور ۳ تا ۵** | `judge3@poomsae.test` تا `judge5@poomsae.test` | ثبت نمرات سایر صندلی‌ها |
-| **اپراتور مسابقه** | `operator@poomsae.test` | صدور فرمان‌های start, finish, approve |
+| **اپراتور مسابقه (پنل وب)** | `operator@poomsae.test` | صدور فرمان‌های start, finish, approve (منحصراً از طریق پنل وب) |
 
 ---
 

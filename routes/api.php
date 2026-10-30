@@ -23,12 +23,6 @@ Route::prefix('v1')->group(function () {
             Route::get('/tournaments/{tournament}/tkdhub/divisions/{division}/results', [TkdhubController::class, 'results'])->name('api.tkdhub.results');
         });
         Route::post('/tournaments/{tournament}/performances/{performance}/scores', [CompetitionController::class, 'score'])->middleware(['abilities:scores:write', 'panel:judge']);
-        Route::middleware(['ability:competition:operate', 'panel:operator'])->group(function () {
-            Route::post('/tournaments/{tournament}/performances/{performance}/command', [CompetitionController::class, 'command']);
-            Route::post('/tournaments/{tournament}/performances/{performance}/scores/batch', [CompetitionController::class, 'batchScores']);
-            Route::post('/tournaments/{tournament}/performances/{performance}/proxy-scores', [CompetitionController::class, 'proxyScore']);
-            Route::post('/tournaments/{tournament}/performances/{performance}/proxy-scores/{scoreSheet}/confirm', [CompetitionController::class, 'confirmProxyScore']);
-        });
         Route::put('/tournaments/{tournament}/categories/{category}/management-snapshot', [CompetitionController::class, 'import'])->scopeBindings()->middleware(['abilities:competition:manage', 'panel:admin']);
         Route::post('/tournaments/{tournament}/categories', [CompetitionController::class, 'category'])->middleware(['abilities:competition:manage', 'panel:admin']);
         Route::prefix('/tournaments/{tournament}/tkdhub')->middleware(['abilities:competition:manage', 'panel:admin'])->group(function () {

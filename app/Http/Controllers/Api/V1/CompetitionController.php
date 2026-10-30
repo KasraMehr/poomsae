@@ -5,22 +5,15 @@ namespace App\Http\Controllers\Api\V1;
 use App\Actions\CompetitionDisplay;
 use App\Actions\CompetitionSetup;
 use App\Actions\CompetitionView;
-use App\Actions\ConfirmProxyScore;
 use App\Actions\ImportManagementSnapshot;
-use App\Actions\RunCompetition;
 use App\Actions\SubmitScore;
 use App\Events\CompetitionDomainUpdated;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\BatchScoreRequest;
 use App\Http\Requests\CompetitionSetupRequest;
-use App\Http\Requests\ConfirmProxyScoreRequest;
 use App\Http\Requests\ManagementSnapshotRequest;
-use App\Http\Requests\PerformanceCommandRequest;
-use App\Http\Requests\SubmitProxyScoreRequest;
 use App\Http\Requests\SubmitScoreRequest;
 use App\Models\Category;
 use App\Models\Performance;
-use App\Models\ScoreSheet;
 use App\Models\Tournament;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -52,102 +45,6 @@ class CompetitionController extends Controller
         $result = $submit->handle($request->user(), $tournament, $performance, $request->validated());
 
         return response()->json(['data' => $result]);
-    }
-
-    public function command(PerformanceCommandRequest $request, Tournament $tournament, Performance $performance, RunCompetition $run): JsonResponse
-    {
-        $run->command($request->user(), $tournament, $performance, $request->validated());
-        $performance->refresh();
-        $performance->load('result');
-
-        return response()->json([
-            'message' => 'وضعیت اجرا به‌روزرسانی شد.',
-            'data' => [
-                'performance_id' => $performance->id,
-                'status' => $performance->status,
-                'version' => $performance->version,
-                'approved_at' => $performance->approved_at?->toISOString(),
-                'result' => $performance->result ? [
-                    'id' => $performance->result->id,
-                    'score' => $performance->result->calculation_snapshot['score'] ?? $performance->result->score,
-                    'calculation' => $performance->result->calculation_snapshot,
-                    'published_at' => $performance->result->published_at?->toISOString(),
-                ] : null,
-            ],
-        ]);
-    }
-
-    public function batchScores(BatchScoreRequest $request, Tournament $tournament, Performance $performance, SubmitScore $submit, RunCompetition $run): JsonResponse
-    {
-        $data = $request->validated();
-        $user = $request->user();
-        $scores = $data['scores'];
-        $defaultReason = $data['reason'] ?? 'ثبت دسته‌ای نمرات داوران توسط اپراتور';
-
-        $results = DB::transaction(function () use ($user, $tournament, $performance, $data, $scores, $defaultReason, $submit, $run): array {
-            $performance = Performance::lockForUpdate()->findOrFail($performance->id);
-            $currentVersion = $performance->version;
-            abort_unless($currentVersion === (int) $data['expected_version'], 409, 'وضعیت اجرا تغییر کرده؛ صفحه را تازه کنید.');
-
-            $saved = [];
-            foreach ($scores as $item) {
-                $itemPayload = [
-                    ...$item,
-                    'expected_version' => $currentVersion,
-                    'reason' => ! empty($item['reason']) ? $item['reason'] : $defaultReason,
-                ];
-                $sheetResult = $submit->handle($user, $tournament, $performance, $itemPayload, true);
-
-                $sheet = ScoreSheet::findOrFail($sheetResult['score_sheet_id']);
-                if ($sheet->status === 'draft') {
-                    $sheet->update(['status' => 'submitted', 'confirmed_by' => $user->id, 'confirmed_at' => now()]);
-                }
-                $saved[] = $sheetResult;
-            }
-
-            $approved = false;
-            if (! empty($data['approve'])) {
-                $performance->refresh();
-                $run->command($user, $tournament, $performance, [
-                    'command' => 'approve',
-                    'expected_version' => $performance->version,
-                ]);
-                $approved = true;
-            }
-
-            $performance->refresh();
-            $performance->load('result');
-
-            return [
-                'performance_id' => $performance->id,
-                'status' => $performance->status,
-                'version' => $performance->version,
-                'scores' => $saved,
-                'approved' => $approved,
-                'result' => $performance->result ? [
-                    'id' => $performance->result->id,
-                    'score' => $performance->result->calculation_snapshot['score'] ?? $performance->result->score,
-                    'calculation' => $performance->result->calculation_snapshot,
-                    'published_at' => $performance->result->published_at?->toISOString(),
-                ] : null,
-            ];
-        }, 3);
-
-        return response()->json(['data' => $results]);
-    }
-
-    public function proxyScore(SubmitProxyScoreRequest $request, Tournament $tournament, Performance $performance, SubmitScore $submit): JsonResponse
-    {
-        $result = $submit->handle($request->user(), $tournament, $performance, $request->validated(), true);
-
-        return response()->json(['data' => $result]);
-    }
-
-    public function confirmProxyScore(ConfirmProxyScoreRequest $request, Tournament $tournament, Performance $performance, ScoreSheet $scoreSheet, ConfirmProxyScore $confirm): JsonResponse
-    {
-        $confirm->handle($request->user(), $tournament, $performance, $scoreSheet, $request->integer('expected_revision'));
-
-        return response()->json(['message' => 'نمرهٔ دستی تأیید شد.']);
     }
 
     public function result(Request $request, Tournament $tournament, Performance $performance): JsonResponse

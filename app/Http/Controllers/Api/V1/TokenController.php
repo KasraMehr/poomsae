@@ -13,14 +13,20 @@ class TokenController extends Controller
     public function store(LoginRequest $request): JsonResponse
     {
         $user = $request->authenticatedUser();
+        $isJudge = ! $user->is_admin && $user->tournaments()->wherePivot('role', 'judge')->exists();
+        $isManager = $user->is_admin || $user->tournaments()->wherePivot('role', 'manager')->exists();
+        $isDisplay = $user->tournaments()->wherePivot('role', 'display')->exists();
+        $isOperator = ! $user->is_admin && $user->tournaments()->wherePivot('role', 'operator')->exists();
+
+        if ($isOperator && ! $isJudge && ! $isManager && ! $isDisplay) {
+            abort(403, 'اپراتور مسابقه به API موبایل دسترسی ندارد و وظایف خود را فقط از طریق پنل وب انجام می‌دهد.');
+        }
+
         $abilities = ['tournaments:read'];
-        if (! $user->is_admin && $user->tournaments()->wherePivot('role', 'judge')->exists()) {
+        if ($isJudge) {
             $abilities[] = 'scores:write';
         }
-        if (! $user->is_admin && $user->tournaments()->wherePivot('role', 'operator')->exists()) {
-            $abilities[] = 'competition:operate';
-        }
-        if ($user->is_admin || $user->tournaments()->wherePivot('role', 'manager')->exists()) {
+        if ($isManager) {
             $abilities[] = 'competition:manage';
         }
         $token = $user->createToken($request->input('device_name', 'android'), $abilities, now()->addHours(12));
