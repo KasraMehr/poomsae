@@ -2,6 +2,7 @@
 import { useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import FormErrors from '../../Shared/Components/FormErrors.vue';
+import CheckboxField from '../../Shared/Components/CheckboxField.vue';
 const props = defineProps({ category: Object, base: String });
 const existing = computed(() => props.category.timing || {});
 const freestyle = props.category.discipline === 'freestyle';
@@ -19,7 +20,7 @@ const form = useForm({
         <h2>زمان اجرا و استراحت</h2>
         <p class="my-3 text-xs leading-6 text-[#8b988a]">زمان از دکمهٔ شروع تا پایان اجرا ثبت می‌شود. استراحت از پایان اجرای قبلی همین ورودی محاسبه می‌شود؛ دریافت و تأیید نمره نیز جزو این فاصله است. پس از اولین شروع، تنظیمات قفل می‌شود.</p>
         <form v-if="category.timing_editable" class="mt-[18px] grid grid-cols-1 gap-[18px] min-[761px]:grid-cols-3" @submit.prevent="form.put(base + '/categories/' + category.id + '/timing', { preserveScroll: true })">
-            <label class="!flex cursor-pointer items-center gap-[9px] text-xs col-span-full"><input v-model="form.enabled" type="checkbox">کنترل محدودهٔ زمان و جریمهٔ خودکار</label>
+            <CheckboxField id="timing-enabled" v-model="form.enabled" label="کنترل محدودهٔ زمان و جریمهٔ خودکار" class="col-span-full" />
             <button type="button" class="inline-flex min-h-11 items-center justify-center rounded-lg border border-transparent bg-[#286957] px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-55 !bg-[#e8eee7] !text-[#42664f] col-span-full" @click="form.enabled = true; form.minimum_duration_seconds = freestyle ? 90 : 0; form.maximum_duration_seconds = freestyle ? 100 : 90; form.minimum_rest_seconds = 30; form.time_penalty_hundredths = 30">انتخاب تنظیمات پیشنهادی WT (سپس ذخیره کنید)</button>
             <div><label>حداقل زمان اجرا (ثانیه)</label><input v-model.number="form.minimum_duration_seconds" type="number" min="0" max="3600" :disabled="!form.enabled" required></div>
             <div><label>حداکثر زمان اجرا (ثانیه)</label><input v-model.number="form.maximum_duration_seconds" type="number" min="1" max="3600" :disabled="!form.enabled" required></div>

@@ -62,6 +62,35 @@ class MobileCompetitionTest extends TestCase
         $this->postJson($url, $payload)->assertForbidden();
     }
 
+    public function test_unpublished_api_result_only_exposes_the_judges_own_sheet(): void
+    {
+        $fixture = $this->competition();
+        $this->schedule($fixture);
+        $performance = Performance::query()->firstOrFail();
+        $this->startScoring($fixture, $performance);
+        $url = '/api/v1/tournaments/'.$fixture['tournament']->id.'/performances/'.$performance->id.'/result';
+
+        foreach ($fixture['judges']->take(2) as $judge) {
+            Sanctum::actingAs($judge, ['tournaments:read', 'scores:write']);
+            $this->postJson('/api/v1/tournaments/'.$fixture['tournament']->id.'/performances/'.$performance->id.'/scores', [
+                'request_id' => (string) Str::uuid(),
+                'expected_version' => $performance->fresh()->version,
+                'expected_revision' => 0,
+                ...$this->detailedScoreInput('2.50', '6.00'),
+            ])->assertOk();
+        }
+
+        Sanctum::actingAs($fixture['judges'][0], ['tournaments:read']);
+        $this->getJson($url)->assertOk()->assertJsonCount(1, 'data.scores')
+            ->assertJsonPath('data.scores.0.judge_name', $fixture['judges'][0]->name);
+
+        Sanctum::actingAs($fixture['judges'][2], ['tournaments:read']);
+        $this->getJson($url)->assertOk()->assertJsonCount(0, 'data.scores');
+
+        Sanctum::actingAs($fixture['operator'], ['tournaments:read', 'competition:operate']);
+        $this->getJson($url)->assertOk()->assertJsonCount(2, 'data.scores');
+    }
+
     public function test_operator_token_generation_includes_competition_operate_ability(): void
     {
         $operator = User::factory()->create(['password' => bcrypt('ValidPassword123!')]);

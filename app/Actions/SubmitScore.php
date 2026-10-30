@@ -68,8 +68,7 @@ class SubmitScore
             abort_unless(($sheet?->revision ?? 0) === (int) $data['expected_revision'], 409, 'نمره در دستگاه دیگری تغییر کرده است؛ نسخهٔ تازه را دریافت کنید.');
             $this->setup->check(! $publishedCorrection || $sheet !== null, 'برای اصلاح نتیجهٔ نهایی باید نمرهٔ قبلی همین صندلی موجود باشد.');
             $this->setup->check($publishedCorrection || $proxy || ! $sheet || $sheet->submission_mode !== 'operator_proxy' || $sheet->status === 'draft', 'نمرهٔ دستی تأیید شده است و داور نمی‌تواند آن را بازنویسی کند.');
-            $this->setup->check(! $proxy || mb_strlen(trim($data['reason'] ?? '')) >= 10, 'دلیل ثبت نمرهٔ جایگزین باید حداقل ۱۰ کاراکتر باشد.');
-            $this->setup->check(! $sheet || mb_strlen(trim($data['reason'] ?? '')) >= 5, 'برای اصلاح نمره، دلیل حداقل ۵ کاراکتری بنویسید.');
+            $this->setup->check($proxy || ! $sheet || mb_strlen(trim($data['reason'] ?? '')) >= 5, 'برای اصلاح نمره، دلیل حداقل ۵ کاراکتری بنویسید.');
             ['values' => $values, 'breakdown' => $breakdown] = $this->validateInput($data, $rules);
             if (! $sheet) {
                 $sheet = ScoreSheet::create(['performance_id' => $performance->id, 'judge_assignment_id' => $judge->id, 'submitted_by' => $actor->id, 'submission_mode' => $proxy ? 'operator_proxy' : 'judge', 'revision' => 1, 'breakdown' => $breakdown, 'status' => $proxy ? 'draft' : 'submitted', 'submitted_at' => now()]);

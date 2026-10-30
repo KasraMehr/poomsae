@@ -2,9 +2,12 @@
 import { useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import FormErrors from '../../Shared/Components/FormErrors.vue';
+import DropdownSelect from '../../Shared/Components/DropdownSelect.vue';
+import PersianDateField from './PersianDateField.vue';
 
 const props = defineProps({ entry: Object, category: Object, tournament: Object, base: String });
 const editing = ref(false);
+const genderOptions = [{ value: 'male', label: 'آقایان' }, { value: 'female', label: 'بانوان' }];
 const form = useForm({ members: [] });
 const beginEdit = () => {
     form.clearErrors();
@@ -23,8 +26,8 @@ const save = () => form.put(props.base + '/entries/' + props.entry.id, { preserv
                 <h3 v-if="form.members.length > 1" class="col-span-full">عضو {{ index + 1 }}</h3>
                 <div><label :for="`edit-first-${member.id}`">نام</label><input :id="`edit-first-${member.id}`" v-model="member.first_name" required maxlength="100"></div>
                 <div><label :for="`edit-last-${member.id}`">نام خانوادگی</label><input :id="`edit-last-${member.id}`" v-model="member.last_name" required maxlength="100"></div>
-                <div><label :for="`edit-birth-${member.id}`">تاریخ تولد (میلادی)</label><input :id="`edit-birth-${member.id}`" v-model="member.birth_date" type="date" dir="ltr" required :max="tournament.starts_on" :disabled="category.registration_locked"></div>
-                <div><label :for="`edit-gender-${member.id}`">جنسیت</label><select :id="`edit-gender-${member.id}`" v-model="member.gender" :disabled="category.registration_locked"><option value="male">آقایان</option><option value="female">بانوان</option></select></div>
+                <PersianDateField :id="`edit-birth-${member.id}`" v-model="member.birth_date" label="تاریخ تولد (شمسی)" required :max-iso="tournament.starts_on" :disabled="category.registration_locked" />
+                <DropdownSelect :id="`edit-gender-${member.id}`" v-model="member.gender" label="جنسیت" :options="genderOptions" :disabled="category.registration_locked" />
                 <div><label :for="`edit-club-${member.id}`">باشگاه</label><input :id="`edit-club-${member.id}`" v-model="member.club" maxlength="100"></div>
             </div>
             <FormErrors :errors="form.errors"/>
