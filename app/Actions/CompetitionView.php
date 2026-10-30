@@ -203,10 +203,10 @@ class CompetitionView
                                 'appeal_status' => $appeals->get($p->id)?->status,
                                 'appeal_pending' => in_array($appeals->get($p->id)?->status, CompetitionAppeal::OPEN_STATUSES, true),
                                 'preview_result' => $previewResult,
-                                'detailed_scores' => $detailedScores,
+                                'detailed_scores' => $operate || $display || $p->result?->published_at ? $detailedScores : null,
                                 'submitted_count' => $p->scoreSheets->where('status', 'submitted')->count(),
                                 'is_assigned' => ! $display && $ownJudge !== null,
-                                'own_score' => $own ? ['revision' => $own->revision, 'values' => $ownValues, 'breakdown' => $own->breakdown] : null,
+                                'own_score' => $own ? ['revision' => $own->revision, 'status' => $own->status, 'submission_mode' => $own->submission_mode, 'values' => $ownValues, 'breakdown' => $own->breakdown] : null,
                                 'scores' => $operate ? $p->scoreSheets->map(fn ($s) => [
                                     'id' => $s->id, 'judge_assignment_id' => $s->judge_assignment_id, 'seat' => $bout->judges->firstWhere('id', $s->judge_assignment_id)?->seat, 'revision' => $s->revision, 'status' => $s->status,
                                     'submission_mode' => $s->submission_mode, 'submitted_by' => $s->submitted_by, 'submitted_at' => $s->submitted_at?->toISOString(),
