@@ -11,6 +11,11 @@ const props = defineProps({
     theme: { type: String, default: 'light' },
 });
 const step = ref('accuracy');
+const freestyleComponents = computed(() => props.rules.input_method === 'freestyle_components_v1');
+const itemizedGroups = [
+    { field: 'accuracy_components', label: 'Accuracy', count: 4, total: 'accuracy', max: 'accuracy_component_max' },
+    { field: 'presentation_components', label: 'Presentation', count: 6, total: 'presentation', max: 'presentation_component_max' },
+];
 const freestyle = computed(
     () => props.rules.input_method === 'components_and_deductions_v1',
 );
@@ -65,6 +70,19 @@ const presentationHundredths = computed(() =>
     freestyle.value ? deductedHundredths.value : componentsHundredths.value,
 );
 const decimal = (value) => (value / 100).toFixed(2);
+const itemizedTotal = (field, count) => {
+    const values = props.form[field] || [];
+    return values.length === count && values.every((value) => value !== '' && value !== null)
+        ? decimal(values.reduce((total, value) => total + Math.round(Number(value) * 100), 0))
+        : '';
+};
+const changeItemizedComponent = (field, index, amount, max) => {
+    if (props.disabled) return;
+    const current = props.form[field][index];
+    const next = Math.round(Number(current || 0) * 100) + amount;
+    if (next < 0 || next > max) return;
+    props.form[field][index] = decimal(next);
+};
 const tones = computed(() =>
     props.theme === 'dark'
         ? {
@@ -91,6 +109,15 @@ const tones = computed(() =>
               primary: 'bg-emerald-700 text-white',
               secondary: 'bg-slate-200 text-slate-800',
           },
+);
+watch(
+    () => [props.form.accuracy_components, props.form.presentation_components],
+    () => {
+        if (!freestyleComponents.value) return;
+        props.form.accuracy = itemizedTotal('accuracy_components', 4);
+        props.form.presentation = itemizedTotal('presentation_components', 6);
+    },
+    { deep: true, immediate: true },
 );
 watch(
     () => [props.form[penaltyField.value], props.form[componentField.value]],
@@ -165,6 +192,45 @@ const changeComponent = (index, amount) => {
                 class="min-h-12 w-full rounded-lg border px-3 text-center text-xl disabled:opacity-55"
                 :class="tones.input"
             />
+        </div>
+        <div
+            v-else-if="freestyleComponents"
+            class="grid gap-4"
+        >
+            <section
+                v-for="group in itemizedGroups"
+                :key="group.field"
+                class="grid gap-3 rounded-xl border p-4"
+                :class="tones.panel"
+            >
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <h3 class="text-sm font-bold" :class="tones.heading">{{ group.label }} · {{ group.count }} components</h3>
+                    <span class="rounded-lg px-3 py-1 text-sm font-bold" :class="tones.secondary" aria-live="polite">
+                        {{ form[group.total] || '—' }} / {{ (rules[`${group.total}_max`] / 100).toFixed(2) }}
+                    </span>
+                </div>
+                <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <div v-for="index in group.count" :key="index" class="grid gap-2 rounded-lg border p-3" :class="tones.panel">
+                        <label :for="`${idPrefix}-${group.field}-${index}`" class="text-xs font-semibold" :class="tones.label">
+                            Component {{ index }} · / {{ (rules[group.max] / 100).toFixed(2) }}
+                        </label>
+                        <div class="flex items-center gap-2">
+                            <button type="button" class="min-h-11 min-w-11 rounded-lg border text-xl font-bold disabled:opacity-40" :class="tones.button"
+                                :disabled="disabled || Math.round(Number(form[group.field][index - 1] || 0) * 100) < 10"
+                                :aria-label="`Decrease ${group.label} component ${index} by 0.1`"
+                                @click="changeItemizedComponent(group.field, index - 1, -10, rules[group.max])">−</button>
+                            <input :id="`${idPrefix}-${group.field}-${index}`" v-model="form[group.field][index - 1]" type="number" inputmode="decimal" min="0"
+                                :max="rules[group.max] / 100" step="0.01" required dir="ltr"
+                                class="min-h-11 min-w-0 w-full rounded-lg border px-2 text-center text-lg font-bold disabled:opacity-55"
+                                :class="tones.componentInput" :disabled="disabled" />
+                            <button type="button" class="min-h-11 min-w-11 rounded-lg border text-xl font-bold disabled:opacity-40" :class="tones.button"
+                                :disabled="disabled || Math.round(Number(form[group.field][index - 1] || 0) * 100) + 10 > rules[group.max]"
+                                :aria-label="`Increase ${group.label} component ${index} by 0.1`"
+                                @click="changeItemizedComponent(group.field, index - 1, 10, rules[group.max])">+</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
         </div>
         <div
             v-else-if="detailed"
