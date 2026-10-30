@@ -51,7 +51,7 @@ class SubmitProxyScoreRequest extends FormRequest
             'presentation_penalties.*' => ['required', 'string', Rule::in(['0.10', '0.30'])],
             'accuracy_components' => [$freestyleComponents ? 'required' : ($freestyleDetailed ? 'required' : 'prohibited'), 'array', $freestyleComponents ? 'size:4' : 'size:3'],
             'accuracy_components.*' => ['required', 'string', 'regex:/^\d{1,2}(?:\.\d{1,2})?$/D'],
-            'reason' => ['required', 'string', 'min:10', 'max:500'],
+            'reason' => ['nullable', 'string', 'max:500'],
         ];
     }
 }

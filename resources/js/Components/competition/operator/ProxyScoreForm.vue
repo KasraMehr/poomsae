@@ -58,10 +58,10 @@ const submit = () =>
             },
         },
     );
-const labelClass = "mt-[13px] text-[#a8bbcc]";
-const fieldClass = "border-[#30465a] bg-[#09131f] text-[#f2f7fb]";
-const dangerButton =
-    "inline-flex min-h-11 items-center justify-center rounded-lg bg-[#d94752] px-[22px] py-[11px] text-[13px] font-bold text-white shadow-[0_7px_22px_#00a9a42e] disabled:cursor-wait disabled:opacity-55";
+const labelClass = "mt-3 text-xs font-semibold text-[#34445c]";
+const fieldClass = "min-h-11 w-full rounded-lg border border-[#c4c9d2] bg-white px-3 text-[#0d192b] focus:border-[#24466a] focus:outline-none";
+const primaryButton =
+    "inline-flex min-h-11 items-center justify-center rounded-lg bg-[#0d192b] px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-[#24466a] disabled:cursor-not-allowed disabled:opacity-55";
 </script>
 
 <template>
@@ -69,22 +69,21 @@ const dangerButton =
     <details
         v-if="missingJudges.length"
         :open="expanded"
-        class="mt-5 border-t border-[#2a3c4f] pt-[15px]"
+        class="mt-5 border-t border-[#c4c9d2] pt-4"
     >
-        <summary class="!text-[#ffbd68]">
+        <summary class="cursor-pointer font-bold text-[#0d192b]">
             Manual score for a missing judge seat
         </summary>
         <form
-            class="rounded-xl border border-[#3c4650] bg-[#101a27] p-[18px]"
+            class="mt-3 grid gap-3 rounded-xl border border-[#c4c9d2] bg-[#f7f8fc] p-4 sm:p-5"
             @submit.prevent="submit"
         >
             <div
-                class="mb-[15px] grid gap-[3px] rounded-[7px] border-r-4 border-[#f28350] bg-[#3b241c] px-[14px] py-3"
+                class="grid gap-1 rounded-lg border border-[#e7c894] bg-[#fff7e8] px-4 py-3"
             >
-                <b class="text-[#ffb07d]">Operator responsibility</b
-                ><span class="text-[10px] text-[#d8b6a4]"
-                    >The operator, judge seat, reason, and score are stored in the permanent
-                    competition audit trail.</span
+                <b class="text-sm text-[#755019]">Operator responsibility</b
+                ><span class="text-xs text-[#755019]"
+                    >The operator, judge seat, score, and optional note are stored in the competition audit trail.</span
                 >
             </div>
             <label :for="`proxy-seat-${performance.id}`" :class="labelClass"
@@ -111,23 +110,22 @@ const dangerButton =
                 :id-prefix="`proxy-${performance.id}`"
                 :disabled="form.processing"
                 :reset-key="form.request_id"
-                theme="dark"
+                theme="light"
             />
             <label :for="`proxy-reason-${performance.id}`" :class="labelClass"
-                >Reason for manual entry</label
+                >Reason for manual entry <span class="font-normal text-[#64748b]">(optional)</span></label
             >
             <textarea
                 :id="`proxy-reason-${performance.id}`"
                 v-model="form.reason"
                 :class="fieldClass"
-                required
-                minlength="10"
                 maxlength="500"
-                placeholder="Example: the judge tablet lost its network connection; the chief judge approved manual scoring."
+                rows="2"
+                placeholder="For example: device issue"
             ></textarea>
             <FormErrors :errors="form.errors" />
             <button
-                :class="dangerButton"
+                :class="primaryButton"
                 :disabled="form.processing || !canSubmit"
             >
                 Submit manual score for review
