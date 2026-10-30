@@ -16,6 +16,7 @@ defineProps({
         class="relative min-h-screen w-full overflow-hidden bg-rtds-bg text-rtds-text font-rtds"
     >
         <Link
+            v-if="page?.props?.urls?.logout"
             :href="page.props.urls.logout"
             method="post"
             as="button"

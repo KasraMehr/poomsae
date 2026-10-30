@@ -8,6 +8,7 @@ import Scoring from '../Scoreboard/Scoring.vue';
 import Result from '../Scoreboard/Result.vue';
 import Winner from '../Scoreboard/Winner.vue';
 import Ranking from '../Scoreboard/Ranking.vue';
+import { courtResultFor, hasPublishedRanking } from '../../Shared/Services/rtdsPresentation';
 
 const props = defineProps({ display: Object, displayUrls: Object, courtId: [Number, String] });
 const { display, now } = useDisplayUpdates(props.display, props.displayUrls.data);
@@ -40,6 +41,7 @@ const isLatestFormComplete = computed(() => {
         && performance.result_published_at));
 });
 const hasFinalBoutResult = computed(() => latest.value?.bout.status === 'completed');
+const hasRanking = computed(() => hasPublishedRanking(latest.value?.category));
 const hasRoundResult = computed(() => isLatestFormComplete.value
     || hasFinalBoutResult.value
     || current.value?.status === 'decision');
@@ -62,7 +64,7 @@ const phaseDurations = {
     draw: 20_000,
 };
 
-const resolvePresentation = ({ publishedAge, hasFinalBoutResult, hasWinner, publishedAt, clockOffset, winnerConfirmedAt, now }) => {
+const resolvePresentation = ({ publishedAge, hasRanking, hasWinner, publishedAt, clockOffset, winnerConfirmedAt, now }) => {
     if (publishedAge === null) return null;
     const presentationAge = publishedAge - phaseDurations.scoring;
     if (presentationAge < phaseDurations.result) return 'result';
@@ -76,7 +78,7 @@ const resolvePresentation = ({ publishedAge, hasFinalBoutResult, hasWinner, publ
     const rankingStart = hasWinner
         ? winnerStart + phaseDurations.winner
         : Date.parse(publishedAt) - clockOffset + phaseDurations.scoring + phaseDurations.result;
-    if (hasFinalBoutResult && now < rankingStart + phaseDurations.ranking) return 'ranking';
+    if (hasRanking && now < rankingStart + phaseDurations.ranking) return 'ranking';
 
     return null;
 };
@@ -99,7 +101,7 @@ const resolvePhase = ({ currentStatus, finishDelayActive, publishedScoring, pres
 const sequence = computed(() => [
     ...(hasRoundResult.value ? [{ phase: 'result', duration: phaseDurations.result }] : []),
     ...(hasWinner.value ? [{ phase: 'winner', duration: phaseDurations.winner }] : []),
-    ...(hasFinalBoutResult.value ? [{ phase: 'ranking', duration: phaseDurations.ranking }] : []),
+    ...(hasRanking.value ? [{ phase: 'ranking', duration: phaseDurations.ranking }] : []),
 ]);
 const sequenceDuration = computed(() => sequence.value.reduce((total, step) => total + step.duration, 0));
 const publishedAge = computed(() => latest.value
@@ -121,7 +123,7 @@ const publishedScoring = computed(() => current.value?.status !== 'running'
     && publishedAge.value < phaseDurations.scoring);
 const presentation = computed(() => resolvePresentation({
     publishedAge: publishedAge.value,
-    hasFinalBoutResult: hasFinalBoutResult.value,
+    hasRanking: hasRanking.value,
     hasWinner: hasWinner.value,
     publishedAt: latest.value?.performance.result_published_at,
     clockOffset: clockOffset.value,
@@ -129,7 +131,7 @@ const presentation = computed(() => resolvePresentation({
     now: now.value,
 }));
 const winnerEnd = computed(() => hasWinner.value && winnerConfirmedAt.value
-    ? winnerConfirmedAt.value + phaseDurations.winner + (hasFinalBoutResult.value ? phaseDurations.ranking : 0)
+    ? winnerConfirmedAt.value + phaseDurations.winner + (hasRanking.value ? phaseDurations.ranking : 0)
     : 0);
 const presentationEnd = computed(() => latest.value
     ? Date.parse(latest.value.performance.result_published_at) - clockOffset.value + phaseDurations.scoring + sequenceDuration.value
@@ -195,6 +197,8 @@ const phase = computed(() => resolvePhase({
 const screens = { standby: Standby, draw: Draw, call: LiveBoard, live: LiveBoard, scoring: Scoring, result: Result, winner: Winner, ranking: Ranking };
 const screen = computed(() => screens[phase.value]);
 
+const courtResult = computed(() => courtResultFor(latest.value, display.value.tournament.current_result));
+
 // Each RTDS URL shows only its own court. A result on another court cannot
 // replace this court's result or winner screen.
 const screenDisplay = computed(() => {
@@ -218,7 +222,7 @@ const screenDisplay = computed(() => {
     return {
         ...display.value,
         courts: court.value ? [court.value] : [],
-        tournament: { ...display.value.tournament, categories, courts: court.value ? [court.value] : [], current_result: null },
+        tournament: { ...display.value.tournament, categories, courts: court.value ? [court.value] : [], current_result: courtResult.value },
     };
 });
 </script>
