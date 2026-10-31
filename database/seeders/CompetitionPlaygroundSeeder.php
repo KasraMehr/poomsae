@@ -9,20 +9,31 @@ use App\Models\Tournament;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class CompetitionPlaygroundSeeder extends Seeder
 {
-    private const PASSWORD = 'demoJudge123';
+    private const LOCAL_PASSWORD = 'demoJudge123';
+
+    private string $password;
 
     public function run(): void
     {
-        if (! app()->environment(['local', 'testing'])) {
-            throw new \RuntimeException('Competition playground accounts are only available in local/testing.');
+        if (app()->environment(['local', 'testing'])) {
+            $this->password = self::LOCAL_PASSWORD;
+        } elseif (app()->environment('production') && getenv('POOMSAE_ALLOW_PLAYGROUND_SEED') === '1') {
+            if (Tournament::query()->exists() || User::query()->where('email', 'like', 'playground.%@example.test')->exists()) {
+                throw new \RuntimeException('Production playground seeding requires a database without tournaments or playground accounts.');
+            }
+
+            $this->password = Str::password(24, symbols: false);
+        } else {
+            throw new \RuntimeException('Playground seeding is limited to local/testing or an explicitly enabled, empty production pilot.');
         }
 
         $admin = User::firstOrCreate(
             ['email' => 'playground.admin@example.test'],
-            ['name' => 'مدیر آزمایش', 'password' => self::PASSWORD]
+            ['name' => 'مدیر آزمایش', 'password' => $this->password]
         );
         $admin->forceFill(['is_admin' => true, 'is_active' => true])->save();
 
@@ -53,12 +64,12 @@ class CompetitionPlaygroundSeeder extends Seeder
         }
 
         $this->command?->table(['پنل', 'ایمیل', 'رمز'], [
-            ['مدیر', 'playground.admin@example.test', self::PASSWORD],
-            ['اپراتور', 'playground.operator@example.test', self::PASSWORD],
-            ['نمایشگر', 'playground.display@example.test', self::PASSWORD],
-            ...array_map(fn (int $number): array => ['داور '.sprintf('%02d', $number), sprintf('playground.judge%02d@example.test', $number), self::PASSWORD], range(1, 14)),
+            ['مدیر', 'playground.admin@example.test', $this->password],
+            ['اپراتور', 'playground.operator@example.test', $this->password],
+            ['نمایشگر', 'playground.display@example.test', $this->password],
+            ...array_map(fn (int $number): array => ['داور '.sprintf('%02d', $number), sprintf('playground.judge%02d@example.test', $number), $this->password], range(1, 14)),
         ]);
-        $this->command?->warn('These simple credentials are for local testing only. Existing playground tournaments are left intact on rerun.');
+        $this->command?->warn('Keep these credentials private. Remove pilot accounts and tournaments before using this database for a real event.');
     }
 
     /** @param array<string, mixed> $scenario */
@@ -77,7 +88,7 @@ class CompetitionPlaygroundSeeder extends Seeder
         foreach (['operator' => 'اپراتور آزمایش', 'display' => 'نمایشگر آزمایش'] as $role => $name) {
             $setup->member($admin, $tournament, [
                 'name' => $name, 'email' => 'playground.'.$role.'@example.test',
-                'password' => self::PASSWORD, 'role' => $role,
+                'password' => $this->password, 'role' => $role,
             ]);
         }
 
@@ -86,7 +97,7 @@ class CompetitionPlaygroundSeeder extends Seeder
             $email = sprintf('playground.judge%02d@example.test', $number);
             $setup->member($admin, $tournament, [
                 'name' => 'داور آزمایش '.sprintf('%02d', $number), 'email' => $email,
-                'password' => self::PASSWORD, 'role' => 'judge',
+                'password' => $this->password, 'role' => 'judge',
             ]);
             $judgeIds[] = User::where('email', $email)->firstOrFail()->id;
         }
