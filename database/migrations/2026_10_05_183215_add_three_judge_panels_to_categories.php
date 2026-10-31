@@ -14,9 +14,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('categories', function (Blueprint $table): void {
-            $table->enum('judge_count', ['3', '5', '7'])->change();
-        });
+        $this->setJudgeCounts(['3', '5', '7']);
         DB::table('competition_rounds')->orderBy('id')->each(function (object $round): void {
             DB::table('competition_rounds')->where('id', $round->id)->update(['name' => 'مرحله '.$round->sequence]);
         });
@@ -27,8 +25,20 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('categories', function (Blueprint $table): void {
-            $table->enum('judge_count', ['5', '7'])->change();
+        $this->setJudgeCounts(['5', '7']);
+    }
+
+    private function setJudgeCounts(array $counts): void
+    {
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE categories DROP CONSTRAINT IF EXISTS categories_judge_count_check');
+            DB::statement("ALTER TABLE categories ADD CONSTRAINT categories_judge_count_check CHECK (judge_count IN ('".implode("', '", $counts)."'))");
+
+            return;
+        }
+
+        Schema::table('categories', function (Blueprint $table) use ($counts): void {
+            $table->enum('judge_count', $counts)->change();
         });
     }
 };
