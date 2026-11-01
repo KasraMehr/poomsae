@@ -282,9 +282,10 @@ const time = value => value ? new Date(value).toLocaleTimeString('en-GB', { hour
 .operator-footer-connection:not(.connected){color:#a16a22}
 .operator-footer-connection i{width:7px;height:7px;border-radius:50%;background:currentColor}
 .operator-footer-tournament{color:#7b8799}
-.operator-toast{position:fixed;z-index:1000;top:16px;left:50%;display:flex;align-items:center;gap:18px;max-width:min(520px,calc(100vw - 28px));padding:12px 15px;transform:translateX(-50%);border:1px solid #225b45;background:#e7f5ed;color:#14583d;box-shadow:0 10px 35px #0d192b30;font-size:13px;font-weight:800}
+.operator-toast{position:fixed;z-index:1000;top:20px;left:50%;display:flex;align-items:center;gap:22px;width:max-content;max-width:min(620px,calc(100vw - 28px));padding:16px 22px;transform:translateX(-50%);border:1px solid #225b45;background:#e7f5ed;color:#14583d;box-shadow:0 14px 38px #0d192b38;font-size:15px;font-weight:800;animation:operator-toast-drop .42s cubic-bezier(.2,.85,.25,1.15) both}
 .operator-toast.error{border-color:#a84848;background:#fff0ef;color:#8d3030}
 .operator-toast button{border:0;background:transparent;color:inherit;font-size:18px;line-height:1}
+@keyframes operator-toast-drop{from{opacity:0;transform:translate(-50%,-140%)}to{opacity:1;transform:translate(-50%,0)}}
 @media(max-width:900px){.operator-top-actions{gap:7px}.operator-court-select{width:200px}.operator-profile-name strong{max-width:80px}}
 @media(max-width:740px){.operator-top-actions{width:100%;justify-content:space-between;gap:6px;white-space:normal}.operator-court-select{width:min(220px,42vw)}.operator-profile-name{display:none}.operator-profile-badge{gap:5px;padding:2px 4px}}
 @media(max-width:900px){.operator-topbar nav{position:static;transform:none}}
