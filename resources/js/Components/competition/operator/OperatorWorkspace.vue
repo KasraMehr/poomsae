@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue';
+import { computed, provide, ref, watch } from 'vue';
 import { Link, useForm, usePage } from '@inertiajs/vue3';
 import DropdownSelect from '../../../Shared/Components/DropdownSelect.vue';
 import CourtConsole from './CourtConsole.vue';
@@ -63,6 +63,14 @@ watch([() => match.value?.id, currentStage], ([matchKey, lifecycle]) => {
 }, { immediate: true });
 const action = useForm({ command: '', expected_version: 1 });
 const completion = useForm({});
+const operatorToast = ref(null);
+let operatorToastTimer = null;
+const showOperatorToast = (type, message) => {
+    operatorToast.value = { type, message };
+    window.clearTimeout(operatorToastTimer);
+    operatorToastTimer = window.setTimeout(() => { operatorToast.value = null; }, 3600);
+};
+provide('operatorToast', showOperatorToast);
 const detailsDialog = ref(null);
 const manualDialog = ref(null);
 const openDetailsDialog = () => detailsDialog.value?.showModal();
@@ -139,8 +147,8 @@ const time = value => value ? new Date(value).toLocaleTimeString('en-GB', { hour
             <aside id="operator-events-panel" class="operator-panel operator-events" :class="{ 'events-hidden': !eventsOpen }" :aria-hidden="!eventsOpen" :inert="!eventsOpen" aria-label="System events"><div class="operator-panel-head"><strong>SYSTEM EVENT LOG</strong><span>▤</span></div><ol><li v-for="event in props.console.recent_events" :key="event.id"><time :datetime="event.occurred_at">{{ time(event.occurred_at) }}</time><div><strong>{{ eventLabels[event.action] ?? event.action }}</strong><small>{{ event.actor_name ?? 'System' }}</small></div></li></ol><p v-if="!props.console.recent_events?.length" class="operator-empty">No events recorded.</p></aside>
         </main><div v-else class="operator-empty operator-no-court">No court has been configured. <Link v-if="can.manage" :href="urls.setup">Open setup</Link></div>
         <footer class="operator-footer"><span class="operator-footer-status"><span>SYSTEM STATUS</span><strong class="operator-footer-connection" :class="connection"><i aria-hidden="true"></i>{{ connection === 'connected' ? 'LIVE' : 'POLLING' }}</strong><span class="operator-footer-tournament">| {{ props.console.tournament.name }}</span></span><span><a :href="urls.excel">EXCEL</a> &nbsp;·&nbsp; {{ props.console.attention.running }} LIVE &nbsp;·&nbsp; {{ props.console.attention.waiting_for_scores }} WAITING &nbsp;·&nbsp; {{ props.console.attention.ready }} READY <button v-if="can.manage && props.console.tournament.status === 'running' && props.console.tournament.categories.length && props.console.tournament.categories.every(item => item.completed)" :disabled="completion.processing" @click="completion.post(urls.base + '/complete')">Complete competition</button></span></footer>
-        <dialog ref="detailsDialog" class="operator-modal" @click="event => { if (event.target === detailsDialog) detailsDialog.close(); }"><div class="operator-modal-head"><div><strong>MATCH {{ match?.sequence }} · ADVANCED CONTROLS</strong><small>Review scores, resolve ties, and manage exceptions</small></div><button type="button" aria-label="Close dialog" @click="detailsDialog.close()">×</button></div><div class="operator-modal-body"><CourtConsole v-if="match && (court?.active?.bout_id === match.id || court?.queue?.[0]?.bout_id === match.id)" :court="court" :rules="category?.rules ?? {}" :online-judge-ids="onlineJudgeIds" :base="urls.base" /><BoutPanel v-if="bout && round && category" :bout="bout" :round="round" :category="category" :tournament="props.console.tournament" :base="urls.base" :can-operate="can.operate" /></div></dialog>
-        <dialog ref="manualDialog" class="operator-modal operator-manual-modal" @click="event => { if (event.target === manualDialog) manualDialog.close(); }"><div class="operator-modal-head"><div><strong>MANUAL JUDGE SCORE</strong><small>Tablet issue · recorded with operator and reason</small></div><button type="button" aria-label="Close dialog" @click="manualDialog.close()">×</button></div><div class="operator-modal-body"><ManualScorePanel v-if="manualPerformance" :performance="manualPerformance" :rules="category?.rules ?? {}" :base="urls.base" /></div></dialog>
+        <dialog ref="detailsDialog" class="operator-modal" @click="event => { if (event.target === detailsDialog) detailsDialog.close(); }"><div v-if="operatorToast" class="operator-toast" :class="operatorToast.type" role="status" aria-live="polite"><span>{{ operatorToast.message }}</span><button type="button" aria-label="Dismiss notification" @click="operatorToast = null">×</button></div><div class="operator-modal-head"><div><strong>MATCH {{ match?.sequence }} · ADVANCED CONTROLS</strong><small>Review scores, resolve ties, and manage exceptions</small></div><button type="button" aria-label="Close dialog" @click="detailsDialog.close()">×</button></div><div class="operator-modal-body"><CourtConsole v-if="match && (court?.active?.bout_id === match.id || court?.queue?.[0]?.bout_id === match.id)" :court="court" :rules="category?.rules ?? {}" :online-judge-ids="onlineJudgeIds" :base="urls.base" /><BoutPanel v-if="bout && round && category" :bout="bout" :round="round" :category="category" :tournament="props.console.tournament" :base="urls.base" :can-operate="can.operate" /></div></dialog>
+        <dialog ref="manualDialog" class="operator-modal operator-manual-modal" @click="event => { if (event.target === manualDialog) manualDialog.close(); }"><div v-if="operatorToast" class="operator-toast" :class="operatorToast.type" role="status" aria-live="polite"><span>{{ operatorToast.message }}</span><button type="button" aria-label="Dismiss notification" @click="operatorToast = null">×</button></div><div class="operator-modal-head"><div><strong>MANUAL JUDGE SCORE</strong><small>Tablet issue · recorded with operator and reason</small></div><button type="button" aria-label="Close dialog" @click="manualDialog.close()">×</button></div><div class="operator-modal-body"><ManualScorePanel v-if="manualPerformance" :performance="manualPerformance" :rules="category?.rules ?? {}" :base="urls.base" /></div></dialog>
 
     </div>
 </template>
@@ -274,6 +282,9 @@ const time = value => value ? new Date(value).toLocaleTimeString('en-GB', { hour
 .operator-footer-connection:not(.connected){color:#a16a22}
 .operator-footer-connection i{width:7px;height:7px;border-radius:50%;background:currentColor}
 .operator-footer-tournament{color:#7b8799}
+.operator-toast{position:fixed;z-index:1000;top:16px;left:50%;display:flex;align-items:center;gap:18px;max-width:min(520px,calc(100vw - 28px));padding:12px 15px;transform:translateX(-50%);border:1px solid #225b45;background:#e7f5ed;color:#14583d;box-shadow:0 10px 35px #0d192b30;font-size:13px;font-weight:800}
+.operator-toast.error{border-color:#a84848;background:#fff0ef;color:#8d3030}
+.operator-toast button{border:0;background:transparent;color:inherit;font-size:18px;line-height:1}
 @media(max-width:900px){.operator-top-actions{gap:7px}.operator-court-select{width:200px}.operator-profile-name strong{max-width:80px}}
 @media(max-width:740px){.operator-top-actions{width:100%;justify-content:space-between;gap:6px;white-space:normal}.operator-court-select{width:min(220px,42vw)}.operator-profile-name{display:none}.operator-profile-badge{gap:5px;padding:2px 4px}}
 @media(max-width:900px){.operator-topbar nav{position:static;transform:none}}

@@ -1,17 +1,24 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, inject } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import ProxyScoreForm from './ProxyScoreForm.vue';
 import FormErrors from '../../../Shared/Components/FormErrors.vue';
 
 const props = defineProps({ performance: Object, rules: Object, base: String });
+const notify = inject('operatorToast', () => {});
 const confirmation = useForm({ expected_revision: 1 });
 const drafts = computed(() => (props.performance.scores ?? [])
     .filter(score => score.submission_mode === 'operator_proxy' && score.status === 'draft')
     .sort((a, b) => a.seat - b.seat));
 const confirm = score => {
     confirmation.expected_revision = score.revision;
-    confirmation.post(`${props.base}/performances/${props.performance.id}/proxy-scores/${score.id}/confirm`, { preserveScroll: true });
+    confirmation.post(`${props.base}/performances/${props.performance.id}/proxy-scores/${score.id}/confirm`, {
+        preserveScroll: true,
+        onSuccess: () => notify('success', 'Manual score confirmed.'),
+        onError: () => notify('error', 'Could not confirm the manual score. Please review the score and try again.'),
+        onHttpException: () => notify('error', 'Could not confirm the manual score. Please try again.'),
+        onNetworkError: () => notify('error', 'Connection error. The manual score was not confirmed.'),
+    });
 };
 const judgeName = seat => props.performance.judges.find(judge => judge.seat === seat)?.name ?? `Judge ${seat}`;
 const total = score => (props.rules.input_method === 'single_score_v1'
