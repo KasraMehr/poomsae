@@ -73,7 +73,7 @@ const statusMessage = computed(() => ({
         <p class="operator-result-status" :class="performance?.status">{{ statusMessage }}</p>
 
         <template v-if="hasResult">
-            <div class="operator-result-cards">
+            <div class="operator-result-cards" :class="{ 'single-entry': match.entries.length === 1 }">
                 <article v-for="(entry, index) in match.entries" :key="entry.id" class="operator-result-card" :class="[entry.side?.toLowerCase() === 'hong' || index === 1 ? 'hong' : 'chung', { 'not-performed': !formPerformanceFor(entry), 'form-performer': isCurrentPerformance(entry) }]">
                     <div class="operator-result-card-head">
                         <span>{{ entry.side?.toUpperCase() ?? (index === 0 ? 'CHUNG / BLUE' : 'HONG / RED') }}</span>
@@ -209,6 +209,10 @@ const statusMessage = computed(() => ({
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
+}
+
+.operator-result-cards.single-entry {
+    grid-template-columns: minmax(0, 1fr);
 }
 
 .operator-result-card {
