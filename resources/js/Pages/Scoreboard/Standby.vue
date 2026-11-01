@@ -5,6 +5,7 @@ import ScoreboardLayout from "../../Shared/Layouts/ScoreboardLayout.vue";
 import ScoreboardHeader from "../../Components/scoreboard/ScoreboardHeader.vue";
 import AthleteInfo from "../../Components/scoreboard/AthleteInfo.vue";
 import FormBadge from "../../Components/scoreboard/FormBadge.vue";
+import { displayFormName, displayFormSymbolKey } from "../../Shared/Services/symbols";
 import Timer from "../../Components/scoreboard/Timer.vue";
 
 /**
@@ -240,13 +241,13 @@ const score = (value) =>
               maximumFractionDigits: 6,
           });
 
-const formNamesOf = (bout) =>
-    bout.performances.map((p) => p.form_name).filter(Boolean);
+const formNamesOf = (bout, performance = bout.performances?.[0]) =>
+    bout.category?.discipline === "freestyle"
+        ? [displayFormName(bout.category, performance)]
+        : bout.performances.map((item) => item.form_name).filter(Boolean);
 
 const formSymbolKeyOf = (bout, performance = bout.performances?.[0]) => {
-    if (bout.category?.discipline === "freestyle") return null;
-
-    return performance?.form_badge ?? null;
+    return displayFormSymbolKey(bout.category, performance);
 };
 
 /*

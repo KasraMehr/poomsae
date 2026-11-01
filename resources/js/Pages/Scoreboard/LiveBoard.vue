@@ -5,6 +5,7 @@ import ScoreboardHeader from "../../Components/scoreboard/ScoreboardHeader.vue";
 import AthleteInfo from "../../Components/scoreboard/AthleteInfo.vue";
 import FormBadge from "../../Components/scoreboard/FormBadge.vue";
 import Timer from "../../Components/scoreboard/Timer.vue";
+import { displayFormName, displayFormSymbolKey } from "../../Shared/Services/symbols";
 import { Head } from "@inertiajs/vue3";
 
 const props = defineProps({
@@ -144,11 +145,9 @@ const durationSeconds = computed(() => {
 const formSymbolKey = computed(() => {
     const execution = currentExecution.value;
 
-    if (!execution || execution.category.discipline === "freestyle") {
-        return null;
-    }
-
-    return execution.performance.form_badge ?? null;
+    return execution
+        ? displayFormSymbolKey(execution.category, execution.performance)
+        : null;
 });
 
 const courts = computed(() => tournament.value?.courts ?? []);
@@ -205,12 +204,7 @@ const courts = computed(() => tournament.value?.courts ?? []);
                         <FormBadge
                             :size="phase === 'call' ? 'xl' : 'xxxl'"
                             :symbol-key="formSymbolKey"
-                            :form-name="
-                                currentExecution.performance.form_name
-                                    ?.form_name ??
-                                currentExecution.performance.form_name ??
-                                ''
-                            "
+                            :form-name="displayFormName(currentExecution.category, currentExecution.performance) || currentExecution.performance.form_name?.form_name || ''"
                         />
                     </div>
 
