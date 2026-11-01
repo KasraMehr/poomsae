@@ -131,8 +131,8 @@ const time = value => value ? new Date(value).toLocaleTimeString('en-GB', { hour
                 <div class="operator-stage-content">
                 <SetupStage v-if="activeStage === 'setup'" :match="match" :category="category" :round="round" :bout="bout" :performance="performance" :judges="judges" :connection="connection" @continue="selectStage" />
                 <LiveStage v-else-if="activeStage === 'live'" :match="match" :category="category" :performance="performance" :court="court" :processing="action.processing" :errors="action.errors" @command="command" @continue="selectStage" />
-                <ResultStage v-else-if="activeStage === 'result'" :match="match" :performance="performance" :bout="bout" :judges="judges" :manual-performance="manualPerformance" :processing="action.processing" :errors="action.errors" @command="command" @manual="openManualDialog" @details="openDetailsDialog" @continue="selectStage" />
-                <ConfirmedStage v-else />
+                <ResultStage v-else-if="activeStage === 'result'" :match="match" :category="category" :performance="performance" :bout="bout" :judges="judges" :manual-performance="manualPerformance" :processing="action.processing" :errors="action.errors" @command="command" @manual="openManualDialog" @details="openDetailsDialog" @continue="selectStage" />
+                <ConfirmedStage v-else :match="match" :bout="bout" />
                 </div>
             </section>
 
