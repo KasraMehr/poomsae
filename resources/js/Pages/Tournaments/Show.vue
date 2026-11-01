@@ -27,7 +27,6 @@ const sectionTitles = {
     registration: 'ثبت‌نام و پذیرش',
     planning: 'قرعه و برنامه‌ریزی',
     execution: 'اجرا و نتایج',
-    reports: 'گزارش‌ها و آرشیو',
 };
 const menuGroups = computed(() => [
     { title: 'مسابقه', items: [{ id: 'overview', title: 'نمای مسابقه', icon: '◫' }] },
@@ -43,10 +42,9 @@ const menuGroups = computed(() => [
         ] : []),
         { id: 'execution', title: 'اجرا و نتایج', icon: '▷' },
     ] },
-    { title: 'گزارش', items: [{ id: 'reports', title: 'گزارش‌ها و آرشیو', icon: '▧', href: props.competitionUrls.reports }] },
 ]);
 const selectSection = section => {
-    if (section !== 'overview' && section !== 'execution' && section !== 'reports' && !isSetupAvailable.value) return;
+    if (section !== 'overview' && section !== 'execution' && !isSetupAvailable.value) return;
     activeSection.value = section;
     if (section === 'overview') {
         window.requestAnimationFrame(() => document.getElementById('tournament-summary')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
@@ -55,7 +53,7 @@ const selectSection = section => {
 };
 const syncSectionFromHash = () => {
     const section = window.location.hash.slice(1);
-    if (sectionTitles[section] && (isSetupAvailable.value || ['overview', 'execution', 'reports'].includes(section))) {
+    if (sectionTitles[section] && (isSetupAvailable.value || ['overview', 'execution'].includes(section))) {
         activeSection.value = section;
     }
 };

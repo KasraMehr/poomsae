@@ -1,6 +1,6 @@
 <script setup>
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import AppLayout from '../../Shared/Layouts/AppLayout.vue';
 import PersianDateField from '../../Components/tournaments/PersianDateField.vue';
 import TournamentRow from '../../Components/tournaments/TournamentRow.vue';
@@ -9,6 +9,11 @@ import { currentPersianDateParts, persianDateToGregorianIso } from '../../Shared
 const props = defineProps({ tournaments: Object, statusFilter: String, listUrls: Object });
 
 const page = usePage();
+const reportsMode = computed(() => new URLSearchParams(page.url.split('?')[1]?.split('#')[0] ?? '').get('view') === 'reports');
+const visibleListUrls = computed(() => Object.fromEntries(Object.entries(props.listUrls).map(([key, url]) => [
+    key,
+    reportsMode.value ? `${url}${url.includes('?') ? '&' : '?'}view=reports` : url,
+])));
 const today = currentPersianDateParts();
 const todayIso = persianDateToGregorianIso(today.year, today.month, today.day);
 const form = useForm({ name: '', venue: '', starts_on: todayIso, ends_on: '', timezone: 'Asia/Tehran' });
@@ -22,17 +27,17 @@ watch(() => props.tournaments.total, (total) => {
 
 <template>
     <AppLayout>
-        <Head title="مسابقات" />
+        <Head :title="reportsMode ? 'گزارش مسابقات' : 'مسابقات'" />
 
         <div class="grid gap-7">
             <section class="flex flex-wrap items-end justify-between gap-5">
                 <div>
-                    <h1 class="text-[29px] font-bold leading-[1.5] text-[#203c34] max-[760px]:text-[25px]">مدیریت مسابقات</h1>
+                    <h1 class="text-[29px] font-bold leading-[1.5] text-[#203c34] max-[760px]:text-[25px]">{{ reportsMode ? 'گزارش مسابقات' : 'مدیریت مسابقات' }}</h1>
                     <p class="mt-2 text-[13px] text-[#7c8984]">
-                        هر مسابقه، برنامه و تیم اجرایی خودش را دارد.
+                        {{ reportsMode ? 'مسابقه را انتخاب کنید تا گزارش‌های آن را ببینید.' : 'هر مسابقه، برنامه و تیم اجرایی خودش را دارد.' }}
                     </p>
                 </div>
-                <div class="flex items-center gap-3 rounded-xl border border-[#e3eae2] bg-white px-4 py-3 text-xs">
+                <div v-if="!reportsMode" class="flex items-center gap-3 rounded-xl border border-[#e3eae2] bg-white px-4 py-3 text-xs">
                     <svg aria-hidden="true" viewBox="0 0 20 20" class="h-5 w-5 text-[#62816e]" fill="none" stroke="currentColor" stroke-width="1.5">
                         <circle cx="10" cy="10" r="7" />
                         <path d="M10 6v4l2.5 1.5" stroke-linecap="round" />
@@ -44,7 +49,7 @@ watch(() => props.tournaments.total, (total) => {
                 </div>
             </section>
 
-            <section v-if="page.props.auth.user.is_admin">
+            <section v-if="page.props.auth.user.is_admin && !reportsMode">
                 <div class="rounded-2xl border border-[#e2e9df] bg-white shadow-[0_5px_18px_#26452c08] transition-colors hover:border-[#6f9c7c]">
                     <button
                         type="button"
@@ -142,19 +147,19 @@ watch(() => props.tournaments.total, (total) => {
             <section class="grid gap-5">
                 <nav class="flex flex-wrap gap-2 border-b border-[#e3e9e2] pb-2" aria-label="فیلتر مسابقات">
                     <Link
-                        :href="listUrls.all"
+                        :href="visibleListUrls.all"
                         :aria-current="statusFilter === 'all' ? 'page' : undefined"
                         class="min-h-11 rounded-lg border px-4 py-2.5 text-[13px] font-semibold transition-colors"
                         :class="statusFilter === 'all' ? 'border-[#286957] bg-[#286957] text-white shadow-sm' : 'border-[#e2e9df] bg-white text-[#66776c] hover:border-[#bfd1c1] hover:bg-[#f7faf6]'"
                     >همه</Link>
                     <Link
-                        :href="listUrls.active"
+                        :href="visibleListUrls.active"
                         :aria-current="statusFilter === 'active' ? 'page' : undefined"
                         class="min-h-11 rounded-lg border px-4 py-2.5 text-[13px] font-semibold transition-colors"
                         :class="statusFilter === 'active' ? 'border-[#286957] bg-[#286957] text-white shadow-sm' : 'border-[#e2e9df] bg-white text-[#66776c] hover:border-[#bfd1c1] hover:bg-[#f7faf6]'"
                     >مسابقات جاری و پایان‌یافته</Link>
                     <Link
-                        :href="listUrls.archived"
+                        :href="visibleListUrls.archived"
                         :aria-current="statusFilter === 'archived' ? 'page' : undefined"
                         class="min-h-11 rounded-lg border px-4 py-2.5 text-[13px] font-semibold transition-colors"
                         :class="statusFilter === 'archived' ? 'border-[#286957] bg-[#286957] text-white shadow-sm' : 'border-[#e2e9df] bg-white text-[#66776c] hover:border-[#bfd1c1] hover:bg-[#f7faf6]'"
@@ -163,7 +168,7 @@ watch(() => props.tournaments.total, (total) => {
 
                 <div class="flex flex-wrap items-end justify-between gap-2">
                     <h2 class="text-[17px] font-bold text-[#29463b]">
-                        {{ statusFilter === 'archived' ? 'آرشیو مسابقات' : 'فهرست مسابقات' }}
+                        {{ reportsMode ? 'انتخاب مسابقه برای مشاهدهٔ گزارش' : statusFilter === 'archived' ? 'آرشیو مسابقات' : 'فهرست مسابقات' }}
                     </h2>
                     <span class="text-xs text-[#849087]">{{ tournaments.total.toLocaleString('fa-IR') }} رویداد</span>
                 </div>
@@ -176,18 +181,19 @@ watch(() => props.tournaments.total, (total) => {
                         <span class="hidden min-[761px]:block">پایان</span>
                         <span class="hidden text-center min-[761px]:block">رده‌ها</span>
                         <span class="hidden text-center min-[761px]:block">زمین‌ها</span>
-                        <span>وضعیت</span>
+                        <span>{{ reportsMode ? 'وضعیت / گزارش' : 'وضعیت' }}</span>
                     </div>
                     <TournamentRow
                         v-for="tournament in tournaments.data"
                         :key="tournament.id"
                         :tournament="tournament"
+                        :report-mode="reportsMode"
                     />
                 </div>
                 <div v-else class="rounded-2xl border border-dashed border-[#ccd9ca] bg-[#fafcf8] px-5 py-12 text-center">
                     <span class="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-[#edf3eb] text-xl text-[#82967f]">◇</span>
-                    <h2 class="text-sm font-bold text-[#40594b]">مسابقه‌ای برای نمایش وجود ندارد.</h2>
-                    <p class="mt-2 text-xs text-[#8b988a]">فیلتر دیگری انتخاب کنید یا یک مسابقه‌ی جدید بسازید.</p>
+                    <h2 class="text-sm font-bold text-[#40594b]">{{ reportsMode ? 'مسابقه‌ای برای گزارش وجود ندارد.' : 'مسابقه‌ای برای نمایش وجود ندارد.' }}</h2>
+                    <p class="mt-2 text-xs text-[#8b988a]">{{ reportsMode ? 'فیلتر دیگری انتخاب کنید تا مسابقهٔ موردنظر پیدا شود.' : 'فیلتر دیگری انتخاب کنید یا یک مسابقه‌ی جدید بسازید.' }}</p>
                 </div>
 
                 <nav

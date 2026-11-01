@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
-import { Link, useForm } from '@inertiajs/vue3';
+import { Link, useForm, usePage } from '@inertiajs/vue3';
+import DropdownSelect from '../../../Shared/Components/DropdownSelect.vue';
 import CourtConsole from './CourtConsole.vue';
 import ManualScorePanel from './ManualScorePanel.vue';
 import BoutPanel from '../BoutPanel.vue';
@@ -10,7 +11,9 @@ import ResultStage from './ResultStage.vue';
 import ConfirmedStage from './ConfirmedStage.vue';
 
 const props = defineProps({ console: Object, can: Object, urls: Object, onlineJudgeIds: Array, connection: String });
+const page = usePage();
 const courtId = ref(props.console.courts[0]?.id ?? null);
+const courtOptions = computed(() => props.console.courts.map(item => ({ value: item.id, label: item.name })));
 const matchesOpen = ref(true);
 const eventsOpen = ref(false);
 const matchId = ref(null);
@@ -100,8 +103,16 @@ const time = value => value ? new Date(value).toLocaleTimeString('en-GB', { hour
     <div class="operator-workspace" dir="ltr">
         <header class="operator-topbar">
             <strong class="operator-brand">POOMSAE<span>CONTROL</span></strong>
-            <nav aria-label="Competition sections"><a href="#matches">MATCH</a><span class="operator-tab active">SCORING</span><Link :href="urls.reports">HISTORY</Link></nav>
-            <div class="operator-top-actions"><label for="operator-court">COURT</label><select id="operator-court" v-model="courtId"><option v-for="item in props.console.courts" :key="item.id" :value="item.id">{{ item.name }}</option></select><span class="operator-live" :class="connection">● {{ connection === 'connected' ? 'LIVE' : 'POLLING' }}</span><button type="button" class="operator-events-toggle" :aria-expanded="eventsOpen" aria-controls="operator-events-panel" :aria-label="eventsOpen ? 'Close recent events panel' : 'Open recent events panel'" :title="eventsOpen ? 'Close recent events' : 'Open recent events'" @click="eventsOpen = !eventsOpen"><svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" :class="{ reversed: !eventsOpen }"><path d="m7 4 6 6-6 6" stroke-linecap="round" stroke-linejoin="round" /></svg><span>EVENTS</span></button></div>
+            <nav aria-label="Competition sections"><span class="operator-tab active">SCORING</span></nav>
+            <div class="operator-top-actions" dir="rtl">
+                <div class="operator-profile-badge" dir="ltr">
+                    <span class="operator-profile-avatar" aria-hidden="true">{{ page.props.auth.user.name.charAt(0) }}</span>
+                    <span class="operator-profile-name"><strong>{{ page.props.auth.user.name }}</strong><small>OPERATOR</small></span>
+                    <Link :href="page.props.urls.logout" method="post" as="button" class="operator-logout" aria-label="Log out" title="Log out"><svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M8 4H4.8a.8.8 0 0 0-.8.8v10.4a.8.8 0 0 0 .8.8H8M12 6l4 4-4 4m4-4H7" stroke-linecap="round" stroke-linejoin="round" /></svg></Link>
+                </div>
+                <button type="button" class="operator-events-toggle" :aria-expanded="eventsOpen" aria-controls="operator-events-panel" :aria-label="eventsOpen ? 'Close recent events panel' : 'Open recent events panel'" :title="eventsOpen ? 'Close recent events' : 'Open recent events'" @click="eventsOpen = !eventsOpen"><svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" :class="{ reversed: !eventsOpen }"><path d="m7 4 6 6-6 6" stroke-linecap="round" stroke-linejoin="round" /></svg><span>EVENTS</span></button>
+                <DropdownSelect id="operator-court" class="operator-court-select" variant="operator" label="COURT" v-model="courtId" :options="courtOptions" />
+            </div>
         </header>
 
         <main class="operator-columns" :class="{ 'matches-collapsed': !matchesOpen, 'events-collapsed': !eventsOpen }" v-if="court">
@@ -127,7 +138,7 @@ const time = value => value ? new Date(value).toLocaleTimeString('en-GB', { hour
 
             <aside id="operator-events-panel" class="operator-panel operator-events" :class="{ 'events-hidden': !eventsOpen }" :aria-hidden="!eventsOpen" :inert="!eventsOpen" aria-label="System events"><div class="operator-panel-head"><strong>SYSTEM EVENT LOG</strong><span>▤</span></div><ol><li v-for="event in props.console.recent_events" :key="event.id"><time :datetime="event.occurred_at">{{ time(event.occurred_at) }}</time><div><strong>{{ eventLabels[event.action] ?? event.action }}</strong><small>{{ event.actor_name ?? 'System' }}</small></div></li></ol><p v-if="!props.console.recent_events?.length" class="operator-empty">No events recorded.</p></aside>
         </main><div v-else class="operator-empty operator-no-court">No court has been configured. <Link v-if="can.manage" :href="urls.setup">Open setup</Link></div>
-        <footer class="operator-footer"><span>SYSTEM STATUS: {{ connection === 'connected' ? 'LIVE' : 'POLLING' }} &nbsp;|&nbsp; {{ props.console.tournament.name }}</span><span><a :href="urls.excel">EXCEL</a> &nbsp;·&nbsp; {{ props.console.attention.running }} LIVE &nbsp;·&nbsp; {{ props.console.attention.waiting_for_scores }} WAITING &nbsp;·&nbsp; {{ props.console.attention.ready }} READY <button v-if="can.manage && props.console.tournament.status === 'running' && props.console.tournament.categories.length && props.console.tournament.categories.every(item => item.completed)" :disabled="completion.processing" @click="completion.post(urls.base + '/complete')">Complete competition</button></span></footer>
+        <footer class="operator-footer"><span class="operator-footer-status"><span>SYSTEM STATUS</span><strong class="operator-footer-connection" :class="connection"><i aria-hidden="true"></i>{{ connection === 'connected' ? 'LIVE' : 'POLLING' }}</strong><span class="operator-footer-tournament">| {{ props.console.tournament.name }}</span></span><span><a :href="urls.excel">EXCEL</a> &nbsp;·&nbsp; {{ props.console.attention.running }} LIVE &nbsp;·&nbsp; {{ props.console.attention.waiting_for_scores }} WAITING &nbsp;·&nbsp; {{ props.console.attention.ready }} READY <button v-if="can.manage && props.console.tournament.status === 'running' && props.console.tournament.categories.length && props.console.tournament.categories.every(item => item.completed)" :disabled="completion.processing" @click="completion.post(urls.base + '/complete')">Complete competition</button></span></footer>
         <dialog ref="detailsDialog" class="operator-modal" @click="event => { if (event.target === detailsDialog) detailsDialog.close(); }"><div class="operator-modal-head"><div><strong>MATCH {{ match?.sequence }} · ADVANCED CONTROLS</strong><small>Review scores, resolve ties, and manage exceptions</small></div><button type="button" aria-label="Close dialog" @click="detailsDialog.close()">×</button></div><div class="operator-modal-body"><CourtConsole v-if="match && (court?.active?.bout_id === match.id || court?.queue?.[0]?.bout_id === match.id)" :court="court" :rules="category?.rules ?? {}" :online-judge-ids="onlineJudgeIds" :base="urls.base" /><BoutPanel v-if="bout && round && category" :bout="bout" :round="round" :category="category" :tournament="props.console.tournament" :base="urls.base" :can-operate="can.operate" /></div></dialog>
         <dialog ref="manualDialog" class="operator-modal operator-manual-modal" @click="event => { if (event.target === manualDialog) manualDialog.close(); }"><div class="operator-modal-head"><div><strong>MANUAL JUDGE SCORE</strong><small>Tablet issue · recorded with operator and reason</small></div><button type="button" aria-label="Close dialog" @click="manualDialog.close()">×</button></div><div class="operator-modal-body"><ManualScorePanel v-if="manualPerformance" :performance="manualPerformance" :rules="category?.rules ?? {}" :base="urls.base" /></div></dialog>
 
@@ -244,4 +255,26 @@ const time = value => value ? new Date(value).toLocaleTimeString('en-GB', { hour
 .operator-steps button.active.current::after{background:#52db9d}
 @media(max-width:740px){.operator-score-card h2{font-size:clamp(21px,6vw,27px)}.operator-card-scores{gap:8px;margin-top:8px}.operator-card-components>div{padding:4px 6px}.operator-card-components strong{font-size:clamp(23px,6vw,30px)}.operator-card-total{padding-left:0}.operator-card-total .operator-big-score{font-size:clamp(42px,11vw,58px)}.operator-steps{width:100%;justify-content:space-between;gap:14px}.operator-steps button{min-width:0;padding:8px 9px;font-size:9px}.operator-steps button:not(:first-child)::before{left:-13px;font-size:12px}}
 @media(prefers-reduced-motion:reduce){.operator-columns,.operator-events,.operator-match-content,.operator-match-list,.operator-match,.operator-match-number,.operator-match-status,.operator-match strong,.operator-match small,.operator-events-toggle svg,.operator-match-toggle svg,.operator-match-head-actions svg,.operator-judge-devices-toggle svg{transition:none}}
+
+.operator-topbar{position:relative}
+.operator-topbar nav{position:absolute;left:50%;transform:translateX(-50%)}
+.operator-court-select{width:220px;flex:none}
+.operator-profile-badge{display:flex;align-items:center;gap:8px;min-height:30px;padding:0 8px;border:1px solid #c8cfda;border-radius:6px;background:#e2e7f2;color:#566174}
+.operator-profile-badge:hover{background:#d6deeb;color:#0d192b}
+.operator-profile-avatar{display:grid;width:24px;height:24px;flex:none;place-items:center;border-radius:5px;background:#cbd5e5;color:#30435f;font-size:10px;font-weight:800}
+.operator-profile-name{display:grid;min-width:0;gap:2px;text-align:left}
+.operator-profile-name strong{max-width:120px;overflow:hidden;color:#34445d;font-size:10px;text-overflow:ellipsis;white-space:nowrap}
+.operator-profile-name small{color:#75839a;font-size:8px;font-weight:800;letter-spacing:.08em}
+.operator-logout{display:grid;width:24px;height:24px;flex:none;place-items:center;border:1px solid #c8cfda;border-radius:5px;background:#edf1f8;color:#566174}
+.operator-logout:hover{border-color:#a9232b;background:#f7e8eb;color:#a9232b}
+.operator-logout svg{width:15px;height:15px}
+.operator-footer-status{display:inline-flex;align-items:center;gap:7px}
+.operator-footer-connection{display:inline-flex;align-items:center;gap:5px;font-weight:900}
+.operator-footer-connection.connected{color:#197451}
+.operator-footer-connection:not(.connected){color:#a16a22}
+.operator-footer-connection i{width:7px;height:7px;border-radius:50%;background:currentColor}
+.operator-footer-tournament{color:#7b8799}
+@media(max-width:900px){.operator-top-actions{gap:7px}.operator-court-select{width:200px}.operator-profile-name strong{max-width:80px}}
+@media(max-width:740px){.operator-top-actions{width:100%;justify-content:space-between;gap:6px;white-space:normal}.operator-court-select{width:min(220px,42vw)}.operator-profile-name{display:none}.operator-profile-badge{gap:5px;padding:2px 4px}}
+@media(max-width:900px){.operator-topbar nav{position:static;transform:none}}
 </style>
