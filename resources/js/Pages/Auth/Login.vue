@@ -1,8 +1,10 @@
 <script setup>
+import { ref } from "vue";
 import { Head, useForm, usePage } from "@inertiajs/vue3";
 import Button from "../../Shared/Components/Button.vue";
 const page = usePage();
 const form = useForm({ email: "", password: "" });
+const showPassword = ref(false);
 const submit = () =>
     form.post(page.props.urls.login, {
         onFinish: () => form.reset("password"),
@@ -83,15 +85,31 @@ const submit = () =>
                         class="mb-[7px] mt-5 block text-xs text-[#63756b]"
                         for="password"
                         >رمز عبور</label
-                    ><input
-                        id="password"
-                        v-model="form.password"
-                        class="min-h-11 w-full rounded-[7px] border border-[#dce5da] bg-[#fcfdfa] px-3 py-[10px] text-[#253c31] focus:outline-2 focus:outline-[#79a28b]"
-                        type="password"
-                        autocomplete="current-password"
-                        dir="ltr"
-                        required
-                    />
+                    >
+                    <div class="relative">
+                        <input
+                            id="password"
+                            v-model="form.password"
+                            class="min-h-11 w-full rounded-[7px] border border-[#dce5da] bg-[#fcfdfa] px-3 py-[10px] pr-11 text-[#253c31] focus:outline-2 focus:outline-[#79a28b]"
+                            :type="showPassword ? 'text' : 'password'"
+                            autocomplete="current-password"
+                            dir="ltr"
+                            required
+                        />
+                        <button
+                            type="button"
+                            class="absolute inset-y-0 right-0 grid w-11 place-items-center text-[#63756b]"
+                            :aria-label="showPassword ? 'مخفی کردن رمز عبور' : 'نمایش رمز عبور'"
+                            :aria-pressed="showPassword"
+                            @click="showPassword = !showPassword"
+                        >
+                            <svg aria-hidden="true" viewBox="0 0 20 20" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.6">
+                                <path d="M2 10s2.9-5 8-5 8 5 8 5-2.9 5-8 5-8-5-8-5Z" stroke-linecap="round" stroke-linejoin="round" />
+                                <circle cx="10" cy="10" r="2.2" />
+                                <path v-if="showPassword" d="m3 3 14 14" stroke-linecap="round" />
+                            </svg>
+                        </button>
+                    </div>
                     <p
                         v-if="form.errors.password"
                         class="mt-1.5 text-xs text-[#a33939]"

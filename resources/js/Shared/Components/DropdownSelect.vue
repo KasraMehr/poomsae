@@ -94,7 +94,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', handleDocument
             :aria-expanded="isOpen"
             :aria-activedescendant="isOpen ? `${id}-option-${activeIndex}` : undefined"
             :disabled="disabled"
-            class="flex w-full items-center justify-between gap-3 rounded-lg border border-[#a8c6ae] bg-gradient-to-b from-white to-[#edf6ee] px-3 py-2.5 text-right text-sm font-semibold text-[#285b46] shadow-sm transition hover:border-[#7da889] focus:border-[#5c9670] focus:outline-none focus:ring-2 focus:ring-[#8bb99a]/35 disabled:cursor-not-allowed disabled:opacity-60"
+            class="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg border border-[#a8c6ae] bg-gradient-to-b from-white to-[#edf6ee] px-3 py-2.5 text-right text-sm font-semibold text-[#285b46] shadow-sm transition hover:border-[#7da889] focus:border-[#5c9670] focus:outline-none focus:ring-2 focus:ring-[#8bb99a]/35 disabled:cursor-not-allowed disabled:opacity-60"
             @click="isOpen ? closeList() : openList()"
             @keydown="handleKeydown"
         >
