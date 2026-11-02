@@ -5,6 +5,7 @@ import ScoreboardLayout from "../../Shared/Layouts/ScoreboardLayout.vue";
 import ScoreboardHeader from "../../Components/scoreboard/ScoreboardHeader.vue";
 import AthleteInfo from "../../Components/scoreboard/AthleteInfo.vue";
 import FormBadge from "../../Components/scoreboard/FormBadge.vue";
+import { displayFormName, displayFormSymbolKey } from "../../Shared/Services/symbols";
 import ScoreItem from "../../Components/scoreboard/ScoreItem.vue";
 import SingleScoringTable from "../../Components/scoreboard/tables/SingleScoringTable.vue";
 import DoubleScoringTable from "../../Components/scoreboard/tables/DoubleScoringTable.vue";
@@ -269,10 +270,8 @@ const athleteProps = (entry) => ({
                     <FormBadge
                         size="xxxl"
                         :round-label="panel.roundLabel"
-                        :form-name="panel.sides[0].performance.form_name ?? ''"
-                        :symbol-key="
-                            panel.sides[0].performance.form_badge ?? null
-                        "
+                        :form-name="displayFormName(panel.category, panel.sides[0].performance)"
+                        :symbol-key="displayFormSymbolKey(panel.category, panel.sides[0].performance)"
                     />
                 </div>
                 <!-- Single scoring layout: judge rows and summary scores. -->

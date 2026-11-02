@@ -1,5 +1,5 @@
 <script setup>
-import { computed, watch } from "vue";
+import { computed, inject, watch } from "vue";
 import { useForm } from "@inertiajs/vue3";
 import { requestId } from "../../../Shared/Services/requestId";
 import FormErrors from "../../../Shared/Components/FormErrors.vue";
@@ -16,6 +16,7 @@ const props = defineProps({
     endpoint: String,
     expanded: { type: Boolean, default: false },
 });
+const notify = inject("operatorToast", () => {});
 const selectedScore = computed(() => (props.performance.scores ?? []).find(
     (score) => score.judge_assignment_id === form.judge_assignment_id,
 ));
@@ -40,12 +41,15 @@ watch(
     () => props.performance.version,
     (version) => (form.expected_version = version),
 );
-const submit = () =>
+const submit = () => {
+    const isCorrection = Boolean(selectedScore.value);
+
     form.transform((data) => scorePayload(data, props.rules.input_method)).post(
         props.endpoint,
         {
             preserveScroll: true,
             onSuccess: () => {
+                notify("success", isCorrection ? "Score correction submitted for review." : "Manual score submitted for review.");
                 form.reset(
                     "judge_assignment_id",
                     "accuracy",
@@ -60,8 +64,12 @@ const submit = () =>
                 form.expected_revision = 0;
                 form.expected_version = props.performance.version;
             },
+            onError: () => notify("error", "Could not submit the manual score. Please review the entered values."),
+            onHttpException: () => notify("error", "Could not submit the manual score. Please try again."),
+            onNetworkError: () => notify("error", "Connection error. The manual score was not submitted."),
         },
     );
+};
 const labelClass = "mt-3 text-xs font-semibold text-[#34445c]";
 const fieldClass = "min-h-11 w-full rounded-lg border border-[#c4c9d2] bg-white px-3 text-[#0d192b] focus:border-[#24466a] focus:outline-none";
 const primaryButton =

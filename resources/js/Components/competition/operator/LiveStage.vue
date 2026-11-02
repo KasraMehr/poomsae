@@ -40,6 +40,25 @@ const athleteProfiles = computed(() => props.match?.entries?.map((entry, index) 
     sideLabel: entry.side?.toUpperCase() ?? (index === 0 ? 'CHUNG / BLUE' : 'HONG / RED'),
     profile: props.category?.entries?.find(categoryEntry => categoryEntry.id === entry.id) ?? null,
 })) ?? []);
+const activeEntryIds = computed(() => {
+    const status = props.performance?.status;
+    if (!['running', 'scoring'].includes(status) || !props.performance?.entry_id) {
+        return [];
+    }
+
+    if (props.category?.execution_mode === 'simultaneous') {
+        const matchingPerformances = (props.match?.performances ?? [])
+            .filter(item => item.status === status && item.form_number === props.performance.form_number)
+            .map(item => item.entry_id);
+
+        if (matchingPerformances.length > 0) {
+            return matchingPerformances;
+        }
+    }
+
+    return [props.performance.entry_id];
+});
+const isActiveEntry = entry => activeEntryIds.value.includes(entry.id);
 const statusText = computed(() => ({
     pending: canStart.value ? 'Match ready to begin' : 'Waiting for this match to reach the court queue',
     running: 'Performance in progress',
@@ -58,12 +77,12 @@ const statusText = computed(() => ({
             <span v-if="performance" class="operator-live-form">{{ performance.form_name }} · FORM {{ performance.form_number }}</span>
         </header>
 
-        <div class="operator-live-athletes">
-            <article v-for="(entry, index) in athleteProfiles" :key="entry.id" class="operator-live-athlete" :class="index === 0 ? 'chung' : 'hong'">
+        <div class="operator-live-athletes" :class="{ 'single-athlete': athleteProfiles.length === 1 }">
+            <article v-for="(entry, index) in athleteProfiles" :key="entry.id" class="operator-live-athlete" :class="[entry.side?.toLowerCase() === 'hong' || index === 1 ? 'hong' : 'chung', { active: isActiveEntry(entry), scoring: isActiveEntry(entry) && performance?.status === 'scoring' }]">
                 <header>{{ entry.sideLabel }}</header>
                 <h2>{{ entry.profile?.short_name || entry.short_name || entry.name }}</h2>
                 <p>{{ entry.profile?.club || entry.profile?.country_code || entry.team || ' ' }}</p>
-                <span class="operator-live-athlete-state">{{ performance?.status === 'running' ? 'PERFORMING' : performance?.status === 'pending' ? 'READY' : statusText }}</span>
+                <span v-if="isActiveEntry(entry)" class="operator-live-athlete-state">{{ performance?.status === 'running' ? 'NOW PERFORMING' : 'SCORING THIS ATHLETE' }}</span>
             </article>
         </div>
 
@@ -139,9 +158,13 @@ const statusText = computed(() => ({
 .operator-live-athletes {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: stretch;
+    align-items: start;
     gap: 14px;
     min-height: 0;
+}
+
+.operator-live-athletes.single-athlete {
+    grid-template-columns: minmax(0, 1fr);
 }
 
 .operator-live-athlete {
@@ -149,14 +172,30 @@ const statusText = computed(() => ({
     flex-direction: column;
     justify-content: center;
     min-width: 0;
-    padding: clamp(12px, 2vw, 24px);
+    min-height: 168px;
+    padding: 15px;
     border: 1px solid #c4c9d2;
     background: #ebf1fd;
     text-align: center;
 }
 
+.operator-live-athlete.active {
+    border: 3px solid #2475bf;
+    padding: 13px;
+    box-shadow: 0 5px 16px #2475bf20;
+}
+
 .operator-live-athlete.hong {
     background: #f6f2f4;
+}
+
+.operator-live-athlete.hong.active {
+    border-color: #c44750;
+    box-shadow: 0 5px 16px #c4475020;
+}
+
+.operator-live-athlete.scoring {
+    border-style: dashed;
 }
 
 .operator-live-athlete header {
@@ -191,7 +230,7 @@ const statusText = computed(() => ({
 
 .operator-live-athlete-state {
     align-self: center;
-    margin-top: 20px;
+    margin-top: 12px;
     padding: 5px 10px;
     background: #dce4f3;
     color: #536176;
@@ -315,7 +354,12 @@ const statusText = computed(() => ({
     }
 
     .operator-live-athlete {
+        min-height: 140px;
         padding: 10px 7px;
+    }
+
+    .operator-live-athlete.active {
+        padding: 8px 5px;
     }
 
     .operator-live-athlete header {

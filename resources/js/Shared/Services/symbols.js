@@ -30,6 +30,16 @@ export const FORM_SYMBOLS = {
     18: "/images/symbols/form-18.webp",
 };
 
+export const FREESTYLE_SYMBOL_KEY = 18;
+export const displayFormName = (category, performance) =>
+    category?.discipline === "freestyle"
+        ? "Freestyle"
+        : performance?.form_name ?? "";
+export const displayFormSymbolKey = (category, performance) =>
+    category?.discipline === "freestyle"
+        ? FREESTYLE_SYMBOL_KEY
+        : performance?.form_badge ?? null;
+
 /** مدال‌ها: ۱ طلا، ۲ نقره، ۳ برنز، ۴ و ۵ خاکستری. مدال از روی `rank` انتخاب می‌شود. */
 export const MEDAL_SYMBOLS = {
     1: "/images/medals/medal-1.webp",

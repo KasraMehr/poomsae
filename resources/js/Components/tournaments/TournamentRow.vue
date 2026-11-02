@@ -1,7 +1,7 @@
 <script setup>
 import { Link, usePage } from '@inertiajs/vue3';
 
-defineProps({ tournament: { type: Object, required: true } });
+defineProps({ tournament: { type: Object, required: true }, reportMode: { type: Boolean, default: false } });
 const page = usePage();
 
 const labels = {
@@ -43,9 +43,9 @@ function formatDate(value) {
 
 <template>
     <Link
-        :href="`${page.props.urls.tournaments}/${tournament.id}`"
+        :href="reportMode ? `${page.props.urls.tournaments}/${tournament.id}/reports/judges` : `${page.props.urls.tournaments}/${tournament.id}`"
         class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-[#e2e9df] bg-white px-4 py-3 text-right transition duration-150 hover:-translate-y-px hover:border-[#8eaf98] hover:shadow-[0_5px_16px_#26452c10] min-[761px]:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)_minmax(0,.8fr)_minmax(0,.8fr)_minmax(2.5rem,.45fr)_minmax(2.5rem,.45fr)_minmax(0,.75fr)] min-[761px]:gap-3 min-[761px]:px-4"
-        :aria-label="`${tournament.name}، وضعیت ${labels[tournament.status] || labels.draft}`"
+        :aria-label="reportMode ? `گزارش‌های مسابقهٔ ${tournament.name}، وضعیت ${labels[tournament.status] || labels.draft}` : `${tournament.name}، وضعیت ${labels[tournament.status] || labels.draft}`"
     >
         <strong class="min-w-0 truncate text-sm font-bold text-[#29463b] min-[761px]:text-[13px]">{{ tournament.name }}</strong>
         <span class="hidden min-w-0 truncate text-xs text-[#687a6e] min-[761px]:block">{{ tournament.venue || 'تعیین نشده' }}</span>
@@ -53,9 +53,12 @@ function formatDate(value) {
         <span class="hidden whitespace-nowrap text-[11px] text-[#687a6e] min-[761px]:block">{{ formatDate(tournament.ends_on) }}</span>
         <span class="hidden text-center text-xs font-semibold tabular-nums text-[#496354] min-[761px]:block">{{ (tournament.categories_count ?? 0).toLocaleString('fa-IR') }}</span>
         <span class="hidden text-center text-xs font-semibold tabular-nums text-[#496354] min-[761px]:block">{{ (tournament.courts_count ?? 0).toLocaleString('fa-IR') }}</span>
-        <span
+        <span class="flex flex-wrap items-center justify-end gap-2 min-[761px]:justify-start">
+            <span
             class="inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-[10px] font-bold whitespace-nowrap"
             :class="statusClasses[tournament.status] || statusClasses.draft"
-        >{{ labels[tournament.status] || labels.draft }}</span>
+            >{{ labels[tournament.status] || labels.draft }}</span>
+            <span v-if="reportMode" class="text-[10px] font-bold text-[#286957]">مشاهده گزارش ←</span>
+        </span>
     </Link>
 </template>

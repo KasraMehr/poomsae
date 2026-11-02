@@ -1,6 +1,10 @@
 <script setup>
+import { computed } from "vue";
 import { Link, usePage } from "@inertiajs/vue3";
 const page = usePage();
+const reportsSelectionHref = computed(() => `${page.props.urls.tournaments}?view=reports&status=all`);
+const isReportsSelection = computed(() => page.url?.includes('view=reports') && page.url?.startsWith('/tournaments'));
+const isTournamentSection = computed(() => page.component.startsWith('Tournaments/') && !isReportsSelection.value);
 </script>
 
 <template>
@@ -45,10 +49,10 @@ const page = usePage();
                     </Link>
                     <Link
                         :href="page.props.urls.tournaments"
-                        :aria-current="page.component.startsWith('Tournaments/') ? 'page' : undefined"
+                        :aria-current="isTournamentSection ? 'page' : undefined"
                         class="flex min-h-11 items-center gap-2 rounded-lg px-4 text-[13px] transition-colors max-[760px]:flex-1 max-[760px]:justify-center max-[480px]:gap-1.5 max-[480px]:px-2 max-[480px]:text-xs"
                         :class="
-                            page.component.startsWith('Tournaments/')
+                            isTournamentSection
                                 ? 'bg-white font-bold text-[#205a48] shadow-sm'
                                 : 'text-[#718078] hover:bg-white/70 hover:text-[#315d4c]'
                         "
@@ -58,6 +62,14 @@ const page = usePage();
                             <path d="M6.5 3v3M13.5 3v3M3 8.5h14M6.5 11h2M11.5 11h2M6.5 14h2" stroke-linecap="round" />
                         </svg>
                         مسابقات
+                    </Link>
+                    <Link
+                        :href="reportsSelectionHref"
+                        :aria-current="isReportsSelection || page.component === 'Competition/Reports' ? 'page' : undefined"
+                        class="flex min-h-11 items-center gap-2 rounded-lg px-4 text-[13px] transition-colors max-[760px]:flex-1 max-[760px]:justify-center max-[480px]:gap-1.5 max-[480px]:px-2 max-[480px]:text-xs"
+                        :class="isReportsSelection || page.component === 'Competition/Reports' ? 'bg-white font-bold text-[#205a48] shadow-sm' : 'text-[#718078] hover:bg-white/70 hover:text-[#315d4c]'"
+                    >
+                        گزارش‌ها
                     </Link>
                 </nav>
 
