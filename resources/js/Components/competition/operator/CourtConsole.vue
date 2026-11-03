@@ -1,4 +1,5 @@
 <script setup>
+import { inject } from "vue";
 import { useForm } from "@inertiajs/vue3";
 import FormErrors from "../../../Shared/Components/FormErrors.vue";
 import ProxyScoreForm from "./ProxyScoreForm.vue";
@@ -12,6 +13,7 @@ const props = defineProps({
     rules: Object,
     onlineJudgeIds: Array,
 });
+const notify = inject("operatorToast", () => {});
 const action = useForm({ command: "", expected_version: 1 });
 const confirmation = useForm({ expected_revision: 1 });
 const now = usePerformanceClock(
@@ -32,7 +34,13 @@ const confirmProxyScore = (performance, score) => {
     confirmation.expected_revision = score.revision;
     confirmation.post(
         `${props.base}/performances/${performance.id}/proxy-scores/${score.id}/confirm`,
-        { preserveScroll: true },
+        {
+            preserveScroll: true,
+            onSuccess: () => notify("success", "Manual score confirmed."),
+            onError: () => notify("error", "Could not confirm the manual score. Please review the score and try again."),
+            onHttpException: () => notify("error", "Could not confirm the manual score. Please try again."),
+            onNetworkError: () => notify("error", "Connection error. The manual score was not confirmed."),
+        },
     );
 };
 const badgeClasses = {

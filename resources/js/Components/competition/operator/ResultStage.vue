@@ -1,10 +1,10 @@
 <script setup>
 import { computed } from 'vue';
-import { displayLabel } from './displayLabel';
 import FormErrors from '../../../Shared/Components/FormErrors.vue';
 
 const props = defineProps({
     match: { type: Object, default: null },
+    category: { type: Object, default: null },
     performance: { type: Object, default: null },
     bout: { type: Object, default: null },
     judges: { type: Array, default: () => [] },
@@ -18,19 +18,40 @@ const scoreRows = computed(() => [...(props.performance?.scores ?? [])].sort((le
 const hasResult = computed(() => ['scoring', 'approved', 'completed'].includes(props.performance?.status));
 const number = value => value == null ? '—' : Number(value).toFixed(2);
 const scorePart = (score, part) => score?.values?.[part] == null ? '—' : number(score.values[part] / 100);
-const scoreFor = entry => {
-    const official = props.match?.totals?.[entry.id];
-    if (official != null) return official;
-    const latest = [...(props.bout?.performances ?? [])].reverse()
-        .find(item => item.entry_id === entry.id && (item.result != null || item.preview_result != null));
-    return latest?.result ?? latest?.preview_result ?? null;
+const formPerformanceFor = entry => (props.bout?.performances ?? []).find(item => item.entry_id === entry.id && item.form_number === props.performance?.form_number)
+    ?? (props.performance?.entry_id === entry.id ? props.performance : null);
+const isCurrentPerformance = entry => {
+    const formPerformance = formPerformanceFor(entry);
+
+    if (formPerformance?.id === props.performance?.id) {
+        return true;
+    }
+
+    return props.category?.execution_mode === 'simultaneous'
+        && ['running', 'scoring'].includes(props.performance?.status)
+        && formPerformance?.form_number === props.performance?.form_number
+        && formPerformance?.status === props.performance?.status;
 };
-const detailedScoresFor = entry => [...(props.bout?.performances ?? [])]
-    .reverse()
-    .find(item => item.entry_id === entry.id && item.detailed_scores)?.detailed_scores
-    ?? null;
-const hasManualScoreAction = computed(() => props.manualPerformance
-    && (props.manualPerformance.missing_seats?.length || props.manualPerformance.pending_review_seats?.length));
+const scoreFor = entry => {
+    const formPerformance = formPerformanceFor(entry);
+
+    return formPerformance?.result ?? formPerformance?.preview_result ?? formPerformance?.detailed_scores?.total ?? null;
+};
+const detailedScoresFor = entry => formPerformanceFor(entry)?.detailed_scores ?? null;
+const formStatusFor = entry => {
+    const formPerformance = formPerformanceFor(entry);
+
+    if (!formPerformance) {
+        return 'NOT PERFORMED IN THIS FORM';
+    }
+
+    if (formPerformance.result != null || formPerformance.status === 'approved') {
+        return 'RESULT CONFIRMED';
+    }
+
+    return formPerformance.status === 'scoring' ? 'SCORES IN PROGRESS' : 'RESULT PENDING';
+};
+const hasManualScoreAction = computed(() => Boolean(props.manualPerformance));
 const statusMessage = computed(() => ({
     pending: 'Results and judge scoring will appear here after the performance is finished.',
     running: 'The performance is still live. Finish it from the Live tab to collect scores here.',
@@ -45,27 +66,28 @@ const statusMessage = computed(() => ({
     <section v-if="match" class="operator-result-stage" aria-label="Match result and scoring">
         <header class="operator-result-context">
             <strong>No.{{ match.sequence }}</strong>
-            <span>{{ displayLabel(match.category_name) }} · {{ displayLabel(match.round_name) }}</span>
-            <span v-if="performance" class="operator-result-form">{{ displayLabel(performance.form_name) }} · FORM {{ performance.form_number }}</span>
+            <span>{{ match.category_name }} · {{ match.round_name }}</span>
+            <span v-if="performance" class="operator-result-form">{{ performance.form_name }} · FORM {{ performance.form_number }}</span>
         </header>
 
         <p class="operator-result-status" :class="performance?.status">{{ statusMessage }}</p>
 
         <template v-if="hasResult">
-            <div class="operator-result-cards" :class="{ solo: match.entries.length === 1 }">
-                <article v-for="(entry, index) in match.entries" :key="entry.id" class="operator-result-card" :class="[match.entries.length === 1 ? 'solo' : index === 0 ? 'chung' : 'hong', { winner: match.winner_entry_id === entry.id }]">
+            <div class="operator-result-cards" :class="{ 'single-entry': match.entries.length === 1 }">
+                <article v-for="(entry, index) in match.entries" :key="entry.id" class="operator-result-card" :class="[match.entries.length === 1 ? 'solo' : entry.side?.toLowerCase() === 'hong' || index === 1 ? 'hong' : 'chung', { 'not-performed': !formPerformanceFor(entry), 'form-performer': isCurrentPerformance(entry) }]">
                     <div class="operator-result-card-head">
                         <span>{{ match.entries.length === 1 ? 'ATHLETE' : entry.side?.toUpperCase() ?? (index === 0 ? 'CHUNG / BLUE' : 'HONG / RED') }}</span>
-                        <b v-if="match.winner_entry_id === entry.id">★ WINNER</b>
+                        <b v-if="isCurrentPerformance(entry)">CURRENT PERFORMANCE</b>
                     </div>
                     <h2>{{ entry.short_name || entry.name }}</h2>
+                    <small class="operator-result-form-status">{{ formStatusFor(entry) }}</small>
                     <div class="operator-result-card-scores">
                         <div class="operator-result-components">
                             <div><small>ACCURACY</small><strong>{{ number(detailedScoresFor(entry)?.accuracy) }}</strong></div>
                             <div><small>PRESENTATION</small><strong>{{ number(detailedScoresFor(entry)?.presentation) }}</strong></div>
                         </div>
                         <div class="operator-result-total">
-                            <small>{{ match.totals?.[entry.id] != null ? 'OFFICIAL TOTAL' : 'TOTAL' }}</small>
+                            <small>THIS FORM</small>
                             <strong>{{ number(scoreFor(entry)) }}</strong>
                         </div>
                     </div>
@@ -110,7 +132,7 @@ const statusMessage = computed(() => ({
 
             <div class="operator-result-actions">
                 <button v-if="performance?.status === 'scoring'" type="button" class="operator-result-primary" :disabled="processing || performance.submitted_count !== performance.judge_count || performance.pending_review_seats?.length" @click="emit('command', 'approve')">Confirm and publish result</button>
-                <button v-if="hasManualScoreAction" type="button" class="operator-result-manual" @click="emit('manual')">{{ manualPerformance.pending_review_seats?.length ? 'Review manual score' : 'Manual score / tablet issue' }}</button>
+                <button v-if="hasManualScoreAction" type="button" class="operator-result-manual" @click="emit('manual')">{{ manualPerformance.pending_review_seats?.length ? 'Review manual score' : 'Manual score / correct judge score' }}</button>
                 <button type="button" class="operator-result-details" @click="emit('details')">Match controls and decisions ↗</button>
             </div>
         </template>
@@ -189,18 +211,12 @@ const statusMessage = computed(() => ({
     gap: 12px;
 }
 
-.operator-result-cards.solo {
+.operator-result-cards.single-entry {
     grid-template-columns: minmax(0, min(100%, 680px));
     justify-content: center;
 }
-
-.operator-result-card.solo {
-    background: #edf2f9;
-}
-
-.operator-result-card.solo h2 {
-    font-size: clamp(19px, 2.2vw, 25px);
-}
+.operator-result-card.solo{background:#edf2f9}
+.operator-result-card.solo h2{font-size:clamp(19px,2.2vw,25px)}
 
 .operator-result-card {
     min-width: 0;
@@ -215,6 +231,19 @@ const statusMessage = computed(() => ({
 
 .operator-result-card.winner {
     border: 2px solid #0d192b;
+}
+
+.operator-result-card.form-performer {
+    border: 2px solid #2475bf;
+    box-shadow: 0 4px 14px #0d192b16;
+}
+
+.operator-result-card.hong.form-performer {
+    border-color: #c44750;
+}
+
+.operator-result-card.not-performed {
+    opacity: .65;
 }
 
 .operator-result-card-head,
@@ -243,13 +272,23 @@ const statusMessage = computed(() => ({
     font-size: 9px;
 }
 
+.operator-result-form-status {
+    display: block;
+    color: #667184;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .5px;
+    text-align: center;
+}
+
 .operator-result-card h2 {
-    overflow-wrap: anywhere;
+    overflow: hidden;
     margin: 8px 0;
-    font-size: clamp(16px, 1.6vw, 21px);
+    font-size: clamp(20px, 2vw, 28px);
     font-weight: 800;
     text-align: center;
-    text-wrap: balance;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .operator-result-card-scores {

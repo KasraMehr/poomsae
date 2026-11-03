@@ -294,8 +294,7 @@ class PublishedScoreCorrectionTest extends TestCase
     }
 
     #[TestWith([''])]
-    #[TestWith(['کوتاه'])]
-    public function test_published_correction_rejects_a_missing_or_short_reason(string $reason): void
+    public function test_published_correction_rejects_a_missing_reason(string $reason): void
     {
         $fixture = $this->publishedCompetition();
 
@@ -303,6 +302,17 @@ class PublishedScoreCorrectionTest extends TestCase
 
         $this->assertSame(1, $fixture['sheet']->fresh()->revision);
         $this->assertSame('10.000000', $fixture['performance']->result()->firstOrFail()->score);
+    }
+
+    public function test_published_correction_accepts_a_short_reason(): void
+    {
+        $fixture = $this->publishedCompetition();
+
+        $this->actingAs($fixture['operator'])->post(route('operations.proxy-score', [$fixture['tournament'], $fixture['performance']]), [...$this->correction($fixture), 'reason' => 'خراب'])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(2, $fixture['sheet']->fresh()->revision);
+        $this->assertSame('9.000000', $fixture['performance']->result()->firstOrFail()->score);
     }
 
     public function test_published_correction_rejects_stale_revisions_and_unauthorized_users(): void

@@ -1,8 +1,7 @@
 <script setup>
 import { computed } from 'vue';
-import { restRemaining, usePerformanceClock } from '../../../Shared/Composables/usePerformanceTiming';
+import { usePerformanceClock } from '../../../Shared/Composables/usePerformanceTiming';
 import FormErrors from '../../../Shared/Components/FormErrors.vue';
-import { displayLabel } from './displayLabel';
 
 const props = defineProps({
     match: { type: Object, default: null },
@@ -35,16 +34,31 @@ const timerText = computed(() => {
 });
 const elapsedText = computed(() => `${String(Math.floor(elapsedSeconds.value / 60)).padStart(2, '0')}:${String(elapsedSeconds.value % 60).padStart(2, '0')}`);
 const canStart = computed(() => props.performance?.status === 'pending'
-    && !props.court?.active
     && props.court?.queue?.some(item => item.id === props.performance.id));
-const restSeconds = computed(() => restRemaining(props.performance, now.value));
-const isPerforming = entry => props.performance?.status === 'running'
-    && (entry.id === props.performance.entry_id || (props.category?.discipline === 'recognized' && props.category?.format === 'knockout' && props.category?.execution_mode === 'simultaneous'));
 const athleteProfiles = computed(() => props.match?.entries?.map((entry, index) => ({
     ...entry,
     sideLabel: entry.side?.toUpperCase() ?? (index === 0 ? 'CHUNG / BLUE' : 'HONG / RED'),
     profile: props.category?.entries?.find(categoryEntry => categoryEntry.id === entry.id) ?? null,
 })) ?? []);
+const activeEntryIds = computed(() => {
+    const status = props.performance?.status;
+    if (!['running', 'scoring'].includes(status) || !props.performance?.entry_id) {
+        return [];
+    }
+
+    if (props.category?.execution_mode === 'simultaneous') {
+        const matchingPerformances = (props.match?.performances ?? [])
+            .filter(item => item.status === status && item.form_number === props.performance.form_number)
+            .map(item => item.entry_id);
+
+        if (matchingPerformances.length > 0) {
+            return matchingPerformances;
+        }
+    }
+
+    return [props.performance.entry_id];
+});
+const isActiveEntry = entry => activeEntryIds.value.includes(entry.id);
 const statusText = computed(() => ({
     pending: canStart.value ? 'Match ready to begin' : 'Waiting for this match to reach the court queue',
     running: 'Performance in progress',
@@ -59,16 +73,16 @@ const statusText = computed(() => ({
     <section v-if="match" class="operator-live-stage" aria-label="Live performance">
         <header class="operator-live-context">
             <strong>No.{{ match.sequence }}</strong>
-            <span>{{ displayLabel(match.category_name) }} · {{ displayLabel(match.round_name) }}</span>
-            <span v-if="performance" class="operator-live-form">{{ displayLabel(performance.form_name) }} · FORM {{ performance.form_number }}</span>
+            <span>{{ match.category_name }} · {{ match.round_name }}</span>
+            <span v-if="performance" class="operator-live-form">{{ performance.form_name }} · FORM {{ performance.form_number }}</span>
         </header>
 
-        <div class="operator-live-athletes" :class="{ solo: athleteProfiles.length === 1 }">
-            <article v-for="(entry, index) in athleteProfiles" :key="entry.id" class="operator-live-athlete" :class="athleteProfiles.length === 1 ? 'solo' : index === 0 ? 'chung' : 'hong'">
+        <div class="operator-live-athletes" :class="{ 'single-athlete': athleteProfiles.length === 1 }">
+            <article v-for="(entry, index) in athleteProfiles" :key="entry.id" class="operator-live-athlete" :class="[athleteProfiles.length === 1 ? 'solo' : entry.side?.toLowerCase() === 'hong' || index === 1 ? 'hong' : 'chung', { active: isActiveEntry(entry), scoring: isActiveEntry(entry) && performance?.status === 'scoring' }]">
                 <header>{{ athleteProfiles.length === 1 ? 'ATHLETE' : entry.sideLabel }}</header>
                 <h2>{{ entry.profile?.short_name || entry.short_name || entry.name }}</h2>
                 <p>{{ entry.profile?.club || entry.profile?.country_code || entry.team || ' ' }}</p>
-                <span class="operator-live-athlete-state">{{ isPerforming(entry) ? 'PERFORMING' : performance?.status === 'running' ? 'WAITING' : performance?.status === 'pending' ? 'READY' : statusText }}</span>
+                <span v-if="isActiveEntry(entry)" class="operator-live-athlete-state">{{ performance?.status === 'running' ? 'NOW PERFORMING' : 'SCORING THIS ATHLETE' }}</span>
             </article>
         </div>
 
@@ -79,8 +93,8 @@ const statusText = computed(() => ({
         </div>
 
         <footer class="operator-live-controls">
-            <p>{{ canStart && restSeconds > 0 ? `Rest period · ${restSeconds}s remaining` : statusText }}</p>
-            <button v-if="canStart" type="button" class="operator-live-action primary" :disabled="processing || restSeconds > 0" @click="emit('command', 'start')">
+            <p>{{ statusText }}</p>
+            <button v-if="canStart" type="button" class="operator-live-action primary" :disabled="processing" @click="emit('command', 'start')">
                 {{ processing ? 'STARTING…' : 'START PERFORMANCE' }}
             </button>
             <button v-else-if="performance?.status === 'running'" type="button" class="operator-live-action danger" :disabled="processing" @click="emit('command', 'finish')">
@@ -93,7 +107,6 @@ const statusText = computed(() => ({
                 VIEW MATCH SUMMARY
             </button>
         </footer>
-        <audio v-if="performance?.music_url" :key="performance.id" :src="performance.music_url" controls preload="none" aria-label="Performance music" style="width:100%;max-width:100%">Audio playback is unavailable.</audio>
         <FormErrors :errors="errors" />
     </section>
 
@@ -106,9 +119,10 @@ const statusText = computed(() => ({
 <style scoped>
 .operator-live-stage {
     display: grid;
-    grid-template-rows: auto minmax(140px, 1fr) auto auto;
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
     gap: clamp(10px, 2vh, 20px);
-    min-height: 100%;
+    height: 100%;
+    min-height: 0;
     padding: clamp(10px, 1.5vw, 20px);
     box-sizing: border-box;
     color: #0d192b;
@@ -121,7 +135,6 @@ const statusText = computed(() => ({
     gap: 12px;
     padding-bottom: 10px;
     border-bottom: 1px solid #c4c9d2;
-    min-width: 0;
 }
 
 .operator-live-context > strong {
@@ -130,8 +143,6 @@ const statusText = computed(() => ({
 }
 
 .operator-live-context > span {
-    min-width: 0;
-    overflow-wrap: anywhere;
     justify-self: center;
     color: #586478;
     font-size: 14px;
@@ -147,38 +158,47 @@ const statusText = computed(() => ({
 .operator-live-athletes {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: stretch;
+    align-items: start;
     gap: 14px;
     min-height: 0;
 }
 
-.operator-live-athletes.solo {
+.operator-live-athletes.single-athlete {
     grid-template-columns: minmax(0, min(100%, 680px));
     justify-content: center;
 }
-
-.operator-live-athlete.solo {
-    min-height: 160px;
-    background: #edf2f9;
-}
-
-.operator-live-athlete.solo h2 {
-    font-size: clamp(19px, 2.2vw, 26px);
-}
+.operator-live-athlete.solo{background:#edf2f9}
+.operator-live-athlete.solo h2{font-size:clamp(19px,2.2vw,26px)}
 
 .operator-live-athlete {
     display: flex;
     flex-direction: column;
     justify-content: center;
     min-width: 0;
-    padding: clamp(12px, 2vw, 24px);
+    min-height: 168px;
+    padding: 15px;
     border: 1px solid #c4c9d2;
     background: #ebf1fd;
     text-align: center;
 }
 
+.operator-live-athlete.active {
+    border: 3px solid #2475bf;
+    padding: 13px;
+    box-shadow: 0 5px 16px #2475bf20;
+}
+
 .operator-live-athlete.hong {
     background: #f6f2f4;
+}
+
+.operator-live-athlete.hong.active {
+    border-color: #c44750;
+    box-shadow: 0 5px 16px #c4475020;
+}
+
+.operator-live-athlete.scoring {
+    border-style: dashed;
 }
 
 .operator-live-athlete header {
@@ -194,13 +214,14 @@ const statusText = computed(() => ({
 }
 
 .operator-live-athlete h2 {
-    overflow-wrap: anywhere;
+    overflow: hidden;
     margin: 10px 0 4px;
     color: #0d192b;
-    font-size: clamp(16px, 1.8vw, 22px);
+    font-size: clamp(21px, 2.7vw, 34px);
     font-weight: 800;
     line-height: 1.2;
-    text-wrap: balance;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .operator-live-athlete p {
@@ -212,7 +233,7 @@ const statusText = computed(() => ({
 
 .operator-live-athlete-state {
     align-self: center;
-    margin-top: 20px;
+    margin-top: 12px;
     padding: 5px 10px;
     background: #dce4f3;
     color: #536176;
@@ -226,7 +247,6 @@ const statusText = computed(() => ({
     justify-items: center;
     gap: 5px;
     padding: 8px 12px;
-    min-width: 0;
 }
 
 .operator-live-clock-label,
@@ -240,7 +260,7 @@ const statusText = computed(() => ({
 .operator-live-clock {
     color: #0a1422;
     font-family: "OperatorMixedMono", Consolas, monospace;
-    font-size: clamp(44px, 5vw, 68px);
+    font-size: clamp(52px, 8vw, 92px);
     font-weight: 800;
     font-variant-numeric: tabular-nums;
     line-height: 1;
@@ -260,7 +280,6 @@ const statusText = computed(() => ({
 }
 
 .operator-live-controls p {
-    min-width: 0;
     margin: 0;
     color: #667184;
     font-size: 12px;
@@ -313,9 +332,9 @@ const statusText = computed(() => ({
 
 @media (max-width: 740px) {
     .operator-live-stage {
-        grid-template-rows: auto minmax(150px, 1fr) auto auto;
+        grid-template-rows: auto minmax(180px, 1fr) auto auto;
         gap: 10px;
-        min-height: 100%;
+        min-height: 0;
     }
 
     .operator-live-context {
@@ -338,7 +357,12 @@ const statusText = computed(() => ({
     }
 
     .operator-live-athlete {
+        min-height: 140px;
         padding: 10px 7px;
+    }
+
+    .operator-live-athlete.active {
+        padding: 8px 5px;
     }
 
     .operator-live-athlete header {
@@ -346,7 +370,7 @@ const statusText = computed(() => ({
     }
 
     .operator-live-athlete h2 {
-        font-size: clamp(14px, 4vw, 18px);
+        font-size: clamp(16px, 5vw, 22px);
     }
 
     .operator-live-athlete p {
@@ -360,7 +384,7 @@ const statusText = computed(() => ({
     }
 
     .operator-live-clock {
-        font-size: clamp(42px, 12vw, 58px);
+        font-size: clamp(48px, 15vw, 68px);
     }
 
     .operator-live-controls {
