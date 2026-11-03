@@ -2,7 +2,11 @@
 set -euo pipefail
 
 # Run from the repository root on a Linux host with PHP, Composer and Node installed.
-BRANCH="feature/competition-operations-polish"
+BRANCH="${1:-$(git branch --show-current)}"
+if [[ -z "$BRANCH" ]]; then
+  echo "Select a branch or pass its name as the first argument." >&2
+  exit 1
+fi
 
 if [[ ! -f artisan || ! -d .git ]]; then
   echo "Run this script from the poomsae-system repository root." >&2
@@ -14,7 +18,7 @@ if [[ -n "$(git status --porcelain)" ]]; then
   exit 1
 fi
 
-git fetch origin "$BRANCH"
+git fetch origin "refs/heads/$BRANCH:refs/remotes/origin/$BRANCH"
 if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
   git switch "$BRANCH"
 else
