@@ -25,7 +25,7 @@ class CompetitionPlaygroundSeederTest extends TestCase
         }
     }
 
-    public function test_opted_in_production_pilot_uses_a_random_password_and_requires_no_existing_tournaments(): void
+    public function test_opted_in_production_pilot_rotates_existing_account_passwords_on_rerun(): void
     {
         $this->app->detectEnvironment(fn (): string => 'production');
         putenv('POOMSAE_ALLOW_PLAYGROUND_SEED=1');
@@ -35,8 +35,12 @@ class CompetitionPlaygroundSeederTest extends TestCase
             $this->assertSame(13, Tournament::count());
             $this->assertFalse(Hash::check('demoJudge123', User::where('email', 'playground.admin@example.test')->firstOrFail()->password));
 
-            $this->expectException(\RuntimeException::class);
+            $oldHash = User::where('email', 'playground.admin@example.test')->firstOrFail()->password;
             app(CompetitionPlaygroundSeeder::class)->run();
+
+            $this->assertSame(13, Tournament::count());
+            $this->assertSame(17, User::count());
+            $this->assertNotSame($oldHash, User::where('email', 'playground.admin@example.test')->firstOrFail()->password);
         } finally {
             putenv('POOMSAE_ALLOW_PLAYGROUND_SEED');
             $this->app->detectEnvironment(fn (): string => 'testing');
@@ -62,8 +66,11 @@ class CompetitionPlaygroundSeederTest extends TestCase
             }
         }
 
+        User::where('email', 'playground.judge01@example.test')->firstOrFail()
+            ->forceFill(['password' => 'outdated-password'])->save();
         $this->seed(CompetitionPlaygroundSeeder::class);
         $this->assertSame(13, Tournament::count());
         $this->assertSame(17, User::count());
+        $this->assertTrue(Hash::check('demoJudge123', User::where('email', 'playground.judge01@example.test')->firstOrFail()->password));
     }
 }

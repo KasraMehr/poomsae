@@ -22,8 +22,8 @@ class CompetitionPlaygroundSeeder extends Seeder
         if (app()->environment(['local', 'testing'])) {
             $this->password = self::LOCAL_PASSWORD;
         } elseif (app()->environment('production') && getenv('POOMSAE_ALLOW_PLAYGROUND_SEED') === '1') {
-            if (Tournament::query()->exists() || User::query()->where('email', 'like', 'playground.%@example.test')->exists()) {
-                throw new \RuntimeException('Production playground seeding requires a database without tournaments or playground accounts.');
+            if (Tournament::query()->where('name', 'not like', 'آزمایشی | %')->exists()) {
+                throw new \RuntimeException('Production playground seeding requires a database without real tournaments.');
             }
 
             $this->password = Str::password(24, symbols: false);
@@ -62,6 +62,12 @@ class CompetitionPlaygroundSeeder extends Seeder
 
             DB::transaction(fn () => $this->createScenario($admin, $scenario));
         }
+
+        User::query()->where('email', 'like', 'playground.%@example.test')->get()
+            ->each(function (User $user): void {
+                $user->password = $this->password;
+                $user->save();
+            });
 
         $this->command?->table(['پنل', 'ایمیل', 'رمز'], [
             ['مدیر', 'playground.admin@example.test', $this->password],
