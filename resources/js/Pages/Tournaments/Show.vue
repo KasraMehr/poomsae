@@ -11,10 +11,10 @@ import DropdownSelect from '../../Shared/Components/DropdownSelect.vue';
 import TournamentDetailsEditor from '../../Components/tournaments/TournamentDetailsEditor.vue';
 import CompetitionTimingSettings from '../../Components/tournaments/CompetitionTimingSettings.vue';
 
-const props = defineProps({ tournament: Object, can: Object, competitionUrls: Object, ageCategories: Array, ageTableYear: Number });
+const props = defineProps({ tournament: Object, can: Object, competitionUrls: Object, ageCategories: Array, ageTableYear: Number, existingJudges: Array });
 const page = usePage();
 useCompetitionUpdates(props.tournament.id);
-usePoll(5000, { only: ['tournament', 'can'] });
+const { start: startPolling, stop: stopPolling } = usePoll(5000, { only: ['tournament', 'can'] }, { autoStart: false });
 
 const canManage = computed(() => props.can.manage);
 const isSetupAvailable = computed(() => canManage.value && !['completed', 'archived'].includes(props.tournament.status));
@@ -61,8 +61,13 @@ const syncSectionFromHash = () => {
 };
 onMounted(() => {
     syncSectionFromHash();
+    if (activeSection.value !== 'planning') startPolling();
     window.addEventListener('hashchange', syncSectionFromHash);
     window.addEventListener('popstate', syncSectionFromHash);
+});
+watch(activeSection, section => {
+    if (section === 'planning') stopPolling();
+    else startPolling();
 });
 onBeforeUnmount(() => {
     window.removeEventListener('hashchange', syncSectionFromHash);
@@ -193,11 +198,21 @@ function formatTournamentDate(value) {
                                 </div>
                             </section>
 
+                            <section class="readiness-card" aria-label="آدرس نمایشگرهای مسابقه">
+                                <div class="section-title"><div><span class="eyebrow">DISPLAYS</span><h2>نمایشگرهای مسابقه</h2></div><span>بدون نیاز به حساب نمایشگر</span></div>
+                                <div class="display-links">
+                                    <a :href="competitionUrls.tv_wall" target="_blank" rel="noopener">TV Wall</a>
+                                    <a :href="competitionUrls.warm_up" target="_blank" rel="noopener">Warm up</a>
+                                    <a :href="competitionUrls.public_display" target="_blank" rel="noopener">نمایش عمومی</a>
+                                    <a v-for="court in tournament.courts" :key="court.id" :href="`${competitionUrls.public_rtds}?court=${court.id}`" target="_blank" rel="noopener">RTDS · {{ court.name }}</a>
+                                </div>
+                            </section>
+
                     </section>
 
             <section v-if="['information', 'team', 'categories'].includes(activeSection) && isSetupAvailable" class="admin-content">
                 <TournamentDetailsEditor v-if="activeSection === 'information'" :tournament="tournament" :base="competitionUrls.base" />
-                <CompetitionSetupPanel v-else ref="categorySetupPanel" :section="activeSection" :tournament="tournament" :base="competitionUrls.base" :age-categories="ageCategories" :age-table-year="ageTableYear" />
+                <CompetitionSetupPanel v-else ref="categorySetupPanel" :section="activeSection" :tournament="tournament" :base="competitionUrls.base" :age-categories="ageCategories" :age-table-year="ageTableYear" :existing-judges="existingJudges" />
             </section>
 
             <div v-else-if="['registration', 'planning', 'execution'].includes(activeSection)" class="admin-content">
@@ -269,4 +284,5 @@ function formatTournamentDate(value) {
 @media(max-width:900px){.tournament-header{position:static}.tournament-strip{position:static;width:100%;min-width:0;flex:1 1 100%;transform:none}}
 .tournament-header-actions{position:absolute;top:50%;left:0;display:flex;align-items:center;gap:8px;direction:rtl;transform:translateY(-50%)}.tournament-header-actions .tournament-strip{position:static;width:min(34vw,460px);min-width:300px;flex:none;transform:none}.system-status-link{display:inline-flex;min-height:38px;flex:none;align-items:center;justify-content:center;padding:0 12px;border:1px solid #c8ddcb;border-radius:10px;background:#f6faf6;color:#286957;text-decoration:none;font-size:11px;font-weight:750;white-space:nowrap;transition:background-color 160ms ease,border-color 160ms ease}.system-status-link:hover{border-color:#8fbd9a;background:#eaf4ec}.system-status-link:focus-visible{outline:2px solid #78aa8b;outline-offset:2px}
 @media(max-width:900px){.tournament-header-actions{position:static;width:100%;align-items:stretch;flex-direction:column;transform:none}.tournament-header-actions .tournament-strip{width:100%;min-width:0;min-height:42px}.system-status-link{align-self:flex-start}}
+.display-links{display:flex;flex-wrap:wrap;gap:10px}.display-links a{display:inline-flex;min-height:38px;align-items:center;padding:8px 14px;border:1px solid #c8ddcb;border-radius:10px;background:#f2f8f3;color:#205a48;font-size:12px;font-weight:750;text-decoration:none}.display-links a:hover{background:#e1f0e4}
 </style>
