@@ -58,6 +58,110 @@ class CompetitionWorkflowTest extends TestCase
         $this->assertDatabaseHas('categories', ['name' => 'رده دوم', 'judge_count' => '7', 'performance_order' => 'phased']);
     }
 
+    public function test_existing_judge_can_be_selected_for_another_tournament_without_email_or_password(): void
+    {
+        $first = $this->competition();
+        $judge = $first['judges'][0];
+        $second = $this->competition();
+
+        $this->actingAs($second['admin'])->get(route('tournaments.setup', $second['tournament']))
+            ->assertOk()->assertSee($judge->email);
+
+        $this->post(route('operations.member', $second['tournament']), [
+            'user_id' => $judge->id, 'role' => 'judge',
+        ])->assertSessionHasNoErrors()->assertRedirect();
+
+        $this->assertDatabaseHas('tournament_user', [
+            'tournament_id' => $second['tournament']->id, 'user_id' => $judge->id, 'role' => 'judge',
+        ]);
+    }
+
+    public function test_manager_can_edit_a_member_and_remove_only_the_tournament_access(): void
+    {
+        $fixture = $this->competition();
+        $member = User::factory()->create();
+        $fixture['tournament']->users()->attach($member, ['role' => 'display']);
+        $base = '/tournaments/'.$fixture['tournament']->id.'/members/'.$member->id;
+
+        $this->actingAs($fixture['admin'])->put($base, [
+            'name' => 'نمایشگر اصلاح‌شده', 'email' => 'updated-display@example.test', 'role' => 'judge',
+        ])->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('users', ['id' => $member->id, 'name' => 'نمایشگر اصلاح‌شده', 'email' => 'updated-display@example.test']);
+        $this->assertDatabaseHas('tournament_user', ['tournament_id' => $fixture['tournament']->id, 'user_id' => $member->id, 'role' => 'judge']);
+
+        $this->delete($base)->assertSessionHasNoErrors();
+        $this->assertDatabaseMissing('tournament_user', ['tournament_id' => $fixture['tournament']->id, 'user_id' => $member->id]);
+        $this->assertDatabaseHas('users', ['id' => $member->id]);
+        $this->actingAs($member)->get(route('judging.index', $fixture['tournament']))->assertForbidden();
+    }
+
+    public function test_existing_account_can_join_by_email_without_reentering_name_or_password(): void
+    {
+        $first = $this->competition();
+        $second = $this->competition();
+        $judge = $first['judges'][0];
+
+        $this->actingAs($second['admin'])->post(route('operations.member', $second['tournament']), [
+            'email' => $judge->email, 'role' => 'judge',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('tournament_user', ['tournament_id' => $second['tournament']->id, 'user_id' => $judge->id, 'role' => 'judge']);
+        $this->assertSame($judge->name, $judge->fresh()->name);
+    }
+
+    public function test_manager_can_create_selected_age_categories_in_one_request_without_duplicates(): void
+    {
+        $fixture = $this->competition();
+        $url = route('operations.categories.bulk', $fixture['tournament']);
+        $payload = [
+            'age_category_ids' => ['recognized_individual_12_14', 'freestyle_pair_over_18'],
+            'genders' => ['male', 'female'], 'format' => 'round_robin', 'judge_count' => 5,
+            'discard_each_end' => 1, 'execution_mode' => 'alternating', 'performance_order' => 'phased',
+            'planned_round_count' => 2, 'form_draw_timing' => 'morning', 'form_draw_time' => '08:00',
+            'rules_acknowledged' => true,
+        ];
+
+        $this->actingAs($fixture['admin'])->post($url, $payload)->assertSessionHasNoErrors();
+        $this->assertSame(5, $fixture['tournament']->categories()->count());
+        $this->assertDatabaseHas('categories', ['tournament_id' => $fixture['tournament']->id, 'name' => 'نونهالان (۱۲ الی ۱۴ سال) · آقایان', 'format' => 'round_robin']);
+        $this->assertDatabaseHas('categories', ['tournament_id' => $fixture['tournament']->id, 'name' => 'تیمی ابداعی دو نفره بالای ۱۸ سال · بانوان', 'discipline' => 'freestyle']);
+        $this->post($url, $payload)->assertSessionHasNoErrors();
+        $this->assertSame(5, $fixture['tournament']->categories()->count());
+    }
+
+    public function test_member_changes_cannot_cross_tournaments_or_remove_an_assigned_judge(): void
+    {
+        $first = $this->competition();
+        $second = $this->competition();
+        $judge = $first['judges'][0];
+        $this->actingAs($second['admin'])->delete(route('operations.member.remove', [$second['tournament'], $judge]))->assertNotFound();
+
+        $this->schedule($first);
+        $this->actingAs($first['admin'])->delete(route('operations.member.remove', [$first['tournament'], $judge]))
+            ->assertSessionHasErrors('operation');
+        $this->assertDatabaseHas('tournament_user', ['tournament_id' => $first['tournament']->id, 'user_id' => $judge->id, 'role' => 'judge']);
+
+        $this->actingAs(User::factory()->create())->put(route('operations.member.update', [$first['tournament'], $judge]), [
+            'name' => 'تغییر غیرمجاز', 'email' => $judge->email, 'role' => 'judge',
+        ])->assertForbidden();
+        $this->assertNotSame('تغییر غیرمجاز', $judge->fresh()->name);
+    }
+
+    public function test_bulk_setup_accepts_every_defined_age_category_for_both_genders(): void
+    {
+        $fixture = $this->competition();
+
+        $this->actingAs($fixture['admin'])->post(route('operations.categories.bulk', $fixture['tournament']), [
+            'age_category_ids' => array_keys(config('poomsae.age_categories')),
+            'genders' => ['male', 'female'], 'format' => 'knockout', 'judge_count' => 5,
+            'discard_each_end' => 1, 'execution_mode' => 'alternating', 'performance_order' => 'consecutive',
+            'planned_round_count' => 1, 'form_draw_timing' => 'morning', 'form_draw_time' => '08:00',
+            'rules_acknowledged' => true,
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame(1 + count(config('poomsae.age_categories')) * 2, $fixture['tournament']->categories()->count());
+    }
+
     use CreatesCompetition,RefreshDatabase;
 
     public function test_full_five_judge_competition_finishes_and_exports_results(): void
