@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue';
+import { displayLabel } from './displayLabel';
 import FormErrors from '../../../Shared/Components/FormErrors.vue';
 
 const props = defineProps({
@@ -17,10 +18,13 @@ const scoreRows = computed(() => [...(props.performance?.scores ?? [])].sort((le
 const hasResult = computed(() => ['scoring', 'approved', 'completed'].includes(props.performance?.status));
 const number = value => value == null ? '—' : Number(value).toFixed(2);
 const scorePart = (score, part) => score?.values?.[part] == null ? '—' : number(score.values[part] / 100);
-const scoreFor = entry => props.match?.totals?.[entry.id]
-    ?? [...(props.bout?.performances ?? [])].reverse().find(item => item.entry_id === entry.id && (item.result || item.preview_result))?.result
-    ?? [...(props.bout?.performances ?? [])].reverse().find(item => item.entry_id === entry.id)?.preview_result
-    ?? null;
+const scoreFor = entry => {
+    const official = props.match?.totals?.[entry.id];
+    if (official != null) return official;
+    const latest = [...(props.bout?.performances ?? [])].reverse()
+        .find(item => item.entry_id === entry.id && (item.result != null || item.preview_result != null));
+    return latest?.result ?? latest?.preview_result ?? null;
+};
 const detailedScoresFor = entry => [...(props.bout?.performances ?? [])]
     .reverse()
     .find(item => item.entry_id === entry.id && item.detailed_scores)?.detailed_scores
@@ -41,17 +45,17 @@ const statusMessage = computed(() => ({
     <section v-if="match" class="operator-result-stage" aria-label="Match result and scoring">
         <header class="operator-result-context">
             <strong>No.{{ match.sequence }}</strong>
-            <span>{{ match.category_name }} · {{ match.round_name }}</span>
-            <span v-if="performance" class="operator-result-form">{{ performance.form_name }} · FORM {{ performance.form_number }}</span>
+            <span>{{ displayLabel(match.category_name) }} · {{ displayLabel(match.round_name) }}</span>
+            <span v-if="performance" class="operator-result-form">{{ displayLabel(performance.form_name) }} · FORM {{ performance.form_number }}</span>
         </header>
 
         <p class="operator-result-status" :class="performance?.status">{{ statusMessage }}</p>
 
         <template v-if="hasResult">
-            <div class="operator-result-cards">
-                <article v-for="(entry, index) in match.entries" :key="entry.id" class="operator-result-card" :class="[index === 0 ? 'chung' : 'hong', { winner: match.winner_entry_id === entry.id }]">
+            <div class="operator-result-cards" :class="{ solo: match.entries.length === 1 }">
+                <article v-for="(entry, index) in match.entries" :key="entry.id" class="operator-result-card" :class="[match.entries.length === 1 ? 'solo' : index === 0 ? 'chung' : 'hong', { winner: match.winner_entry_id === entry.id }]">
                     <div class="operator-result-card-head">
-                        <span>{{ entry.side?.toUpperCase() ?? (index === 0 ? 'CHUNG / BLUE' : 'HONG / RED') }}</span>
+                        <span>{{ match.entries.length === 1 ? 'ATHLETE' : entry.side?.toUpperCase() ?? (index === 0 ? 'CHUNG / BLUE' : 'HONG / RED') }}</span>
                         <b v-if="match.winner_entry_id === entry.id">★ WINNER</b>
                     </div>
                     <h2>{{ entry.short_name || entry.name }}</h2>
@@ -185,6 +189,19 @@ const statusMessage = computed(() => ({
     gap: 12px;
 }
 
+.operator-result-cards.solo {
+    grid-template-columns: minmax(0, min(100%, 680px));
+    justify-content: center;
+}
+
+.operator-result-card.solo {
+    background: #edf2f9;
+}
+
+.operator-result-card.solo h2 {
+    font-size: clamp(19px, 2.2vw, 25px);
+}
+
 .operator-result-card {
     min-width: 0;
     padding: 12px;
@@ -227,13 +244,12 @@ const statusMessage = computed(() => ({
 }
 
 .operator-result-card h2 {
-    overflow: hidden;
+    overflow-wrap: anywhere;
     margin: 8px 0;
-    font-size: clamp(20px, 2vw, 28px);
+    font-size: clamp(16px, 1.6vw, 21px);
     font-weight: 800;
     text-align: center;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    text-wrap: balance;
 }
 
 .operator-result-card-scores {
