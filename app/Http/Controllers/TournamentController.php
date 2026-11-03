@@ -9,8 +9,10 @@ use App\Actions\UpdateCompetitionSettings;
 use App\Http\Requests\StoreTournamentRequest;
 use App\Http\Requests\UpdateCompetitionSettingsRequest;
 use App\Models\Tournament;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -19,10 +21,14 @@ class TournamentController extends Controller
 {
     public function index(Request $request): Response
     {
-        abort_unless($request->user()->is_admin || $request->user()->tournaments()->wherePivot('role', 'manager')->exists(), 403);
+        $isOperator = ! $request->user()->is_admin && $request->user()->tournaments()->wherePivot('role', 'operator')->exists();
+        abort_unless($request->user()->is_admin || $isOperator || $request->user()->tournaments()->wherePivot('role', 'manager')->exists(), 403);
         $filters = $request->validate(['status' => ['nullable', 'in:active,archived,all']]);
         $status = $filters['status'] ?? 'active';
         $query = Tournament::query()->visibleTo($request->user())->withCount('categories', 'courts')->latest();
+        if ($isOperator) {
+            $query->whereHas('users', fn ($members) => $members->where('users.id', $request->user()->id)->where('tournament_user.role', 'operator'));
+        }
         if ($status === 'archived') {
             $query->where('status', 'archived');
         } elseif ($status === 'active') {
@@ -32,6 +38,7 @@ class TournamentController extends Controller
         return Inertia::render('Tournaments/Index', [
             'tournaments' => $query->paginate(12)->withQueryString(),
             'statusFilter' => $status,
+            'isOperator' => $isOperator,
             'listUrls' => [
                 'active' => route('tournaments.index'), 'archived' => route('tournaments.index', ['status' => 'archived']),
                 'all' => route('tournaments.index', ['status' => 'all']),
@@ -77,6 +84,10 @@ class TournamentController extends Controller
             'ageCategories' => collect(config('poomsae.age_categories'))->map(fn (array $category, string $id): array => ['id' => $id, ...$category])->values(),
             'ageTableYear' => config('poomsae.age_table_year'),
             'tournament' => $view->snapshot($tournament, $request->user()),
+            'existingJudges' => User::query()->where('is_active', true)->where('is_admin', false)
+                ->whereIn('id', DB::table('tournament_user')->select('user_id')->where('role', 'judge'))
+                ->whereNotIn('id', DB::table('tournament_user')->select('user_id')->where('tournament_id', $tournament->id))
+                ->orderBy('name')->get(['id', 'name', 'email'])->map(fn (User $user): array => $user->only(['id', 'name', 'email'])),
             'can' => $this->permissions($request, $tournament),
             'competitionUrls' => $this->urls($tournament),
         ]);
@@ -110,6 +121,10 @@ class TournamentController extends Controller
             'scoreboard_pages' => collect(['Standby' => 'standby', 'Live board' => 'live', 'Scoring' => 'scoring', 'Result' => 'result', 'Ranking' => 'ranking', 'Top four' => 'top-four', 'Draw' => 'draw', 'Winner' => 'winner'])
                 ->mapWithKeys(fn (string $view, string $label): array => [$label => route('scoreboard.page', [$tournament, $view])])->all(),
             'rtds' => route('scoreboard.rtds', $tournament),
+            'tv_wall' => route('screens.tv_wall', $tournament),
+            'warm_up' => route('screens.warm_up', $tournament),
+            'public_display' => route('screens.public', $tournament),
+            'public_rtds' => route('screens.rtds', $tournament),
             'export' => route('scoreboard.export', $tournament),
             'results' => route('scoreboard.results', $tournament),
             'excel' => route('scoreboard.excel', $tournament),

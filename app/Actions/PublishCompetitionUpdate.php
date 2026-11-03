@@ -37,7 +37,7 @@ class PublishCompetitionUpdate
             str_starts_with($action, 'appeal.') => ['appeals', 'console', 'judging', 'scoreboard', 'results', 'draw'],
             $action === 'court.created' => ['courts', 'console'],
             $action === 'court.updated' => ['courts', 'console', 'judging', 'scoreboard'],
-            $action === 'member.added' => ['members', 'judging', 'console'],
+            in_array($action, ['member.added', 'member.updated', 'member.removed'], true) => ['members', 'judging', 'console'],
             $action === 'category.saved' => ['athletes', 'draw', 'results', 'console', 'judging', 'scoreboard'],
             $action === 'category.timing_updated' => ['console', 'judging', 'scoreboard'],
             $action === 'entry.updated' => ['athletes', 'draw', 'results', 'console', 'judging', 'scoreboard'],

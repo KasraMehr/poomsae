@@ -26,9 +26,31 @@ class CompetitionSetupRequest extends FormRequest
         return match ($this->route()->getActionMethod()) {
             'court' => ['name' => ['required', 'string', 'max:100', Rule::unique('courts')->where('tournament_id', $tournament->id)]],
             'member' => [
-                'name' => ['required', 'string', 'max:100'], 'email' => ['required', 'email', 'max:255'],
+                'user_id' => ['nullable', 'integer', Rule::exists('users', 'id')],
+                'name' => ['nullable', 'string', 'max:100'], 'email' => ['required_without:user_id', 'nullable', 'email', 'max:255'],
                 'password' => ['nullable', 'string', 'min:12', 'max:255'],
                 'role' => ['required', Rule::in(['judge', 'operator', 'display'])],
+            ],
+            'updateMember' => [
+                'name' => ['required', 'string', 'max:100'],
+                'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($this->route('user')?->id)],
+                'password' => ['nullable', 'string', 'min:12', 'max:255'],
+                'role' => ['required', Rule::in(['judge', 'operator', 'display'])],
+            ],
+            'bulkCategories' => [
+                'age_category_ids' => ['required', 'array', 'min:1'],
+                'age_category_ids.*' => ['required', 'string', 'distinct', Rule::in(array_keys(config('poomsae.age_categories')))],
+                'genders' => ['required', 'array', 'min:1'],
+                'genders.*' => ['required', 'string', 'distinct', Rule::in(['male', 'female'])],
+                'format' => ['required', Rule::in(['knockout', 'round_robin'])],
+                'judge_count' => ['required', 'integer', Rule::in([3, 5, 7])],
+                'discard_each_end' => ['required', 'integer', 'min:0', 'max:2'],
+                'execution_mode' => ['required', Rule::in(['alternating', 'simultaneous'])],
+                'performance_order' => ['required', Rule::in(['consecutive', 'phased'])],
+                'planned_round_count' => ['required', 'integer', 'min:1', 'max:20'],
+                'form_draw_timing' => ['required', Rule::in(['day_before', 'morning', 'before_stage'])],
+                'form_draw_time' => ['required', 'date_format:H:i'],
+                'rules_acknowledged' => ['accepted'],
             ],
             'category' => [
                 'name' => ['required', 'string', 'max:100', Rule::unique('categories')->where('tournament_id', $tournament->id)->ignore($this->route('category')?->id)],

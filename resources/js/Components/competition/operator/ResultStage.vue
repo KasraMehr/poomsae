@@ -74,9 +74,9 @@ const statusMessage = computed(() => ({
 
         <template v-if="hasResult">
             <div class="operator-result-cards" :class="{ 'single-entry': match.entries.length === 1 }">
-                <article v-for="(entry, index) in match.entries" :key="entry.id" class="operator-result-card" :class="[entry.side?.toLowerCase() === 'hong' || index === 1 ? 'hong' : 'chung', { 'not-performed': !formPerformanceFor(entry), 'form-performer': isCurrentPerformance(entry) }]">
+                <article v-for="(entry, index) in match.entries" :key="entry.id" class="operator-result-card" :class="[match.entries.length === 1 ? 'solo' : entry.side?.toLowerCase() === 'hong' || index === 1 ? 'hong' : 'chung', { 'not-performed': !formPerformanceFor(entry), 'form-performer': isCurrentPerformance(entry) }]">
                     <div class="operator-result-card-head">
-                        <span>{{ entry.side?.toUpperCase() ?? (index === 0 ? 'CHUNG / BLUE' : 'HONG / RED') }}</span>
+                        <span>{{ match.entries.length === 1 ? 'ATHLETE' : entry.side?.toUpperCase() ?? (index === 0 ? 'CHUNG / BLUE' : 'HONG / RED') }}</span>
                         <b v-if="isCurrentPerformance(entry)">CURRENT PERFORMANCE</b>
                     </div>
                     <h2>{{ entry.short_name || entry.name }}</h2>
@@ -212,8 +212,11 @@ const statusMessage = computed(() => ({
 }
 
 .operator-result-cards.single-entry {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: minmax(0, min(100%, 680px));
+    justify-content: center;
 }
+.operator-result-card.solo{background:#edf2f9}
+.operator-result-card.solo h2{font-size:clamp(19px,2.2vw,25px)}
 
 .operator-result-card {
     min-width: 0;

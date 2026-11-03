@@ -1,6 +1,6 @@
 <script setup>
 import { useForm } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import FormErrors from '../../Shared/Components/FormErrors.vue';
 import DropdownSelect from '../../Shared/Components/DropdownSelect.vue';
 import PersianDateField from './PersianDateField.vue';
@@ -47,14 +47,33 @@ const drawAvailable = computed(() => Date.now() >= Date.parse(props.category.dra
 const attendanceReady = computed(() => props.category.entries.filter(entry => entry.status === 'checked_in').length >= 2 && !props.category.entries.some(entry => entry.status === 'registered'));
 const automaticStagePlanReady = computed(() => !props.category.round_count_automatic || attendanceReady.value);
 const drawForms = roundId => { draw.round_id = roundId; draw.post(props.base + '/categories/' + props.category.id + '/forms/draw', { preserveScroll: true }); };
-const selectedManualForms = round => round.form_ids || [];
+const manualFormSelections = reactive({});
+const serverFormSelections = new Map();
+watch(() => props.category.rounds, rounds => {
+    const activeIds = new Set(rounds.map(round => String(round.id)));
+    for (const round of rounds) {
+        const id = String(round.id);
+        const serverForms = round.form_ids || [];
+        const previousServerForms = serverFormSelections.get(id);
+        if (!previousServerForms || JSON.stringify(manualFormSelections[id]) === JSON.stringify(previousServerForms)) {
+            manualFormSelections[id] = [...serverForms];
+        }
+        serverFormSelections.set(id, [...serverForms]);
+    }
+    for (const id of Object.keys(manualFormSelections)) {
+        if (!activeIds.has(id)) {
+            delete manualFormSelections[id];
+            serverFormSelections.delete(id);
+        }
+    }
+}, { immediate: true });
+const selectedManualForms = round => manualFormSelections[round.id] || [];
 const toggleManualForm = (round, formId) => {
     const selected = selectedManualForms(round);
     if (selected.includes(formId)) {
-        if (selected.length <= 2) return;
-        round.form_ids = selected.filter(id => id !== formId);
+        manualFormSelections[round.id] = selected.filter(id => id !== formId);
     } else if (selected.length < 2) {
-        round.form_ids = [...selected, formId];
+        manualFormSelections[round.id] = [...selected, formId];
     }
 };
 const assignForms = (roundId, formIds) => { manualForms.round_id = roundId; manualForms.form_ids = formIds; manualForms.post(props.base + '/categories/' + props.category.id + '/forms/assign', { preserveScroll: true }); };

@@ -78,8 +78,8 @@ const statusText = computed(() => ({
         </header>
 
         <div class="operator-live-athletes" :class="{ 'single-athlete': athleteProfiles.length === 1 }">
-            <article v-for="(entry, index) in athleteProfiles" :key="entry.id" class="operator-live-athlete" :class="[entry.side?.toLowerCase() === 'hong' || index === 1 ? 'hong' : 'chung', { active: isActiveEntry(entry), scoring: isActiveEntry(entry) && performance?.status === 'scoring' }]">
-                <header>{{ entry.sideLabel }}</header>
+            <article v-for="(entry, index) in athleteProfiles" :key="entry.id" class="operator-live-athlete" :class="[athleteProfiles.length === 1 ? 'solo' : entry.side?.toLowerCase() === 'hong' || index === 1 ? 'hong' : 'chung', { active: isActiveEntry(entry), scoring: isActiveEntry(entry) && performance?.status === 'scoring' }]">
+                <header>{{ athleteProfiles.length === 1 ? 'ATHLETE' : entry.sideLabel }}</header>
                 <h2>{{ entry.profile?.short_name || entry.short_name || entry.name }}</h2>
                 <p>{{ entry.profile?.club || entry.profile?.country_code || entry.team || ' ' }}</p>
                 <span v-if="isActiveEntry(entry)" class="operator-live-athlete-state">{{ performance?.status === 'running' ? 'NOW PERFORMING' : 'SCORING THIS ATHLETE' }}</span>
@@ -164,8 +164,11 @@ const statusText = computed(() => ({
 }
 
 .operator-live-athletes.single-athlete {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: minmax(0, min(100%, 680px));
+    justify-content: center;
 }
+.operator-live-athlete.solo{background:#edf2f9}
+.operator-live-athlete.solo h2{font-size:clamp(19px,2.2vw,26px)}
 
 .operator-live-athlete {
     display: flex;

@@ -69,6 +69,37 @@ class FoundationTest extends TestCase
         $this->get('/tournaments/'.$hidden->id)->assertForbidden();
     }
 
+    public function test_operator_with_multiple_tournaments_selects_an_authorized_competition(): void
+    {
+        $operator = User::factory()->create();
+        $first = Tournament::factory()->create(['status' => 'running']);
+        $second = Tournament::factory()->create(['status' => 'ready']);
+        $hidden = Tournament::factory()->create(['status' => 'running']);
+        $first->users()->attach($operator, ['role' => 'operator']);
+        $second->users()->attach($operator, ['role' => 'operator']);
+
+        $this->actingAs($operator)->get(route('dashboard'))->assertRedirect(route('tournaments.index'));
+        $this->get(route('tournaments.index'))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->component('Tournaments/Index')
+            ->where('isOperator', true)
+            ->has('tournaments.data', 2));
+        $this->get(route('tournaments.show', $first))->assertOk();
+        $this->get(route('tournaments.show', $second))->assertOk();
+        $this->get(route('tournaments.show', $hidden))->assertForbidden();
+    }
+
+    public function test_single_tournament_operator_still_enters_their_competition_directly(): void
+    {
+        $operator = User::factory()->create();
+        $tournament = Tournament::factory()->create();
+        $tournament->users()->attach($operator, ['role' => 'operator']);
+
+        $this->actingAs($operator)->get(route('dashboard'))->assertRedirect(route('tournaments.show', $tournament));
+        $this->get(route('tournaments.index'))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('isOperator', true)
+            ->has('tournaments.data', 1));
+    }
+
     public function test_inactive_account_is_blocked_even_with_existing_session(): void
     {
         $user = User::factory()->create(['is_active' => false, 'is_admin' => true]);

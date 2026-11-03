@@ -13,6 +13,13 @@ use App\Http\Controllers\TournamentController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/dashboard');
+Route::prefix('tournament/{tournament}')->group(function () {
+    Route::get('/tv_wall', [ScoreboardController::class, 'publicScreen'])->defaults('screen', 'tv_wall')->name('screens.tv_wall');
+    Route::get('/warm_up', [ScoreboardController::class, 'publicScreen'])->defaults('screen', 'warm_up')->name('screens.warm_up');
+    Route::get('/public', [ScoreboardController::class, 'publicScreen'])->defaults('screen', 'public')->name('screens.public');
+    Route::get('/rtds', [ScoreboardController::class, 'publicRtds'])->name('screens.rtds');
+    Route::get('/display-data', [ScoreboardController::class, 'publicData'])->name('screens.data');
+});
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'create'])->name('login');
     Route::post('/login', [AuthController::class, 'store'])->middleware('throttle:login');
@@ -38,7 +45,10 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('/courts', [OperationsController::class, 'court'])->middleware('panel:admin')->name('operations.court');
         Route::put('/courts/{court}', [OperationsController::class, 'updateCourt'])->middleware('panel:admin')->name('operations.court.update');
         Route::post('/members', [OperationsController::class, 'member'])->middleware('panel:admin')->name('operations.member');
+        Route::put('/members/{user}', [OperationsController::class, 'updateMember'])->middleware('panel:admin')->name('operations.member.update');
+        Route::delete('/members/{user}', [OperationsController::class, 'removeMember'])->middleware('panel:admin')->name('operations.member.remove');
         Route::post('/categories', [OperationsController::class, 'category'])->middleware('panel:admin')->name('operations.category');
+        Route::post('/categories/bulk', [OperationsController::class, 'bulkCategories'])->middleware('panel:admin')->name('operations.categories.bulk');
         Route::put('/categories/{category}', [OperationsController::class, 'category'])->middleware('panel:admin')->name('operations.category.update');
         Route::put('/categories/{category}/timing', [OperationsController::class, 'timing'])->middleware('panel:admin')->name('operations.category.timing');
         Route::post('/categories/{category}/entries', [OperationsController::class, 'entry'])->middleware('panel:admin')->name('operations.entry');

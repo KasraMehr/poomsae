@@ -85,9 +85,9 @@ class CompetitionSetup
     public function member(User $actor, Tournament $tournament, array $data): void
     {
         $this->locked($actor, $tournament, function (Tournament $tournament) use ($actor, $data): void {
-            $user = User::where('email', $data['email'])->first();
+            $user = isset($data['user_id']) ? User::findOrFail($data['user_id']) : User::where('email', $data['email'])->first();
             if (! $user) {
-                $this->check(! empty($data['password']), 'برای حساب جدید رمز حداقل ۱۲ کاراکتری لازم است.');
+                $this->check(! empty($data['name']) && ! empty($data['password']), 'برای حساب جدید نام و رمز حداقل ۱۲ کاراکتری لازم است.');
                 $user = User::create(['name' => $data['name'], 'email' => $data['email'], 'password' => $data['password']]);
             }
             $this->check($user->is_active, 'حساب انتخاب‌شده غیرفعال است.');
@@ -102,6 +102,79 @@ class CompetitionSetup
             }
             DB::table('tournament_user')->insertOrIgnore(['tournament_id' => $tournament->id, 'user_id' => $user->id, 'role' => $data['role'], 'created_at' => now(), 'updated_at' => now()]);
             $this->audit($actor, $tournament, 'member.added', 'user', $user->id, ['role' => $data['role']]);
+        });
+    }
+
+    public function updateMember(User $actor, Tournament $tournament, User $user, array $data): void
+    {
+        $this->locked($actor, $tournament, function (Tournament $tournament) use ($actor, $user, $data): void {
+            $membership = DB::table('tournament_user')->where('tournament_id', $tournament->id)->where('user_id', $user->id)->first();
+            abort_unless($membership && in_array($membership->role, ['judge', 'operator', 'display'], true), 404);
+            $this->check(! $user->is_admin, 'حساب مدیر سامانه قابل ویرایش در تیم برگزاری نیست.');
+            $newRole = $data['role'];
+            $this->check(! DB::table('tournament_user')->where('user_id', $user->id)->where('tournament_id', '!=', $tournament->id)->where('role', '!=', $newRole)->exists(), 'این حساب در مسابقهٔ دیگری نوع پنل متفاوتی دارد.');
+            if ($newRole === 'operator' && $membership->role !== 'operator') {
+                $this->check(! DB::table('tournament_user')->where('tournament_id', $tournament->id)->where('role', 'operator')->exists(), 'هر مسابقه فقط می‌تواند یک اپراتور داشته باشد.');
+            }
+            if ($membership->role === 'judge' && $newRole !== 'judge') {
+                $this->check(! DB::table('judge_assignments')->join('bouts', 'bouts.id', '=', 'judge_assignments.bout_id')->join('competition_rounds', 'competition_rounds.id', '=', 'bouts.competition_round_id')->join('categories', 'categories.id', '=', 'competition_rounds.category_id')->where('categories.tournament_id', $tournament->id)->where('judge_assignments.user_id', $user->id)->exists(), 'داور به رقابت‌ها اختصاص یافته است؛ نقش او قابل تغییر نیست.');
+            }
+            $before = ['name' => $user->name, 'email' => $user->email, 'role' => $membership->role];
+            $updates = ['name' => $data['name'], 'email' => $data['email']];
+            if (! empty($data['password'])) {
+                $updates['password'] = $data['password'];
+            }
+            $user->update($updates);
+            if ($membership->role !== $newRole) {
+                DB::table('tournament_user')->where('tournament_id', $tournament->id)->where('user_id', $user->id)->update(['role' => $newRole, 'updated_at' => now()]);
+            }
+            $this->audit($actor, $tournament, 'member.updated', 'user', $user->id, ['name' => $user->name, 'email' => $user->email, 'role' => $newRole], $before);
+        });
+    }
+
+    public function removeMember(User $actor, Tournament $tournament, User $user): void
+    {
+        $this->locked($actor, $tournament, function (Tournament $tournament) use ($actor, $user): void {
+            $membership = DB::table('tournament_user')->where('tournament_id', $tournament->id)->where('user_id', $user->id)->first();
+            abort_unless($membership && in_array($membership->role, ['judge', 'operator', 'display'], true), 404);
+            if ($membership->role === 'judge') {
+                $this->check(! DB::table('judge_assignments')->join('bouts', 'bouts.id', '=', 'judge_assignments.bout_id')->join('competition_rounds', 'competition_rounds.id', '=', 'bouts.competition_round_id')->join('categories', 'categories.id', '=', 'competition_rounds.category_id')->where('categories.tournament_id', $tournament->id)->where('judge_assignments.user_id', $user->id)->exists(), 'داور به رقابت‌ها اختصاص یافته است؛ ابتدا تخصیص‌ها را بررسی کنید.');
+            }
+            DB::table('tournament_user')->where('tournament_id', $tournament->id)->where('user_id', $user->id)->delete();
+            $this->audit($actor, $tournament, 'member.removed', 'user', $user->id, ['role' => $membership->role]);
+        });
+    }
+
+    public function bulkCategories(User $actor, Tournament $tournament, array $data): int
+    {
+        return DB::transaction(function () use ($actor, $tournament, $data): int {
+            $created = 0;
+            $existing = $tournament->categories()->with('scoringRuleSet')->get()
+                ->map(fn (Category $category): string => ($category->scoringRuleSet?->definition['age_category']['id'] ?? '').':'.$category->gender)
+                ->flip();
+            foreach ($data['age_category_ids'] as $ageId) {
+                $age = config('poomsae.age_categories')[$ageId];
+                foreach ($data['genders'] as $gender) {
+                    $key = $ageId.':'.$gender;
+                    if ($existing->has($key)) {
+                        continue;
+                    }
+                    $this->category($actor, $tournament, [
+                        'name' => $age['label'].' · '.($gender === 'female' ? 'بانوان' : 'آقایان'),
+                        'discipline' => $age['discipline'], 'entry_type' => $age['entry_type'], 'age_category' => $ageId,
+                        'gender' => $gender, 'format' => $data['format'], 'judge_count' => $data['judge_count'],
+                        'discard_each_end' => $data['discard_each_end'], 'accuracy_max' => $age['discipline'] === 'freestyle' ? 600 : 400,
+                        'execution_mode' => $data['execution_mode'], 'performance_order' => $data['performance_order'],
+                        'planned_round_count' => $data['format'] === 'knockout' ? 1 : $data['planned_round_count'],
+                        'allow_form_repetition' => true, 'form_draw_timing' => $data['form_draw_timing'],
+                        'form_draw_time' => $data['form_draw_time'], 'rules_acknowledged' => true,
+                    ]);
+                    $existing->put($key, true);
+                    $created++;
+                }
+            }
+
+            return $created;
         });
     }
 

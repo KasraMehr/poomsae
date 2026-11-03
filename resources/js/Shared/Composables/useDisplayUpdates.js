@@ -2,7 +2,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { getRealtime } from '../Services/realtime';
 
 // Keep the public scoreboard synchronized with realtime events and polling.
-export function useDisplayUpdates(initialDisplay, endpoint) {
+export function useDisplayUpdates(initialDisplay, endpoint, subscribeToRealtime = true, pollInterval = 500) {
     const display = ref(initialDisplay);
     const now = ref(Date.now());
     const lastReceived = ref(Date.now());
@@ -29,7 +29,7 @@ export function useDisplayUpdates(initialDisplay, endpoint) {
         clearTimeout(timer);
         controller = new AbortController();
         const timeout = setTimeout(() => controller?.abort(), 3000);
-        let delay = 500;
+        let delay = pollInterval;
         try {
             const url = new URL(endpoint, window.location.origin);
             url.searchParams.set('revision', display.value.revision);
@@ -59,7 +59,7 @@ export function useDisplayUpdates(initialDisplay, endpoint) {
     onMounted(() => {
         stopped = false;
         clock = setInterval(() => now.value = Date.now(), 250);
-        echo = getRealtime();
+        echo = subscribeToRealtime ? getRealtime() : null;
         echo?.private('tournaments.' + initialDisplay.tournament.id).listen('.competition.updated', refresh);
         refresh();
     });
