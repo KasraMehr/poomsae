@@ -4,6 +4,7 @@ import FormErrors from "../../../Shared/Components/FormErrors.vue";
 import ProxyScoreForm from "./ProxyScoreForm.vue";
 import PerformanceTiming from "../PerformanceTiming.vue";
 import { restRemaining, usePerformanceClock } from "../../../Shared/Composables/usePerformanceTiming";
+import { displayLabel } from './displayLabel';
 
 const props = defineProps({
     court: Object,
@@ -65,7 +66,7 @@ const command = (performance, value) => {
                 <span
                     class="h-[9px] w-[9px] rounded-full bg-[#4ae0a8] shadow-[0_0_0_4px_#173e36,0_0_16px_#4ae0a8]"
                 ></span
-                ><b>{{ court.name }}</b>
+                ><b>{{ displayLabel(court.name) }}</b>
             </div>
             <span
                 class="inline-block rounded-[5px] px-[9px] py-[3px] text-[10px]"
@@ -86,8 +87,8 @@ const command = (performance, value) => {
             ]"
         >
             <span class="mb-2 block text-xs text-[#55cfc8]"
-                >{{ court.active.category_name }} ·
-                {{ court.active.round_name }} ·
+                >{{ displayLabel(court.active.category_name) }} ·
+                {{ displayLabel(court.active.round_name) }} ·
                 {{ court.active.score_based ? "Performance" : "Match" }}
                 {{ court.active.bout_sequence }}</span
             >
@@ -102,7 +103,7 @@ const command = (performance, value) => {
                 </template>
             </h2>
             <p class="text-xs text-[#778579]">
-                {{ court.active.form_name }}
+                {{ displayLabel(court.active.form_name) }}
                 <span v-if="court.active.forms_per_round > 1">
                     · Form {{ court.active.form_number }} of
                     {{ court.active.forms_per_round }}
@@ -261,8 +262,8 @@ const command = (performance, value) => {
                 </template>
             </h2>
             <p class="text-xs text-[#778579]">
-                {{ court.queue[0].category_name }} ·
-                {{ court.queue[0].form_name }}
+                {{ displayLabel(court.queue[0].category_name) }} ·
+                {{ displayLabel(court.queue[0].form_name) }}
             </p>
             <PerformanceTiming :performance="court.queue[0]" />
             <button
@@ -315,8 +316,8 @@ const command = (performance, value) => {
                         </template>
                     </strong
                     ><small class="text-[10px] text-[#8297aa]"
-                        >{{ performance.category_name }} ·
-                        {{ performance.form_name }}</small
+                        >{{ displayLabel(performance.category_name) }} ·
+                        {{ displayLabel(performance.form_name) }}</small
                     >
                 </div>
             </div>

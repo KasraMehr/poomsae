@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
-import { Link, useForm } from '@inertiajs/vue3';
+import { Link, useForm, usePage } from '@inertiajs/vue3';
 import CourtConsole from './CourtConsole.vue';
 import ManualScorePanel from './ManualScorePanel.vue';
 import BoutPanel from '../BoutPanel.vue';
@@ -8,8 +8,10 @@ import SetupStage from './SetupStage.vue';
 import LiveStage from './LiveStage.vue';
 import ResultStage from './ResultStage.vue';
 import ConfirmedStage from './ConfirmedStage.vue';
+import { displayLabel } from './displayLabel';
 
 const props = defineProps({ console: Object, can: Object, urls: Object, onlineJudgeIds: Array, connection: String });
+const page = usePage();
 const courtId = ref(props.console.courts[0]?.id ?? null);
 const matchesOpen = ref(true);
 const eventsOpen = ref(false);
@@ -100,8 +102,8 @@ const time = value => value ? new Date(value).toLocaleTimeString('en-GB', { hour
     <div class="operator-workspace" dir="ltr">
         <header class="operator-topbar">
             <strong class="operator-brand">POOMSAE<span>CONTROL</span></strong>
-            <nav aria-label="Competition sections"><a href="#matches">MATCH</a><span class="operator-tab active">SCORING</span><Link :href="urls.reports">HISTORY</Link></nav>
-            <div class="operator-top-actions"><label for="operator-court">COURT</label><select id="operator-court" v-model="courtId"><option v-for="item in props.console.courts" :key="item.id" :value="item.id">{{ item.name }}</option></select><span class="operator-live" :class="connection">● {{ connection === 'connected' ? 'LIVE' : 'POLLING' }}</span><button type="button" class="operator-events-toggle" :aria-expanded="eventsOpen" aria-controls="operator-events-panel" :aria-label="eventsOpen ? 'Close recent events panel' : 'Open recent events panel'" :title="eventsOpen ? 'Close recent events' : 'Open recent events'" @click="eventsOpen = !eventsOpen"><svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" :class="{ reversed: !eventsOpen }"><path d="m7 4 6 6-6 6" stroke-linecap="round" stroke-linejoin="round" /></svg><span>EVENTS</span></button></div>
+            <nav aria-label="Competition sections"><Link :href="page.props.urls.tournaments" class="operator-competition-link">COMPETITIONS</Link><a href="#matches">MATCH</a><span class="operator-tab active">SCORING</span><Link :href="urls.reports">HISTORY</Link><a :href="urls.tv_wall" target="_blank" rel="noopener">TV WALL</a><a :href="urls.warm_up" target="_blank" rel="noopener">WARM UP</a><a :href="urls.public_display" target="_blank" rel="noopener">PUBLIC</a><a :href="`${urls.public_rtds}?court=${courtId}`" target="_blank" rel="noopener">RTDS</a></nav>
+            <div class="operator-top-actions"><label for="operator-court">COURT</label><select id="operator-court" v-model="courtId"><option v-for="item in props.console.courts" :key="item.id" :value="item.id">{{ displayLabel(item.name) }}</option></select><span class="operator-live" :class="connection">● {{ connection === 'connected' ? 'LIVE' : 'POLLING' }}</span><button type="button" class="operator-events-toggle" :aria-expanded="eventsOpen" aria-controls="operator-events-panel" :aria-label="eventsOpen ? 'Close recent events panel' : 'Open recent events panel'" :title="eventsOpen ? 'Close recent events' : 'Open recent events'" @click="eventsOpen = !eventsOpen"><svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" :class="{ reversed: !eventsOpen }"><path d="m7 4 6 6-6 6" stroke-linecap="round" stroke-linejoin="round" /></svg><span>EVENTS</span></button></div>
         </header>
 
         <main class="operator-columns" :class="{ 'matches-collapsed': !matchesOpen, 'events-collapsed': !eventsOpen }" v-if="court">
@@ -110,7 +112,7 @@ const time = value => value ? new Date(value).toLocaleTimeString('en-GB', { hour
                 <div id="operator-match-list-content" class="operator-match-content"><div class="operator-match-scroll"><button v-for="item in matches" :key="item.id" type="button" class="operator-match" :class="{ selected: match?.id === item.id, ready: item.status === 'pending', live: item.status === 'running', completed: item.status === 'completed', cancelled: item.status === 'cancelled' }" @click="matchId = item.id">
                     <span class="operator-match-number">No.{{ item.sequence }}</span><span class="operator-match-status" :class="{ ready: item.status === 'pending', live: item.status === 'running', completed: item.status === 'completed', cancelled: item.status === 'cancelled' }"><span v-if="item.status === 'running'" class="operator-match-live-dot" aria-hidden="true"></span>{{ statusLabels[item.status] ?? item.status }}</span>
                     <strong>{{ item.entries.map(entry => entry.short_name || entry.name).join('  /  ') || 'No athletes assigned' }}</strong>
-                    <small>{{ item.category_name }} · {{ item.round_name }}</small>
+                    <small>{{ displayLabel(item.category_name) }} · {{ displayLabel(item.round_name) }}</small>
                 </button><p v-if="!matches.length" class="operator-empty">No matches are scheduled on this court.</p></div>
                 <div class="operator-hardware"><button v-if="!matchesOpen" type="button" class="operator-judge-devices-toggle" :aria-expanded="matchesOpen" aria-controls="operator-match-list-content" @click="matchesOpen = true"><span>JUDGE DEVICES</span><span class="operator-judge-devices-indicator" :class="judgeDevicePresence" :title="judgeDevicePresence === 'online' ? 'All judges online' : judgeDevicePresence === 'offline' ? 'All judges offline' : 'Some judges offline or presence unknown'"></span><svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m7 4 6 6-6 6" stroke-linecap="round" stroke-linejoin="round" /></svg></button><template v-else><div><span>JUDGE DEVICES</span><b>{{ connection === 'connected' ? `${judges.filter(judge => judge.connected).length} / ${judges.length} CONNECTED` : 'PRESENCE UNAVAILABLE' }}</b><button class="operator-match-toggle" type="button" :aria-expanded="matchesOpen" aria-controls="operator-match-list-content" aria-label="Collapse matches" title="Collapse matches" @click="matchesOpen = false"><svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" class="reversed"><path d="m7 4 6 6-6 6" stroke-linecap="round" stroke-linejoin="round" /></svg></button></div><div class="operator-judge-pills"><span v-for="judge in judges" :key="judge.id" :title="`${judge.name}: ${judge.connected === null ? 'Presence unavailable' : judge.connected ? 'Connected' : 'Not connected'}`" :class="{ online: judge.connected }">J{{ judge.seat }}</span></div></template></div></div>
             </aside>
@@ -121,7 +123,7 @@ const time = value => value ? new Date(value).toLocaleTimeString('en-GB', { hour
                 <SetupStage v-if="activeStage === 'setup'" :match="match" :category="category" :round="round" :bout="bout" :performance="performance" :judges="judges" :connection="connection" @continue="selectStage" />
                 <LiveStage v-else-if="activeStage === 'live'" :match="match" :category="category" :performance="performance" :court="court" :processing="action.processing" :errors="action.errors" @command="command" @continue="selectStage" />
                 <ResultStage v-else-if="activeStage === 'result'" :match="match" :performance="performance" :bout="bout" :judges="judges" :manual-performance="manualPerformance" :processing="action.processing" :errors="action.errors" @command="command" @manual="openManualDialog" @details="openDetailsDialog" @continue="selectStage" />
-                <ConfirmedStage v-else />
+                <ConfirmedStage v-else :match="match" @details="openDetailsDialog" />
                 </div>
             </section>
 
@@ -244,4 +246,21 @@ const time = value => value ? new Date(value).toLocaleTimeString('en-GB', { hour
 .operator-steps button.active.current::after{background:#52db9d}
 @media(max-width:740px){.operator-score-card h2{font-size:clamp(21px,6vw,27px)}.operator-card-scores{gap:8px;margin-top:8px}.operator-card-components>div{padding:4px 6px}.operator-card-components strong{font-size:clamp(23px,6vw,30px)}.operator-card-total{padding-left:0}.operator-card-total .operator-big-score{font-size:clamp(42px,11vw,58px)}.operator-steps{width:100%;justify-content:space-between;gap:14px}.operator-steps button{min-width:0;padding:8px 9px;font-size:9px}.operator-steps button:not(:first-child)::before{left:-13px;font-size:12px}}
 @media(prefers-reduced-motion:reduce){.operator-columns,.operator-events,.operator-match-content,.operator-match-list,.operator-match,.operator-match-number,.operator-match-status,.operator-match strong,.operator-match small,.operator-events-toggle svg,.operator-match-toggle svg,.operator-match-head-actions svg,.operator-judge-devices-toggle svg{transition:none}}
+.operator-stage-head{flex-wrap:wrap;align-content:center;min-width:0;gap:10px 16px}
+.operator-stage-head>div:first-child{min-width:0;flex:1 1 180px}
+.operator-stage-head h1{font-size:clamp(17px,1.5vw,22px);line-height:1.3;overflow-wrap:anywhere}
+.operator-stage-head h1 span{font-size:.7em;color:#596579}
+.operator-steps{flex:0 1 auto;flex-wrap:wrap;gap:6px}
+.operator-steps button{min-width:0;padding:8px 10px;font-size:11px;letter-spacing:0}
+.operator-steps button:not(:first-child)::before{content:none}
+.operator-match{min-width:0}
+.operator-match strong{max-height:none;overflow-wrap:anywhere;word-break:normal;font-size:12px;line-height:1.4}
+.operator-match small{max-height:none;overflow-wrap:anywhere;font-size:11px;line-height:1.4}
+.operator-match.live strong{font-size:13px}
+.operator-match.live small{font-size:12px}
+.operator-score-card h2{overflow-wrap:anywhere;white-space:normal;font-size:clamp(17px,1.6vw,22px)}
+.operator-card-total .operator-big-score{font-size:clamp(38px,4vw,60px)}
+.operator-footer{height:auto;min-height:40px;flex-wrap:wrap;padding:8px 16px;line-height:1.5}
+@media(max-width:1200px){.operator-stage-head{align-items:flex-start}.operator-steps{width:100%}}
+@media(max-width:740px){.operator-stage-head{position:relative}.operator-stage-head h1{font-size:17px}.operator-steps button{font-size:10px}.operator-match strong{font-size:12px}.operator-match.live strong{font-size:13px}}
 </style>
