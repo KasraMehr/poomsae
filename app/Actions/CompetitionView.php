@@ -14,10 +14,10 @@ class CompetitionView
 {
     public function __construct(private CalculateScore $calculator, private CompetitionTiming $timing) {}
 
-    public function snapshot(Tournament $tournament, User $actor, bool $display = false): array
+    public function snapshot(Tournament $tournament, ?User $actor, bool $display = false): array
     {
-        $manage = ! $display && $actor->can('update', $tournament);
-        $operate = ! $display && $actor->can('operate', $tournament);
+        $manage = ! $display && $actor?->can('update', $tournament);
+        $operate = ! $display && $actor?->can('operate', $tournament);
         $tournament->load(['courts', 'categories.scoringRuleSet', 'categories.forms', 'categories.entries.athletes', 'categories.rounds.bouts.entries.athletes', 'categories.rounds.bouts.judges.user', 'categories.rounds.bouts.performances.form', 'categories.rounds.bouts.performances.result', 'categories.rounds.bouts.performances.scoreSheets']);
         $sheetIds = $tournament->categories->flatMap(fn ($c) => $c->rounds)->flatMap(fn ($r) => $r->bouts)->flatMap(fn ($b) => $b->performances)->flatMap(fn ($p) => $p->scoreSheets)->pluck('id');
         $components = DB::table('score_components')->whereIn('score_sheet_id', $sheetIds)->get()->groupBy('score_sheet_id');
@@ -43,7 +43,7 @@ class CompetitionView
             $scoreBased = $category->format === 'round_robin' && $category->rounds->flatMap(fn ($round) => $round->bouts)->every(fn ($bout) => $bout->entries->count() === 1);
             $rounds = $category->rounds->sortBy('sequence')->map(function ($round) use ($actor, $display, $operate, $components, $revisions, &$wins, &$played, &$scores, &$presentationScores, &$restoredScores, &$withdrawn, &$formScores, $scoreBased, $category, $standingsRoundId, $lastStartedSequence, $tournament, $lastEnded, $appeals) {
                 $bouts = $round->bouts->sortBy('sequence')->map(function ($bout) use ($actor, $display, $operate, $components, $revisions, &$wins, &$played, &$scores, &$presentationScores, &$restoredScores, &$withdrawn, &$formScores, $scoreBased, $category, $round, $standingsRoundId, $lastEnded, $appeals) {
-                    $ownJudge = $bout->judges->firstWhere('user_id', $actor->id);
+                    $ownJudge = $actor ? $bout->judges->firstWhere('user_id', $actor->id) : null;
                     $totals = [];
                     $presentationTotals = [];
                     $restoredTotals = [];

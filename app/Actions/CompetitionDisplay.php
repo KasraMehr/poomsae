@@ -17,7 +17,7 @@ class CompetitionDisplay
     }
 
     /** @return array<string, mixed> */
-    public function snapshot(Tournament $tournament, User $actor): array
+    public function snapshot(Tournament $tournament, ?User $actor): array
     {
         return DB::transaction(function () use ($tournament, $actor): array {
             $tournament = Tournament::findOrFail($tournament->id);
