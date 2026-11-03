@@ -16,6 +16,10 @@ class DashboardController extends Controller
             $tournament = Tournament::query()->visibleTo($request->user())->orderByRaw("CASE WHEN status = 'running' THEN 0 WHEN status = 'draft' THEN 1 ELSE 2 END")->latest('id')->first();
             abort_unless($tournament !== null, 403);
 
+            if ($request->user()->panelRole($tournament) === 'operator' && $request->user()->tournaments()->wherePivot('role', 'operator')->count() > 1) {
+                return redirect()->route('tournaments.index');
+            }
+
             return redirect()->route(match ($request->user()->panelRole($tournament)) {
                 'admin' => 'tournaments.setup',
                 'operator' => 'tournaments.show',
