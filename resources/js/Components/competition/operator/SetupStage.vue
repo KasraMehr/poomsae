@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue';
+import { displayLabel } from './displayLabel';
 
 const props = defineProps({
     match: { type: Object, default: null },
@@ -126,11 +127,11 @@ const formState = number => {
         <div class="operator-setup-left">
             <header class="operator-setup-context">
                 <strong>No.{{ match.sequence }}</strong>
-                <span>{{ match.category_name }} · {{ match.round_name }}</span>
+                <span>{{ displayLabel(match.category_name) }} · {{ displayLabel(match.round_name) }}</span>
             </header>
-            <article v-for="(entry, index) in profiles" :key="entry.id" class="operator-setup-athlete" :class="index === 0 ? 'chung' : 'hong'">
+            <article v-for="(entry, index) in profiles" :key="entry.id" class="operator-setup-athlete" :class="profiles.length === 1 ? 'solo' : index === 0 ? 'chung' : 'hong'">
                 <header>
-                    <strong>{{ entry.side?.toUpperCase() ?? (index === 0 ? 'CHUNG / BLUE' : 'HONG / RED') }}</strong>
+                    <strong>{{ profiles.length === 1 ? 'ATHLETE' : entry.side?.toUpperCase() ?? (index === 0 ? 'CHUNG / BLUE' : 'HONG / RED') }}</strong>
                 </header>
                 <div class="operator-setup-athlete-info">
                     <div>
@@ -147,7 +148,7 @@ const formState = number => {
                 <div v-if="forms.length" class="operator-setup-form-list">
                     <div v-for="form in forms" :key="form.number" class="operator-setup-form" :class="{ current: form.number === performance?.form_number, upcoming: form.number > (performance?.form_number ?? 0) }">
                         <span class="operator-setup-form-number">{{ form.number }}</span>
-                        <strong>{{ form.name }}</strong>
+                        <strong>{{ displayLabel(form.name) }}</strong>
                         <small>{{ formState(form.number) }}</small>
                     </div>
                 </div>
@@ -232,6 +233,28 @@ const formState = number => {
     padding: 10px 14px 12px 18px;
 }
 
+.operator-setup-athlete.solo {
+    padding: 18px 24px;
+    background: #edf2f9;
+    text-align: center;
+}
+
+.operator-setup-athlete.solo::before {
+    display: none;
+}
+
+.operator-setup-athlete.solo header {
+    justify-content: center;
+}
+
+.operator-setup-athlete.solo .operator-setup-athlete-info {
+    justify-content: center;
+}
+
+.operator-setup-athlete.solo h2 {
+    font-size: clamp(19px, 2vw, 24px);
+}
+
 .operator-setup-athlete::before {
     position: absolute;
     inset: 0 auto 0 0;
@@ -273,14 +296,13 @@ const formState = number => {
 }
 
 .operator-setup-athlete-info h2 {
-    overflow: hidden;
+    overflow-wrap: anywhere;
     margin: 0;
     color: #0a1422;
-    font-size: clamp(18px, 2vw, 24px);
+    font-size: clamp(15px, 1.5vw, 19px);
     font-weight: 800;
     line-height: 1.25;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    text-wrap: balance;
 }
 
 .operator-setup-athlete-info p {
