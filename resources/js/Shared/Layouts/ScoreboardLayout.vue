@@ -13,9 +13,10 @@ defineProps({
 <template>
     <div
         dir="ltr"
-        class="relative min-h-screen w-full overflow-hidden bg-rtds-bg text-rtds-text font-rtds"
+        class="rtds-layout relative min-h-screen w-full overflow-hidden bg-rtds-bg text-rtds-text font-rtds"
     >
         <Link
+            v-if="page.props.auth?.user"
             :href="page.props.urls.logout"
             method="post"
             as="button"
