@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class ScheduleRoundRequest extends FormRequest
 {
@@ -22,6 +23,8 @@ class ScheduleRoundRequest extends FormRequest
             'courts.*.court_id' => ['required', 'integer', 'min:1', 'distinct'],
             'courts.*.judge_ids' => ['required', 'array', 'list'],
             'courts.*.judge_ids.*' => ['required', 'integer', 'min:1', 'distinct'],
+            'advancement_count' => ['nullable', 'integer', 'min:1'],
+            'advancement_order' => ['nullable', 'string', Rule::in(['rank', 'reverse_rank', 'random'])],
         ];
     }
 }

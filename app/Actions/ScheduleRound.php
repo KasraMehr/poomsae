@@ -12,7 +12,10 @@ use Illuminate\Support\Str;
 
 class ScheduleRound
 {
-    public function __construct(private CompetitionSetup $setup) {}
+    public function __construct(
+        private CompetitionSetup $setup,
+        private CalculateScore $calculator,
+    ) {}
 
     public function handle(User $actor, Tournament $tournament, Category $category, array $data): void
     {
@@ -40,7 +43,7 @@ class ScheduleRound
                     $check($bouts->count() > 1, 'فینال پایان یافته است.');
                     $ids = $bouts->pluck('winner_entry_id')->all();
                 } else {
-                    $ids = $bouts->filter(fn ($bout) => $bout->resolution_reason === null || ! str_starts_with($bout->resolution_reason, 'انصراف'))->flatMap(fn ($bout) => $bout->entries()->pluck('entries.id'))->all();
+                    $ids = $this->advancingRoundRobinEntries($category, $previous, $data);
                 }
                 $seed = 'previous-round-'.$previous->id;
             } else {
@@ -140,5 +143,135 @@ class ScheduleRound
         }
         $round->update(['scheduled_at' => now(), 'schedule_version' => $round->schedule_version + 1]);
         $this->setup->audit($actor, $tournament, 'round.scheduled', 'competition_round', $round->id, ['draw_id' => $draw->id, 'bout_count' => count($pairs), 'schedule_version' => $round->schedule_version]);
+    }
+
+    /**
+     * Determine advancing entries from a completed round-robin/cut-off round.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<int, int>
+     */
+    public function advancingRoundRobinEntries(Category $category, CompetitionRound $previous, array $data): array
+    {
+        $bouts = $previous->bouts()->with(['entries', 'performances.result'])->orderBy('sequence')->get();
+        $aggregation = $category->scoringRuleSet?->definition['aggregation'] ?? 'mean_two_forms';
+        $formsPerRound = (int) ($category->forms_per_round ?: 2);
+
+        $ranked = [];
+        foreach ($bouts as $bout) {
+            $isWithdrawn = $bout->resolution_reason !== null && str_starts_with($bout->resolution_reason, 'انصراف');
+            foreach ($bout->entries as $entry) {
+                $forms = $bout->performances->where('entry_id', $entry->id);
+                $hasCompleted = $forms->count() === $formsPerRound
+                    && $forms->every(fn ($p) => $p->status === 'approved' && $p->result?->published_at !== null);
+
+                $totalMicros = null;
+                $presentationMicros = null;
+                $restoredMicros = null;
+
+                if ($hasCompleted && ! $isWithdrawn) {
+                    $sum = $forms->sum(fn ($p) => $this->calculator->micros($p->result->score));
+                    $totalMicros = $aggregation === 'mean_two_forms' ? intdiv($sum + 1, 2) : $sum;
+
+                    $presentationSum = $forms->sum(fn ($p) => $this->calculator->presentationMicros($p->result->calculation_snapshot));
+                    $presentationMicros = $aggregation === 'mean_two_forms' ? intdiv($presentationSum + 1, 2) : $presentationSum;
+
+                    $restoredFormScores = $forms->map(fn ($p) => $this->calculator->restoredMeanMicros($p->result->calculation_snapshot));
+                    if (! $restoredFormScores->containsStrict(null)) {
+                        $restoredSum = $restoredFormScores->sum();
+                        $restoredMicros = $aggregation === 'mean_two_forms' ? intdiv($restoredSum + 1, 2) : $restoredSum;
+                    }
+                }
+
+                $ranked[] = [
+                    'entry_id' => $entry->id,
+                    'withdrawn' => $isWithdrawn,
+                    'score_micros' => $totalMicros,
+                    'presentation_score_micros' => $presentationMicros,
+                    'restored_score_micros' => $restoredMicros,
+                    'sequence' => $bout->sequence,
+                ];
+            }
+        }
+
+        // Sort by rank: active non-withdrawn first, higher score, higher presentation, higher restored, then sequence
+        usort($ranked, function (array $left, array $right): int {
+            if ($left['withdrawn'] !== $right['withdrawn']) {
+                return $left['withdrawn'] ? 1 : -1;
+            }
+            $cmp = ($right['score_micros'] ?? PHP_INT_MIN) <=> ($left['score_micros'] ?? PHP_INT_MIN);
+            if ($cmp !== 0) {
+                return $cmp;
+            }
+            $cmpPres = ($right['presentation_score_micros'] ?? PHP_INT_MIN) <=> ($left['presentation_score_micros'] ?? PHP_INT_MIN);
+            if ($cmpPres !== 0) {
+                return $cmpPres;
+            }
+            $cmpRestored = ($right['restored_score_micros'] ?? PHP_INT_MIN) <=> ($left['restored_score_micros'] ?? PHP_INT_MIN);
+            if ($cmpRestored !== 0) {
+                return $cmpRestored;
+            }
+
+            return $left['sequence'] <=> $right['sequence'];
+        });
+
+        $valid = array_values(array_filter($ranked, fn (array $item): bool => ! $item['withdrawn'] && $item['score_micros'] !== null));
+
+        $this->setup->check(count($valid) >= 1, 'هیچ ورزشکار حاضر با نمرهٔ کامل در مرحلهٔ قبل وجود ندارد.');
+
+        $total = count($valid);
+
+        // Determine target advancement quota:
+        // 1. Manual quota if specified by operator
+        // 2. Automatic WT cut-off rules:
+        //    - count >= 20: Preliminary -> Top 50% advance (min 8)
+        //    - 9 <= count <= 19: Semi-final -> Top 8 advance
+        //    - count <= 8: Final -> All advance
+        if (isset($data['advancement_count']) && $data['advancement_count'] !== null) {
+            $quota = (int) $data['advancement_count'];
+            $this->setup->check($quota >= 1, 'تعداد صعودکنندگان باید حداقل ۱ نفر باشد.');
+            $quota = min($quota, $total);
+        } else {
+            if ($total >= 20) {
+                $quota = max(8, (int) ceil($total / 2));
+            } elseif ($total >= 9) {
+                $quota = min(8, $total);
+            } else {
+                $quota = $total;
+            }
+        }
+
+        // Boundary tie-breaking:
+        // If contestants at and beyond the boundary have the exact same score tuple, include them all (WT fair play)
+        if ($quota < $total) {
+            $border = $valid[$quota - 1];
+            $borderScore = [$border['score_micros'], $border['presentation_score_micros'], $border['restored_score_micros']];
+            while ($quota < $total) {
+                $next = $valid[$quota];
+                $nextScore = [$next['score_micros'], $next['presentation_score_micros'], $next['restored_score_micros']];
+                if ($nextScore === $borderScore) {
+                    $quota++;
+                } else {
+                    break;
+                }
+            }
+        }
+
+        $advancing = array_slice($valid, 0, $quota);
+
+        $order = $data['advancement_order'] ?? 'rank';
+        if ($order === 'reverse_rank') {
+            return array_reverse(array_column($advancing, 'entry_id'));
+        }
+
+        if ($order === 'random') {
+            $ids = array_column($advancing, 'entry_id');
+            $seed = 'cutoff-round-'.$previous->id;
+            usort($ids, fn ($a, $b) => strcmp(hash('sha256', $seed.':'.$a), hash('sha256', $seed.':'.$b)));
+
+            return $ids;
+        }
+
+        return array_column($advancing, 'entry_id');
     }
 }

@@ -24,7 +24,12 @@ const submitEntry = () => entry.transform(data => {
     return payload;
 }).post(props.base + '/categories/' + props.category.id + '/entries', { preserveScroll: true, forceFormData: props.category.discipline === 'freestyle', onSuccess: () => entry.reset() });
 const status = useForm({ status: '' });
-const schedule = useForm({ courts: props.tournament.courts.length ? [{ court_id: props.tournament.courts[0].id, judge_ids: [] }] : [] });
+const schedule = useForm({
+    courts: props.tournament.courts.length ? [{ court_id: props.tournament.courts[0].id, judge_ids: [] }] : [],
+    advancement_count: null,
+    advancement_order: 'rank',
+});
+const isManualAdvancement = ref(false);
 const availableJudges = computed(() => props.tournament.members.filter(member => member.role === 'judge' && member.is_active));
 const selectedCourtIds = computed(() => schedule.courts.map(panel => panel.court_id));
 const courtPanelsReady = computed(() => {
@@ -146,6 +151,31 @@ const scheduleRound = () => schedule.post(props.base + '/categories/' + props.ca
                     <legend>{{ courtName(panel.court_id) }} · پنل {{ category.judge_count }} نفره · {{ panel.judge_ids.length }} انتخاب شده</legend>
                     <div class="flex flex-wrap gap-3"><label v-for="judge in availableJudges" :key="judge.id" class="!flex cursor-pointer items-center gap-[9px] text-xs"><input v-model="panel.judge_ids" type="checkbox" :value="judge.id" :disabled="schedule.processing || judgeAssignedElsewhere(judge.id, panel.court_id) || (!panel.judge_ids.includes(judge.id) && panel.judge_ids.length >= category.judge_count)">{{ judge.name }}</label></div>
                 </fieldset>
+                <div v-if="scheduledRounds.length && category.format === 'round_robin'" class="my-4 rounded-lg border border-[#dce5da] bg-[#f9faf7] p-4">
+                    <p class="mb-2 block text-sm font-semibold text-[#315747]">قاعده صعود به این مرحله (Cut-off)</p>
+                    <div class="mb-3 flex flex-wrap gap-4 text-xs">
+                        <label class="!flex cursor-pointer items-center gap-2">
+                            <input type="radio" :value="false" v-model="isManualAdvancement" @change="schedule.advancement_count = null" />
+                            خودکار طبق استاندارد WT (مقدماتی ۵۰٪، نیمه‌نهایی ۸ نفر)
+                        </label>
+                        <label class="!flex cursor-pointer items-center gap-2">
+                            <input type="radio" :value="true" v-model="isManualAdvancement" />
+                            تعیین دستی تعداد صعودکنندگان
+                        </label>
+                    </div>
+                    <div v-if="isManualAdvancement" class="mb-3 max-w-xs">
+                        <label class="text-xs font-semibold text-[#42664f]">تعداد ورزشکاران صعودکننده</label>
+                        <input v-model.number="schedule.advancement_count" type="number" min="1" :max="category.entries.length" required placeholder="مثلاً ۸" class="mt-1" />
+                    </div>
+                    <div class="max-w-xs">
+                        <label class="text-xs font-semibold text-[#42664f]">ترتیب اجرای این مرحله</label>
+                        <select v-model="schedule.advancement_order" class="mt-1">
+                            <option value="rank">به ترتیب رتبه دور قبل (نفر اول، اول اجرا می‌کند)</option>
+                            <option value="reverse_rank">معکوس رتبه دور قبل (نفر اول، آخرین نفر اجرا می‌کند)</option>
+                            <option value="random">قرعه‌کشی تصادفی مجدد</option>
+                        </select>
+                    </div>
+                </div>
                 <p class="my-3 text-xs leading-6 text-[#8b988a]">ترتیب انتخاب داورها، شمارهٔ صندلی را مشخص می‌کند. {{ category.format === 'knockout' ? 'پس از پایان همهٔ زمین‌های این رده، برنده‌ها برای مرحلهٔ بعد در جدول مشترک قرار می‌گیرند؛ برای ادامه می‌توانید تعداد زمین‌ها را کم کنید و فینال را روی یک زمین برگزار کنید.' : 'نتایج تمام زمین‌ها در رتبه‌بندی مشترک این رده جمع می‌شود؛ ساخت مرحلهٔ بعد پس از پایان همهٔ زمین‌های همین رده مجاز است.' }}</p>
                 <FormErrors :errors="schedule.errors"/><button class="inline-flex min-h-11 items-center justify-center rounded-lg border border-transparent bg-[#286957] px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-55" :disabled="schedule.processing || !previousComplete || !courtPanelsReady || !automaticStagePlanReady">تأیید و ساخت جدول</button>
             </form>
