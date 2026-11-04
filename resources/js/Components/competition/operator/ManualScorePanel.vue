@@ -1,17 +1,24 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, inject } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import ProxyScoreForm from './ProxyScoreForm.vue';
 import FormErrors from '../../../Shared/Components/FormErrors.vue';
 
 const props = defineProps({ performance: Object, rules: Object, base: String });
+const notify = inject('operatorToast', () => {});
 const confirmation = useForm({ expected_revision: 1 });
 const drafts = computed(() => (props.performance.scores ?? [])
     .filter(score => score.submission_mode === 'operator_proxy' && score.status === 'draft')
     .sort((a, b) => a.seat - b.seat));
 const confirm = score => {
     confirmation.expected_revision = score.revision;
-    confirmation.post(`${props.base}/performances/${props.performance.id}/proxy-scores/${score.id}/confirm`, { preserveScroll: true });
+    confirmation.post(`${props.base}/performances/${props.performance.id}/proxy-scores/${score.id}/confirm`, {
+        preserveScroll: true,
+        onSuccess: () => notify('success', 'Manual score confirmed.'),
+        onError: () => notify('error', 'Could not confirm the manual score. Please review the score and try again.'),
+        onHttpException: () => notify('error', 'Could not confirm the manual score. Please try again.'),
+        onNetworkError: () => notify('error', 'Connection error. The manual score was not confirmed.'),
+    });
 };
 const judgeName = seat => props.performance.judges.find(judge => judge.seat === seat)?.name ?? `Judge ${seat}`;
 const total = score => (props.rules.input_method === 'single_score_v1'
@@ -21,11 +28,10 @@ const total = score => (props.rules.input_method === 'single_score_v1'
 
 <template>
     <div class="manual-panel">
-        <p class="manual-intro">Use this when a judge cannot submit from their device. Record the score given by that judge; a short note is optional. The entry is logged and must be confirmed before the result can be published.</p>
-        <div class="manual-stage"><strong>PERFORMANCE {{ performance.id }}</strong><span>{{ performance.entry_name }} · {{ performance.form_name }}</span><span>{{ performance.submitted_count }} / {{ performance.judge_count }} confirmed scores</span></div>
+        <p class="manual-intro">Use this when a judge cannot submit or correct a score from their device. Select the judge's seat, enter the replacement score, and confirm it before publishing. Corrections require a reason and keep the previous score in the audit history.</p>
+        <div class="manual-stage"><strong>PERFORMANCE {{ performance.id }}</strong><span>{{ performance.entry_name }} · {{ displayLabel(performance.form_name) }}</span><span>{{ performance.submitted_count }} / {{ performance.judge_count }} confirmed scores</span></div>
         <div v-if="drafts.length" class="manual-review"><h3>Scores awaiting confirmation</h3><div v-for="score in drafts" :key="score.id" class="manual-review-row"><div><strong>J{{ score.seat }} · {{ judgeName(score.seat) }}</strong><span><template v-if="rules.input_method !== 'single_score_v1'">Accuracy {{ (score.values.accuracy / 100).toFixed(2) }} · Presentation {{ (score.values.presentation / 100).toFixed(2) }} · </template>Total {{ total(score) }}</span><small>Review this score against the judge's record before confirming.</small></div><button type="button" :disabled="confirmation.processing" @click="confirm(score)">Confirm score</button></div><FormErrors :errors="confirmation.errors" /></div>
-        <ProxyScoreForm v-if="performance.missing_seats?.length" :key="performance.id" :performance="performance" :rules="rules" :endpoint="`${base}/performances/${performance.id}/proxy-scores`" expanded />
-        <p v-else-if="!drafts.length" class="manual-complete">All judge seats have confirmed scores.</p>
+        <ProxyScoreForm :key="performance.id" :performance="performance" :rules="rules" :endpoint="`${base}/performances/${performance.id}/proxy-scores`" expanded />
     </div>
 </template>
 

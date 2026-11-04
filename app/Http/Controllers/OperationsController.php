@@ -21,6 +21,7 @@ use App\Models\Court;
 use App\Models\Entry;
 use App\Models\Performance;
 use App\Models\Tournament;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -62,6 +63,27 @@ class OperationsController extends Controller
         $setup->member($request->user(), $tournament, $request->validated());
 
         return back()->with('success', 'عضو به مسابقه اضافه شد؛ رمز حساب قبلی تغییر نکرد.');
+    }
+
+    public function updateMember(CompetitionSetupRequest $request, Tournament $tournament, User $user, CompetitionSetup $setup): RedirectResponse
+    {
+        $setup->updateMember($request->user(), $tournament, $user, $request->validated());
+
+        return back()->with('success', 'اطلاعات عضو و دسترسی او ذخیره شد.');
+    }
+
+    public function removeMember(Request $request, Tournament $tournament, User $user, CompetitionSetup $setup): RedirectResponse
+    {
+        $setup->removeMember($request->user(), $tournament, $user);
+
+        return back()->with('success', 'دسترسی عضو از این مسابقه حذف شد؛ حساب او باقی است.');
+    }
+
+    public function bulkCategories(CompetitionSetupRequest $request, Tournament $tournament, CompetitionSetup $setup): RedirectResponse
+    {
+        $created = $setup->bulkCategories($request->user(), $tournament, $request->validated());
+
+        return back()->with('success', $created.' رده به مسابقه اضافه شد.');
     }
 
     public function category(CompetitionSetupRequest $request, Tournament $tournament, CompetitionSetup $setup, ?Category $category = null): RedirectResponse

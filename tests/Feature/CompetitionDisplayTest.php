@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Actions\CompetitionConsole;
 use App\Actions\CompetitionDisplay;
+use App\Actions\CompetitionSetup;
 use App\Actions\RunCompetition;
 use App\Actions\SubmitScore;
 use App\Models\Performance;
@@ -86,6 +87,53 @@ class CompetitionDisplayTest extends TestCase
         $this->actingAs($viewer)->post(route('operations.command', [$fixture['tournament'], $performance['id']]), ['command' => 'start', 'expected_version' => $performance['version']])->assertForbidden();
         $this->actingAs(User::factory()->create())->getJson(route('scoreboard.data', $fixture['tournament']))->assertForbidden();
         $this->get(route('scoreboard.rtds', $fixture['tournament']))->assertForbidden();
+    }
+
+    public function test_rtds_can_open_each_court_with_its_own_url(): void
+    {
+        $fixture = $this->competition();
+        $this->schedule($fixture);
+        app(CompetitionSetup::class)->court($fixture['admin'], $fixture['tournament'], ['name' => 'زمین دو']);
+        $courts = $fixture['tournament']->courts()->orderBy('id')->get();
+        $viewer = User::factory()->create();
+        $fixture['tournament']->users()->attach($viewer, ['role' => 'display']);
+
+        foreach ($courts as $court) {
+            $this->actingAs($viewer)->get(route('scoreboard.rtds', [$fixture['tournament'], 'court' => $court->id]))
+                ->assertOk()
+                ->assertInertia(fn (Assert $page) => $page->component('Competition/Rtds')
+                    ->where('courtId', $court->id)
+                    ->has('display.courts', 2));
+        }
+    }
+
+    public function test_tournament_screen_urls_show_only_the_requested_tournament_without_a_display_account(): void
+    {
+        $first = $this->competition();
+        $second = $this->competition();
+        $this->schedule($first);
+        $this->schedule($second);
+        $court = $first['tournament']->courts()->firstOrFail();
+
+        foreach (['tv_wall', 'warm_up', 'public'] as $screen) {
+            $this->get(route('screens.'.$screen, $first['tournament']))->assertOk()
+                ->assertInertia(fn (Assert $page) => $page->component('Competition/PublicScreen')
+                    ->where('screen', $screen)
+                    ->where('display.tournament.id', $first['tournament']->id)
+                    ->where('display.courts.0.id', $court->id)
+                    ->has('dataUrl'));
+        }
+
+        $this->get(route('screens.rtds', [$first['tournament'], 'court' => $court->id]))->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->component('Competition/Rtds')
+                ->where('courtId', $court->id)
+                ->where('publicScreen', true)
+                ->where('display.tournament.id', $first['tournament']->id));
+        $this->get(route('screens.rtds', [$first['tournament'], 'court' => 999]))->assertNotFound();
+        $this->getJson(route('screens.data', $first['tournament']))->assertOk()
+            ->assertJsonPath('data.tournament.id', $first['tournament']->id)
+            ->assertJsonPath('data.tournament.members', []);
+        $this->get(route('screens.tv_wall', 999999))->assertNotFound();
     }
 
     public function test_revision_polling_observes_a_new_judge_score_without_publishing_it(): void

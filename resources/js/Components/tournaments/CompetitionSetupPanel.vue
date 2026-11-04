@@ -5,17 +5,20 @@ import CheckboxField from '../../Shared/Components/CheckboxField.vue';
 import DropdownSelect from '../../Shared/Components/DropdownSelect.vue';
 import TimeField from '../../Shared/Components/TimeField.vue';
 import FormErrors from '../../Shared/Components/FormErrors.vue';
-const props = defineProps({ tournament: Object, base: String, ageCategories: Array, ageTableYear: Number, section: { type: String, default: 'all' } });
+import MemberEditor from './MemberEditor.vue';
+import BulkCategoryCreator from './BulkCategoryCreator.vue';
+const props = defineProps({ tournament: Object, base: String, ageCategories: Array, ageTableYear: Number, existingJudges: { type: Array, default: () => [] }, section: { type: String, default: 'all' } });
 const court = useForm({ name: '' });
 const editingCourtId = ref(null);
 const courtEdit = useForm({ name: '' });
 const beginCourtEdit = selected => { editingCourtId.value = selected.id; courtEdit.name = selected.name; courtEdit.clearErrors(); };
 const saveCourt = () => courtEdit.put(props.base + '/courts/' + editingCourtId.value, { preserveScroll: true, onSuccess: () => editingCourtId.value = null });
-const member = useForm({ name: '', email: '', password: '', role: 'judge' });
+const member = useForm({ user_id: '', name: '', email: '', password: '', role: 'judge' });
+const existingJudgeOptions = computed(() => [{ value: '', label: 'حساب جدید یا افزودن با ایمیل' }, ...props.existingJudges.map(user => ({ value: user.id, label: `${user.name} (${user.email})` }))]);
+watch(() => member.role, () => { member.user_id = ''; });
 const memberRoleOptions = [
     { value: 'judge', label: 'داور' },
     { value: 'operator', label: 'اپراتور' },
-    { value: 'display', label: 'نمایشگر RTDS' },
 ];
 const showMemberPassword = ref(false);
 const editingCategoryId = ref(null);
@@ -209,15 +212,17 @@ defineExpose({ loadCategory });
         <section v-if="section === 'all' || section === 'team'" class="panel !border-[#c8ddcb] !bg-[#e7f1e8]">
             <h2> تیم برگزاری</h2>
             <form @submit.prevent="member.post(base + '/members', { preserveScroll: true, onSuccess: () => member.reset() })" class="fields-two">
-                <div><label for="member-name">نام و نام خانوادگی</label><input id="member-name" v-model="member.name" required maxlength="100"></div>
+                <div v-if="member.role === 'judge'" class="wide"><DropdownSelect id="existing-judge" v-model="member.user_id" label="انتخاب داور ثبت‌شده" :options="existingJudgeOptions" /></div>
+                <div v-if="!member.user_id"><label for="member-name">نام و نام خانوادگی (برای حساب جدید)</label><input id="member-name" v-model="member.name" maxlength="100"></div>
                 <DropdownSelect id="member-role" v-model="member.role" label="نقش" :options="memberRoleOptions" />
-                <div><label for="member-email">ایمیل ورود</label><input id="member-email" v-model="member.email" type="email" dir="ltr" required autocomplete="off"></div>
-                <div><label for="member-password">رمز حساب جدید (۱۲ کاراکتر)</label><div class="relative"><input id="member-password" v-model="member.password" :type="showMemberPassword ? 'text' : 'password'" dir="ltr" minlength="12" autocomplete="new-password" class="!pr-10"><button type="button" class="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-md text-[#557563] transition hover:bg-[#e8f1e9] hover:text-[#205a48] focus-visible:outline-2 focus-visible:outline-[#78aa8b]" :aria-label="showMemberPassword ? 'مخفی‌کردن رمز عبور' : 'نمایش رمز عبور'" :aria-pressed="showMemberPassword" @click="showMemberPassword = !showMemberPassword"><svg v-if="!showMemberPassword" aria-hidden="true" viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M2.5 12s3.3-6 9.5-6 9.5 6 9.5 6-3.3 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.6"/></svg><svg v-else aria-hidden="true" viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m3 3 18 18M10.6 6.2A10.5 10.5 0 0 1 12 6c6.2 0 9.5 6 9.5 6a15 15 0 0 1-3 3.7M6.2 6.2C3.8 7.8 2.5 12 2.5 12s3.3 6 9.5 6a9.8 9.8 0 0 0 3.1-.5"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg></button></div></div>
-                <p class="subtle wide">اگر حساب وجود دارد، فقط نقش اضافه می‌شود و رمز آن تغییر نمی‌کند.</p>
+                <div v-if="!member.user_id"><label for="member-email">ایمیل ورود</label><input id="member-email" v-model="member.email" type="email" dir="ltr" required autocomplete="off"></div>
+                <div v-if="!member.user_id"><label for="member-password">رمز حساب جدید (۱۲ کاراکتر)</label><input id="member-password" v-model="member.password" :type="showMemberPassword ? 'text' : 'password'" dir="ltr" minlength="12" autocomplete="new-password"></div>
+                <p class="subtle wide">برای حساب موجود، فقط ایمیل همان حساب کافی است؛ نام و رمز آن تغییر نمی‌کند. برای حساب جدید، نام و رمز حداقل ۱۲ کاراکتری لازم است.</p>
                 <FormErrors class="wide" :errors="member.errors"/><button class="button" :disabled="member.processing">افزودن عضو</button>
             </form>
-            <div class="member-list"><div v-for="(user,i) in tournament.members" :key="user.id + '-' + i"><span>{{ user.name }} <small dir="ltr">{{ user.email }}</small></span><span class="badge">{{ {judge:'داور',operator:'اپراتور',display:'نمایشگر',manager:'مدیر'}[user.role] || user.role }}</span></div></div>
+            <div class="member-list"><MemberEditor v-for="user in tournament.members" :key="user.id" :user="user" :base="base" /></div>
         </section>
+        <BulkCategoryCreator v-if="section === 'all' || section === 'categories'" :age-categories="ageCategories" :tournament="tournament" :base="base" />
         <section v-if="section === 'all' || section === 'categories'" class="panel wide">
 
             <div class="section-heading"><DropdownSelect id="edit-category-choice" label="ساخت یا ویرایش رده و قوانین" :model-value="editingCategoryId || ''" :options="categoryChoiceOptions" :disabled="category.processing" @update:model-value="loadCategory($event ? Number($event) : null)" /></div>

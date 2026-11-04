@@ -65,4 +65,5 @@ const fillEmptyAtMax = criterion => {
 @media(max-height:500px) and (orientation:landscape){.score-controls{gap:8px}.score-criterion{padding:9px 10px;gap:8px;border-radius:10px}.criterion-title h2{font-size:13px}.criterion-title div>span{font-size:9px}.criterion-title strong{font-size:24px}.criterion-title small{display:inline;margin-left:5px;font-size:10px}.component-list{gap:5px}.component-row{gap:6px}.component-row label{gap:5px}.deduction-row button{min-height:82px}.deduction-row button span{font-size:32px}.penalty-controls{gap:10px}.deduction-log{font-size:10px}.freestyle .component-list{gap:8px}}
 @media(max-height:500px) and (orientation:landscape){.direct-controls>button{min-height:44px}}
 @media(max-width:560px) and (orientation:portrait){.score-controls{grid-template-columns:1fr}.score-criterion{padding:12px}.deduction-row button{min-height:84px}}
+@media(max-width:700px){.criterion-title div>span,.component-tools>span,.last-deduction{display:none}.score-criterion{gap:9px}.component-tools{justify-content:flex-end}}
 </style>

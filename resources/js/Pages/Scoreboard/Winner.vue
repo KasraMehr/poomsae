@@ -3,6 +3,7 @@ import { computed } from "vue";
 import ScoreboardLayout from "../../Shared/Layouts/ScoreboardLayout.vue";
 import AthleteInfo from "../../Components/scoreboard/AthleteInfo.vue";
 import FormBadge from "../../Components/scoreboard/FormBadge.vue";
+import { displayFormName, displayFormSymbolKey } from "../../Shared/Services/symbols";
 import ScoreItem from "../../Components/scoreboard/ScoreItem.vue";
 
 const props = defineProps({
@@ -161,8 +162,8 @@ const roundResults = computed(() => {
             forms: performances.map((performance) => ({
                 key: String(performance.id),
                 formNumber: performance.form_number,
-                symbolKey: performance.form_badge ?? null,
-                formName: performance.form_name ?? "",
+                symbolKey: displayFormSymbolKey(winner.value?.category, performance),
+                formName: displayFormName(winner.value?.category, performance),
             })),
             total: bout.totals?.[winner.value.winnerEntry.id] ?? null,
             totalMax: null,

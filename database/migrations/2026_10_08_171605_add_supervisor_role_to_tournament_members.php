@@ -12,9 +12,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('tournament_user', function (Blueprint $table): void {
-            $table->enum('role', ['manager', 'operator', 'judge', 'display', 'supervisor'])->change();
-        });
+        $this->setRoles(['manager', 'operator', 'judge', 'display', 'supervisor']);
     }
 
     /**
@@ -26,8 +24,20 @@ return new class extends Migration
             throw new RuntimeException('Remove supervisor assignments explicitly before rolling back this migration.');
         }
 
-        Schema::table('tournament_user', function (Blueprint $table): void {
-            $table->enum('role', ['manager', 'operator', 'judge', 'display'])->change();
+        $this->setRoles(['manager', 'operator', 'judge', 'display']);
+    }
+
+    private function setRoles(array $roles): void
+    {
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE tournament_user DROP CONSTRAINT IF EXISTS tournament_user_role_check');
+            DB::statement("ALTER TABLE tournament_user ADD CONSTRAINT tournament_user_role_check CHECK (role IN ('".implode("', '", $roles)."'))");
+
+            return;
+        }
+
+        Schema::table('tournament_user', function (Blueprint $table) use ($roles): void {
+            $table->enum('role', $roles)->change();
         });
     }
 };

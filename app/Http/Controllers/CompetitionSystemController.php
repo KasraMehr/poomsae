@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\RealtimeHealth;
 use App\Models\Tournament;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -10,7 +11,7 @@ use Inertia\Response;
 
 class CompetitionSystemController extends Controller
 {
-    public function __invoke(Tournament $tournament): Response
+    public function __invoke(Tournament $tournament, RealtimeHealth $health): Response
     {
         Gate::authorize('update', $tournament);
 
@@ -25,8 +26,9 @@ class CompetitionSystemController extends Controller
             'tournament' => ['id' => $tournament->id, 'name' => $tournament->name],
             'system' => [
                 'database' => $database,
-                'realtime' => config('broadcasting.default') === 'mercure' ? 'configured' : 'polling',
+                'realtime' => $health->mercureStatus(),
                 'queue' => config('queue.default'),
+                'queue_worker' => $health->queueWorkerStatus(),
                 'cache' => config('cache.default'),
                 'environment' => app()->environment(),
                 'server_time' => now()->toISOString(),

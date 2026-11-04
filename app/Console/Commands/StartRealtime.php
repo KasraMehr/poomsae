@@ -28,6 +28,18 @@ class StartRealtime extends Command
 
             return self::FAILURE;
         }
+        $hubUrl = config('broadcasting.connections.mercure.url');
+        $publicUrl = config('broadcasting.connections.mercure.public_url');
+        if (! is_string($hubUrl) || ! in_array(parse_url($hubUrl, PHP_URL_HOST), ['127.0.0.1', 'localhost'], true)
+            || parse_url($hubUrl, PHP_URL_PORT) !== 8000
+            || parse_url($hubUrl, PHP_URL_PATH) !== '/.well-known/mercure'
+            || ! is_string($publicUrl)
+            || ($publicUrl !== '/.well-known/mercure' && (parse_url($publicUrl, PHP_URL_PORT) !== 8000
+                || parse_url($publicUrl, PHP_URL_PATH) !== '/.well-known/mercure'))) {
+            $this->error('This command serves Mercure on port 8000. Set MERCURE_URL=http://127.0.0.1:8000/.well-known/mercure and MERCURE_PUBLIC_URL=/.well-known/mercure, then rebuild the frontend.');
+
+            return self::FAILURE;
+        }
 
         $environment = [
             'APP_URL' => config('app.url'),

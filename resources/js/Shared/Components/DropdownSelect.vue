@@ -9,6 +9,7 @@ const props = defineProps({
     options: { type: Array, required: true },
     disabled: { type: Boolean, default: false },
     placeholder: { type: String, default: 'انتخاب کنید' },
+    variant: { type: String, default: 'default' },
 });
 
 const emit = defineEmits(['update:modelValue']);
@@ -81,8 +82,8 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', handleDocument
 </script>
 
 <template>
-    <div ref="root" class="relative">
-        <label :id="`${id}-label`" :for="`${id}-trigger`" class="mb-1.5 block text-xs font-medium text-[#63756b]">{{ label }}</label>
+    <div ref="root" class="relative" :dir="variant === 'operator' ? 'ltr' : undefined" :class="variant === 'operator' ? 'flex items-center gap-2' : ''">
+        <label :id="`${id}-label`" :for="`${id}-trigger`" class="text-xs font-medium" :class="variant === 'operator' ? 'mb-0 shrink-0 text-[10px] tracking-[.08em] text-[#667184]' : 'mb-1.5 block text-[#63756b]'">{{ label }}</label>
         <button
             :id="`${id}-trigger`"
             ref="trigger"
@@ -94,7 +95,8 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', handleDocument
             :aria-expanded="isOpen"
             :aria-activedescendant="isOpen ? `${id}-option-${activeIndex}` : undefined"
             :disabled="disabled"
-            class="flex w-full items-center justify-between gap-3 rounded-lg border border-[#a8c6ae] bg-gradient-to-b from-white to-[#edf6ee] px-3 py-2.5 text-right text-sm font-semibold text-[#285b46] shadow-sm transition hover:border-[#7da889] focus:border-[#5c9670] focus:outline-none focus:ring-2 focus:ring-[#8bb99a]/35 disabled:cursor-not-allowed disabled:opacity-60"
+            class="flex items-center justify-between gap-3 rounded-lg border px-3 text-right font-semibold transition focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
+            :class="variant === 'operator' ? 'min-h-9 min-w-[145px] w-auto flex-1 rounded-none border-[#c8cfda] bg-[#e2e7f2] py-1.5 text-xs text-[#566174] shadow-none hover:border-[#c8cfda] hover:bg-[#d6deeb] focus:border-[#aab8cd] focus:ring-[#8aa4c7]/30' : 'min-h-11 w-full border-[#a8c6ae] bg-gradient-to-b from-white to-[#edf6ee] py-2.5 text-sm text-[#285b46] shadow-sm hover:border-[#7da889] focus:border-[#5c9670] focus:ring-[#8bb99a]/35'"
             @click="isOpen ? closeList() : openList()"
             @keydown="handleKeydown"
         >
@@ -116,20 +118,23 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', handleDocument
             :id="`${id}-listbox`"
             role="listbox"
             :aria-labelledby="`${id}-label`"
-            class="absolute right-0 z-40 mt-2 max-h-60 w-full overflow-auto rounded-xl border border-[#c8ddcb] bg-white p-1.5 shadow-[0_12px_28px_#1e3c2d24]"
+            class="absolute right-0 top-full z-40 mt-2 max-h-60 w-full overflow-auto rounded-xl border p-1.5 shadow-[0_12px_28px_#1e3c2d24]"
+            :class="variant === 'operator' ? 'rounded-none border-[#c8cfda] bg-[#e2e7f2] shadow-[0_14px_32px_#0d192b30]' : 'border-[#c8ddcb] bg-white'"
         >
             <li v-for="(option, index) in options" :id="`${id}-option-${index}`" :key="option.value" role="option" :aria-selected="option.value === modelValue" :aria-disabled="option.disabled || undefined">
                 <button
                     type="button"
                     class="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-right text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-45"
-                    :class="option.value === modelValue ? 'bg-[#e3f1e5] font-bold text-[#205b42]' : index === activeIndex ? 'bg-[#f1f7f1] text-[#285b46]' : 'text-[#465d4d] hover:bg-[#f1f7f1]'"
+                    :class="variant === 'operator'
+                        ? option.value === modelValue ? 'bg-[#cbd5e5] font-bold text-[#30435f]' : index === activeIndex ? 'bg-[#d6deeb] text-[#0d192b]' : 'text-[#566174] hover:bg-[#d6deeb]'
+                        : option.value === modelValue ? 'bg-[#e3f1e5] font-bold text-[#205b42]' : index === activeIndex ? 'bg-[#f1f7f1] text-[#285b46]' : 'text-[#465d4d] hover:bg-[#f1f7f1]'"
                     :disabled="option.disabled"
                     @mouseenter="activeIndex = index"
                     @click="selectOption(option)"
                 >
                     <span>{{ option.label }}</span>
-                    <span v-if="option.meta" class="mr-auto text-xs font-medium text-[#788b7d]">{{ option.meta }}</span>
-                    <svg v-if="option.value === modelValue" aria-hidden="true" viewBox="0 0 20 20" class="h-4 w-4 text-[#286957]" fill="none" stroke="currentColor" stroke-width="2"><path d="m4 10 4 4 8-8" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                    <span v-if="option.meta" class="mr-auto text-xs font-medium" :class="variant === 'operator' ? 'text-[#75839a]' : 'text-[#788b7d]'">{{ option.meta }}</span>
+                    <svg v-if="option.value === modelValue" aria-hidden="true" viewBox="0 0 20 20" class="h-4 w-4" :class="variant === 'operator' ? 'text-[#30435f]' : 'text-[#286957]'" fill="none" stroke="currentColor" stroke-width="2"><path d="m4 10 4 4 8-8" stroke-linecap="round" stroke-linejoin="round" /></svg>
                 </button>
             </li>
         </ul>

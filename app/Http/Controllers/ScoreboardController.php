@@ -70,6 +70,41 @@ class ScoreboardController extends Controller
         ]);
     }
 
+    public function publicScreen(Request $request, Tournament $tournament, CompetitionDisplay $display): Response
+    {
+        return Inertia::render('Competition/PublicScreen', [
+            'display' => $display->snapshot($tournament, null),
+            'screen' => $request->route('screen'),
+            'dataUrl' => route('screens.data', $tournament),
+        ]);
+    }
+
+    public function publicRtds(Request $request, Tournament $tournament, CompetitionDisplay $display): Response
+    {
+        $snapshot = $display->snapshot($tournament, null);
+        $courtId = $request->integer('court');
+        if ($courtId !== 0) {
+            abort_unless(collect($snapshot['courts'])->contains('id', $courtId), 404);
+        }
+
+        return Inertia::render('Competition/Rtds', [
+            'display' => $snapshot,
+            'displayUrls' => ['data' => route('screens.data', $tournament), 'rtds' => route('screens.rtds', $tournament)],
+            'courtId' => $courtId ?: ($snapshot['courts'][0]['id'] ?? null),
+            'publicScreen' => true,
+        ]);
+    }
+
+    public function publicData(Request $request, Tournament $tournament, CompetitionDisplay $display): JsonResponse
+    {
+        $revision = $display->revision($tournament);
+        if ($request->query('revision') !== null && (string) $revision === $request->query('revision')) {
+            return response()->json(['changed' => false, 'revision' => $revision, 'generated_at' => now()->toISOString()])->header('Cache-Control', 'no-store, private');
+        }
+
+        return response()->json(['changed' => true, 'data' => $display->snapshot($tournament, null)])->header('Cache-Control', 'no-store, private');
+    }
+
     public function data(Request $request, Tournament $tournament, CompetitionDisplay $display): JsonResponse
     {
         Gate::authorize('view', $tournament);
