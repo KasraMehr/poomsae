@@ -3,6 +3,7 @@ import { computed, inject } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import ProxyScoreForm from './ProxyScoreForm.vue';
 import FormErrors from '../../../Shared/Components/FormErrors.vue';
+import { displayLabel } from './displayLabel';
 
 const props = defineProps({ performance: Object, rules: Object, base: String });
 const notify = inject('operatorToast', () => {});

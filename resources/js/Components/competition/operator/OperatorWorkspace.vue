@@ -9,6 +9,7 @@ import SetupStage from './SetupStage.vue';
 import LiveStage from './LiveStage.vue';
 import ResultStage from './ResultStage.vue';
 import ConfirmedStage from './ConfirmedStage.vue';
+import { displayLabel } from './displayLabel';
 
 const props = defineProps({ console: Object, can: Object, urls: Object, onlineJudgeIds: Array, connection: String });
 const page = usePage();
