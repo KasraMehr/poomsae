@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from "vue";
+import { DEFAULT_FLAG_URL } from "../../../Shared/Services/flags";
 
 /**
  * ردیف جدول رنکینگ — طرح RANKING-TABLE:
@@ -29,7 +30,7 @@ const SIZE_BY_RANK = {
 
 const size = computed(() => SIZE_BY_RANK[Number(props.rank)] ?? SIZE_BY_RANK[2]);
 
-const hasCountry = computed(() => Boolean(props.flagUrl || props.countryCode));
+const hasCountry = true;
 
 const scores = computed(() => [
     props.roundScores[0] ?? null,
@@ -61,17 +62,10 @@ const formatScore = (value) =>
         <template v-if="hasCountry">
             <div class="w-[128px] shrink-0 overflow-hidden">
                 <img
-                    v-if="flagUrl"
-                    :src="flagUrl"
-                    :alt="country || countryCode"
+                    :src="flagUrl || DEFAULT_FLAG_URL"
+                    :alt="country || countryCode || 'Iran'"
                     class="h-full w-full object-cover"
                 />
-                <span
-                    v-else
-                    class="flex h-full w-full items-center justify-center bg-rtds-bg-elevated text-2xl font-bold text-white"
-                >
-                    {{ countryCode }}
-                </span>
             </div>
             <div
                 v-if="countryCode"

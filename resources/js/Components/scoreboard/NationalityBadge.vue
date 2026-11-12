@@ -1,4 +1,6 @@
 <script setup>
+import { DEFAULT_FLAG_URL } from "../../Shared/Services/flags";
+
 /**
  * Country badge: flag + three-letter English country code.
  *
@@ -73,21 +75,11 @@ const sizeClasses = {
             :class="sizeClasses[size]?.flag ?? sizeClasses.md.flag"
         >
             <img
-                v-if="flagUrl"
-                :src="flagUrl"
-                :alt="country || code"
+                :src="flagUrl || DEFAULT_FLAG_URL"
+                :alt="country || code || 'Iran'"
                 class="h-full w-full object-cover"
             />
 
-            <span
-                v-else
-                class="flex h-full w-full items-center justify-center border border-dashed border-rtds-border-strong bg-rtds-bg-elevated font-rtds font-bold tracking-wider text-rtds-text-secondary"
-                :class="
-                    sizeClasses[size]?.placeholder ?? sizeClasses.md.placeholder
-                "
-            >
-                {{ code }}
-            </span>
         </span>
 
         <span

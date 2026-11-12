@@ -131,7 +131,7 @@ const rootClasses = computed(() => {
     }
 });
 
-const showBadge = computed(() => Boolean(props.countryCode || props.flagUrl));
+const showBadge = true;
 const badgeSize = computed(() => {
     if (props.layout === "horizontal") {
         return props.size;

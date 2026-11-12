@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from "vue";
 import { medalSymbol } from "../../../Shared/Services/symbols";
+import { DEFAULT_FLAG_URL } from "../../../Shared/Services/flags";
 
 /**
  * ردیف جدول چهار نفر برتر — طرح TOP-4-TABLE:
@@ -65,7 +66,7 @@ const size = computed(() => SIZE_BY_RANK[Number(props.rank)] ?? SIZE_BY_RANK[4])
 /** نشان شش‌ضلعی رتبه از map دارایی‌های پروژه؛ رتبهٔ خارج از ۱..۵ نشان نمی‌گیرد. */
 const badgeUrl = computed(() => medalSymbol(Number(props.rank)));
 
-const hasCountry = computed(() => Boolean(props.flagUrl || props.countryCode));
+const hasCountry = true;
 
 const formattedScore = computed(() =>
     props.score === null || props.score === undefined || props.score === ""
@@ -99,17 +100,10 @@ const formattedScore = computed(() =>
         <template v-if="hasCountry">
             <div class="w-[150px] shrink-0 overflow-hidden">
                 <img
-                    v-if="flagUrl"
-                    :src="flagUrl"
-                    :alt="country || countryCode"
+                    :src="flagUrl || DEFAULT_FLAG_URL"
+                    :alt="country || countryCode || 'Iran'"
                     class="h-full w-full object-cover"
                 />
-                <span
-                    v-else
-                    class="flex h-full w-full items-center justify-center bg-rtds-bg-elevated text-2xl font-bold text-white"
-                >
-                    {{ countryCode }}
-                </span>
             </div>
             <div
                 v-if="countryCode"
