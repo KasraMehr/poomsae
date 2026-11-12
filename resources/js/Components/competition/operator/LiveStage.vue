@@ -330,6 +330,97 @@ const statusText = computed(() => ({
     margin: 4px;
 }
 
+@media (max-height: 800px) {
+    .operator-live-stage {
+        gap: clamp(6px, 1.2vh, 12px);
+        padding-block: clamp(6px, 1vh, 12px);
+    }
+
+    .operator-live-context {
+        gap: 8px;
+        padding-bottom: 6px;
+    }
+
+    .operator-live-context > strong {
+        font-size: clamp(18px, 2.2vh, 24px);
+    }
+
+    .operator-live-context > span {
+        font-size: clamp(11px, 1.5vh, 14px);
+    }
+
+    .operator-live-athletes {
+        gap: clamp(8px, 1vw, 14px);
+    }
+
+    .operator-live-athlete {
+        min-height: clamp(104px, 20vh, 168px);
+        padding: clamp(8px, 1.2vh, 15px);
+    }
+
+    .operator-live-athlete.active {
+        padding: clamp(6px, 1vh, 13px);
+    }
+
+    .operator-live-athlete h2 {
+        margin-block: clamp(4px, 0.9vh, 10px);
+        font-size: clamp(18px, 3vh, 30px);
+    }
+
+    .operator-live-athlete-state {
+        margin-top: clamp(4px, 1vh, 12px);
+    }
+
+    .operator-live-clock-panel {
+        gap: 3px;
+        padding-block: 4px;
+    }
+
+    .operator-live-clock {
+        font-size: clamp(44px, 10vh, 82px);
+    }
+
+    .operator-live-controls {
+        gap: 10px;
+        padding-top: 7px;
+    }
+
+    .operator-live-action {
+        min-height: 40px;
+        padding-block: 8px;
+    }
+}
+
+@media (max-height: 620px) {
+    .operator-live-athlete {
+        min-height: 88px;
+    }
+
+    .operator-live-athlete header,
+    .operator-live-athlete p,
+    .operator-live-controls p {
+        font-size: 10px;
+    }
+
+    .operator-live-athlete h2 {
+        font-size: clamp(16px, 2.6vh, 20px);
+    }
+
+    .operator-live-athlete-state {
+        padding: 3px 6px;
+        font-size: 8px;
+    }
+
+    .operator-live-clock {
+        font-size: clamp(38px, 8vh, 58px);
+    }
+
+    .operator-live-clock-label,
+    .operator-live-elapsed {
+        font-size: 8px;
+    }
+}
+
 @media (max-width: 740px) {
     .operator-live-stage {
         grid-template-rows: auto minmax(180px, 1fr) auto auto;
@@ -395,6 +486,28 @@ const statusText = computed(() => ({
 
     .operator-live-action {
         width: 100%;
+    }
+}
+
+@media (max-width: 740px) and (max-height: 700px) {
+    .operator-live-stage {
+        grid-template-rows: auto minmax(0, 1fr) auto auto;
+        gap: 6px;
+        padding: 8px;
+    }
+
+    .operator-live-athlete {
+        min-height: 92px;
+    }
+
+    .operator-live-controls {
+        flex-direction: row;
+        align-items: center;
+    }
+
+    .operator-live-action {
+        width: auto;
+        min-width: 0;
     }
 }
 </style>
