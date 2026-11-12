@@ -202,7 +202,7 @@ const courts = computed(() => tournament.value?.courts ?? []);
                     <!-- FORM: LEFT -->
                     <div class="flex min-w-0 items-center justify-start">
                         <FormBadge
-                            :size="phase === 'call' ? 'xl' : 'xxxl'"
+                            :size="'xxxl'"
                             :symbol-key="formSymbolKey"
                             :form-name="displayFormName(currentExecution.category, currentExecution.performance) || currentExecution.performance.form_name?.form_name || ''"
                         />
@@ -213,7 +213,7 @@ const courts = computed(() => tournament.value?.courts ?? []);
                         <span v-if="phase === 'call'" class="text-6xl font-semibold uppercase text-rtds-gold-bright">READY</span>
                         <Timer
                             v-else-if="durationSeconds != null"
-                            size="xl"
+                            size="xxl"
                             :duration-seconds="durationSeconds"
                             :started-at="
                                 currentExecution.performance.started_at
