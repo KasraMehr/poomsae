@@ -150,7 +150,7 @@ const badgeSize = computed(() => {
 });
 
 const badgeProps = computed(() => ({
-    code: props.countryCode,
+    code: props.countryCode || "IRI",
     country: props.country,
     flagUrl: props.flagUrl,
     flagPosition: isHong.value ? "right" : "left",

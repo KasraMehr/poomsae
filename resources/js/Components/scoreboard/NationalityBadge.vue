@@ -9,7 +9,7 @@ import { DEFAULT_FLAG_URL } from "../../Shared/Services/flags";
  */
 
 defineProps({
-    code: { type: String, default: "" },
+    code: { type: String, default: "IRI" },
     country: { type: String, default: "" },
     flagUrl: { type: String, default: "" },
     flagPosition: { type: String, default: "left" },
