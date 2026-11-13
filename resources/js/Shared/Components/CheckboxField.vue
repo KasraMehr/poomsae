@@ -57,36 +57,43 @@ function updateValue(event) {
     align-items: center;
     gap: 10px;
     padding: 11px 12px;
-    border: 1px solid #d8e6d9;
+    border: 1px solid #d7dde5;
     border-radius: 10px;
     background: #f7fbf7;
     color: #355b45;
     cursor: pointer;
     font-size: 12px;
     line-height: 1.7;
-    transition: border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
-}
-
-.checkbox-field:hover {
-    background: #f1f8f2;
 }
 
 .checkbox-field__input {
-    width: 17px;
-    height: 17px;
+    appearance: none;
+    display: grid;
+    place-content: center;
+    box-sizing: border-box;
+    width: 25px;
+    height: 25px;
+    min-height: 0;
     flex: none;
-    margin: 0;
-    accent-color: #286957;
+    margin: 5px;
+    padding: 0;
+    border: 1px solid #94a3b8;
+    border-radius: 3px;
+    background-color: white;
     cursor: pointer;
 }
 
-.checkbox-field__input:focus-visible {
-    outline: 2px solid #5c9670;
-    outline-offset: 2px;
+.checkbox-field__input:checked {
+    border-color: transparent;
+    background-color: #286957;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='white' stroke-linecap='round' stroke-linejoin='round' stroke-width='2.5' d='m3 8 3.3 3.3L13 4.5'/%3E%3C/svg%3E");
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 11px;
 }
 
-.checkbox-field:focus-within {
-    border-color: #d8e6d9;
+.checkbox-field__input:focus {
+    outline: none;
     box-shadow: none;
 }
 
@@ -94,18 +101,11 @@ function updateValue(event) {
     min-width: 0;
 }
 
-.checkbox-field--checked {
-    border-color: #d8e6d9;
-    background: #edf6ee;
-    color: #205b42;
-}
-
 .checkbox-field--chip {
     display: inline-flex;
     align-items: center;
     gap: 7px;
     padding: 5px 9px;
-    border-color: #d8e6d9;
     border-radius: 8px;
     background: #fff;
     font-size: 11px;
@@ -113,13 +113,9 @@ function updateValue(event) {
     line-height: 1.5;
 }
 
-.checkbox-field--chip.checkbox-field--checked {
-    border-color: #d8e6d9;
-}
-
 .checkbox-field--chip .checkbox-field__input {
-    width: 14px;
-    height: 14px;
+    width: 20px;
+    height: 20px;
     margin-top: 0;
 }
 
