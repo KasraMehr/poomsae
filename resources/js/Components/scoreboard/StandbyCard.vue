@@ -140,6 +140,10 @@ const currentAccentClass = computed(() => ({
                                 {{ member.short_name || member.name }}
                             </span>
                         </div>
+                        <span
+                            v-else-if="entry.short_name && entry.short_name !== entry.name"
+                            class="standby-entry__club"
+                        >{{ entry.short_name }}</span>
                         <span v-if="entry.club" class="standby-entry__club">{{ entry.club }}</span>
 
                         <div v-if="isPrevious" class="standby-entry__result">
