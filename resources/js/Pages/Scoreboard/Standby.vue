@@ -181,14 +181,9 @@ const previous = computed(() => {
         ? findSnapshotBout(displayCourt.value.previous_bout_id)
         : null;
     if (exactPrevious) {
-        const winner = exactPrevious.entries.find(
-            (entry) => entry.id === exactPrevious.winner_entry_id,
-        );
         return {
             bout: exactPrevious,
-            winner,
             approved: exactPrevious.performances.every((p) => p.result != null),
-            total: winner ? exactPrevious.totals?.[winner.id] ?? null : null,
         };
     }
     const index = courtBouts.value.findIndex(
@@ -198,15 +193,10 @@ const previous = computed(() => {
     for (let i = candidates.length - 1; i >= 0; i--) {
         const bout = candidates[i];
         if (bout.status !== "completed") continue;
-        const winner = bout.entries.find(
-            (entry) => entry.id === bout.winner_entry_id,
-        );
         const approved = bout.performances.every((p) => p.result != null);
         return {
             bout,
-            winner,
             approved,
-            total: winner ? bout.totals?.[winner.id] ?? null : null,
         };
     }
     return null;
@@ -249,7 +239,7 @@ const next = computed(() => {
         </template>
 
         <section
-            class="flex flex-1 flex-col justify-center gap-3"
+            class="standby-flow flex min-h-0 flex-1 flex-col justify-center gap-3"
             aria-label="Match flow"
         >
             <StandbyCard
@@ -257,7 +247,6 @@ const next = computed(() => {
                 :bout="withEntryDetails(previous?.bout)"
                 :approved="previous?.approved ?? false"
                 :winner-entry-id="previous?.bout?.winner_entry_id"
-                :total="previous?.total"
             />
 
             <div class="text-center text-xl text-rtds-text-tertiary" aria-hidden="true">↓</div>
@@ -280,3 +269,9 @@ const next = computed(() => {
         </section>
     </ScoreboardLayout>
 </template>
+
+<style scoped>
+.standby-flow {
+    margin-inline: calc(-1 * clamp(1rem, 3.1vw, 2.25rem));
+}
+</style>

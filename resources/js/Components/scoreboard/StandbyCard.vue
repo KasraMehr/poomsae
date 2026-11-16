@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from "vue";
-import AthleteInfo from "./AthleteInfo.vue";
+import EntryAthleteInfo from "./EntryAthleteInfo.vue";
 import FormBadge from "./FormBadge.vue";
 import { displayFormName, displayFormSymbolKey } from "../../Shared/Services/symbols";
 
@@ -16,7 +16,6 @@ const props = defineProps({
     state: { type: String, default: "pending" },
     approved: { type: Boolean, default: false },
     winnerEntryId: { type: [Number, String], default: null },
-    total: { type: [Number, String], default: null },
 });
 
 const isCurrent = computed(() => props.variant === "current");
@@ -33,11 +32,18 @@ const cardTitle = computed(() => ({
     next: "NEXT",
 })[props.variant]);
 
+const roundLabel = computed(() => {
+    const round = props.bout?.round;
+    const number = round?.sequence ?? round?.number;
+
+    return number != null ? `ROUND ${number}` : round?.name || "ROUND";
+});
+
 const statusLabel = computed(() => {
     if (isPrevious.value) return props.approved ? "COMPLETED" : "AWAITING RESULT";
-    if (isNext.value) return "QUEUED";
+    if (isNext.value) return "READY";
     return {
-        pending: "READY",
+        pending: "WAITING FOR OPERATOR START",
         running: "LIVE",
         scoring: "AWAITING SCORES",
         approved: "COMPLETED",
@@ -54,18 +60,7 @@ const symbolKey = computed(() =>
     displayFormSymbolKey(props.bout?.category, performanceForForm.value),
 );
 
-const formNames = computed(() => {
-    if (!props.bout) return [];
-    if (props.bout.category?.discipline === "freestyle") return [formName.value];
-    return props.bout.performances?.map((item) => item.form_name).filter(Boolean) ?? [];
-});
-
-const entryTotal = (entry) => {
-    if (String(entry.id) === String(props.winnerEntryId) && props.total != null) {
-        return props.total;
-    }
-    return props.bout?.totals?.[entry.id] ?? null;
-};
+const entryTotal = (entry) => props.bout?.totals?.[entry.id] ?? null;
 
 const formattedScore = (value) => value == null
     ? "—"
@@ -75,7 +70,7 @@ const formattedScore = (value) => value == null
       });
 
 const stateColorClass = computed(() => {
-    if (isPrevious.value) return props.approved ? "standby-status--success" : "standby-status--waiting";
+    if (isPrevious.value) return "standby-status--previous";
     if (isNext.value) return "standby-status--waiting";
     return {
         pending: "standby-status--success",
@@ -99,19 +94,11 @@ const currentAccentClass = computed(() => ({
         :class="[
             `standby-card--${variant}`,
             isCurrent ? currentAccentClass : 'standby-card--muted',
+            { 'standby-card--empty': !bout },
         ]"
         :aria-label="cardTitle"
     >
-        <header class="standby-card__header">
-            <div class="standby-card__context">
-                <span class="standby-card__title">{{ cardTitle }}</span>
-                <span v-if="bout?.category?.name" class="standby-card__category">{{ bout.category.name }}</span>
-                <span v-if="bout?.round?.stage_label || bout?.round?.name" class="standby-card__round">
-                    {{ bout.round.stage_label || bout.round.name }}
-                </span>
-            </div>
-            <span class="standby-card__status" :class="stateColorClass">{{ statusLabel }}</span>
-        </header>
+        <span class="standby-card__title">{{ cardTitle }}</span>
 
         <template v-if="bout">
             <div class="standby-card__body" :class="{ 'standby-card__body--current': isCurrent }">
@@ -120,62 +107,41 @@ const currentAccentClass = computed(() => ({
                         v-for="entry in bout.entries ?? []"
                         :key="entry.id"
                         class="standby-entry"
-                        :class="[`standby-entry--${entry.side || 'neutral'}`, { 'standby-entry--winner': String(entry.id) === String(winnerEntryId) }]"
+                        :class="[
+                            `standby-entry--${variant}`,
+                            `standby-entry--${entry.side || 'neutral'}`,
+                            { 'standby-entry--winner': String(entry.id) === String(winnerEntryId), 'standby-entry--solo': bout.entries?.length === 1 },
+                        ]"
                     >
-                        <div class="standby-entry__identity">
-                            <AthleteInfo
-                                :layout="isCurrent ? 'vertical' : 'horizontal'"
-                                :size="isCurrent ? 'lg' : 'sm'"
-                                :name="entry.name"
-                                :side="entry.side"
-                                :country-code="entry.country_code"
-                                :country="entry.country"
-                                :flag-url="entry.flag_url"
-                            />
-                            <span v-if="entry.dan" class="standby-entry__dan">DAN {{ entry.dan }}</span>
-                        </div>
+                        <EntryAthleteInfo
+                            :entry="entry"
+                            :variant="isCurrent ? 'current' : 'compact'"
+                        />
 
-                        <div v-if="entry.members?.length" class="standby-entry__members">
-                            <span v-for="member in entry.members" :key="member.id ?? member.name">
-                                {{ member.short_name || member.name }}
-                            </span>
+                        <div
+                            v-if="isPrevious && String(entry.id) === String(winnerEntryId)"
+                            class="standby-entry__result"
+                        >
+                            <strong class="standby-entry__winner-label"></strong>
                         </div>
-                        <span
-                            v-else-if="entry.short_name && entry.short_name !== entry.name"
-                            class="standby-entry__club"
-                        >{{ entry.short_name }}</span>
-                        <span v-if="entry.club" class="standby-entry__club">{{ entry.club }}</span>
-
-                        <div v-if="isPrevious" class="standby-entry__result">
-                            <strong v-if="String(entry.id) === String(winnerEntryId)" class="standby-entry__winner-label">WINNER</strong>
-                            <strong>{{ formattedScore(entryTotal(entry)) }}</strong>
-                        </div>
-                        <div v-else-if="isNext" class="standby-entry__result standby-entry__result--waiting">WAITING</div>
-                        <div v-else-if="entryTotal(entry) != null" class="standby-entry__result">
+                        <div v-else-if="isNext" class="standby-entry__result standby-entry__result--waiting"></div>
+                        <div v-else-if="!isPrevious && entryTotal(entry) != null" class="standby-entry__result">
                             <strong>{{ formattedScore(entryTotal(entry)) }}</strong>
                         </div>
                     </section>
                 </div>
 
-                <aside class="standby-card__details">
-                    <div class="standby-card__round-number">
-                        <span>{{ bout.round?.name || "ROUND" }}</span>
-                        <strong>{{ bout.round?.sequence ?? bout.round?.number ?? "—" }}</strong>
-                    </div>
+                <aside class="standby-card__details" :class="{ 'standby-card__details--current': isCurrent }">
+                    <div class="standby-card__round-number">{{ roundLabel }}</div>
                     <FormBadge
                         v-if="performanceForForm"
-                        :size="isCurrent ? 'md' : 'sm'"
+                        :size="isCurrent ? 'xxl' : 'lg'"
                         :round-label="''"
                         :form-number="performanceForForm.form_number"
                         :symbol-key="symbolKey"
                         :form-name="formName"
                     />
-                    <div v-if="formNames.length > 1" class="standby-card__other-forms">
-                        {{ formNames.slice(1).join(" · ") }}
-                    </div>
-                    <span v-if="isCurrent && state === 'pending'" class="standby-card__awaiting-start">
-                        Awaiting operator start
-                    </span>
+                    <span class="standby-card__status" :class="stateColorClass">{{ statusLabel }}</span>
                 </aside>
             </div>
         </template>
@@ -187,20 +153,26 @@ const currentAccentClass = computed(() => ({
 
 <style scoped>
 .standby-card {
-    --card-edge: var(--color-rtds-border);
-    --card-accent: var(--color-rtds-text-muted);
+    --card-accent: var(--color-rtds-border-strong);
+    --card-border: color-mix(in srgb, var(--card-accent) 62%, var(--color-rtds-border));
+    position: relative;
+    box-sizing: border-box;
+    display: flex;
+    flex: 0.45 1 0;
+    flex-direction: column;
     min-width: 0;
-    padding: clamp(0.75rem, 1.5vw, 1.5rem);
-    overflow: hidden;
-    border: 1px solid var(--card-edge);
-    border-radius: 1rem;
+    min-height: 0;
+    padding: clamp(0.35rem, 0.75vh, 0.65rem);
+    border: 1px solid var(--card-border);
+    border-radius: 0.8rem;
     background: var(--color-rtds-bg-card);
     color: var(--color-rtds-text);
 }
 
 .standby-card--current {
+    flex: 1.5 1 0;
+    padding: clamp(0.45rem, 0.9vh, 0.75rem);
     border-width: 2px;
-    border-color: var(--card-accent);
     box-shadow: 0 0 1.6rem color-mix(in srgb, var(--card-accent) 24%, transparent);
 }
 
@@ -216,106 +188,91 @@ const currentAccentClass = computed(() => ({
     --card-accent: var(--color-rtds-yellow);
 }
 
+.standby-card--previous {
+    flex: 0.45 1 0;
+    --card-accent: var(--color-rtds-blue-soft);
+}
+
+.standby-card--next {
+    flex: 0.45 1 0;
+    --card-accent: var(--color-rtds-yellow);
+}
+
 .standby-card--muted {
     opacity: 0.78;
 }
 
-.standby-card__header,
-.standby-card__context {
-    display: flex;
-    min-width: 0;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.standby-card__header {
-    justify-content: space-between;
-    padding-bottom: 0.75rem;
-    border-bottom: 1px solid var(--color-rtds-border);
-}
-
-.standby-card__context {
-    flex-wrap: wrap;
-}
-
-.standby-card__title,
-.standby-card__status,
-.standby-card__category,
-.standby-card__round {
-    font-size: clamp(0.625rem, 0.8vw, 0.8rem);
+.standby-card--empty {
+    flex: 0.45 1 0;
 }
 
 .standby-card__title {
-    color: var(--color-rtds-text-muted);
+    position: absolute;
+    top: 0;
+    left: clamp(0.7rem, 1.2vw, 1.25rem);
+    transform: translateY(-55%);
+    padding: 0 0.65rem;
+    background: var(--color-rtds-bg-card);
+    color: var(--card-accent);
+    font-size: clamp(1rem, 1.5vw, 1.45rem);
     font-weight: 800;
-    letter-spacing: 0.08em;
-}
-
-.standby-card__category {
-    color: var(--color-rtds-text-secondary);
-    font-weight: 700;
-}
-
-.standby-card__round {
-    color: var(--color-rtds-text-muted);
-}
-
-.standby-card__status {
-    flex: none;
-    padding: 0.25rem 0.6rem;
-    border: 1px solid currentColor;
-    border-radius: 0.4rem;
-    font-weight: 800;
-}
-
-.standby-status--success {
-    color: var(--color-rtds-success);
-}
-
-.standby-status--live {
-    color: var(--color-rtds-blue-soft);
-}
-
-.standby-status--waiting {
-    color: var(--color-rtds-yellow);
+    letter-spacing: 0.06em;
 }
 
 .standby-card__body {
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    grid-template-columns: minmax(0, 1.7fr) minmax(12rem, 0.78fr);
     align-items: stretch;
-    gap: 0.75rem;
-    padding-top: 0.75rem;
+    gap: clamp(0.4rem, 0.8vw, 0.8rem);
+    padding-top: 0.2rem;
 }
 
 .standby-card__body--current {
-    grid-template-columns: minmax(0, 1fr) minmax(9rem, 15rem);
-    align-items: center;
-    gap: clamp(0.75rem, 2vw, 2rem);
-    padding-top: clamp(0.75rem, 1.8vw, 1.5rem);
+    grid-template-columns: minmax(0, 1.7fr) minmax(13rem, 0.78fr);
+    align-items: stretch;
+    gap: clamp(0.5rem, 1vw, 1rem);
+    padding-top: 0.25rem;
 }
 
 .standby-card__entries {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: clamp(0.5rem, 1.25vw, 1.25rem);
     min-width: 0;
-}
-
-.standby-card__entries--solo {
-    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: minmax(0, 1fr);
+    align-items: stretch;
+    gap: clamp(0.4rem, 1vw, 0.8rem);
 }
 
 .standby-entry {
     display: flex;
     min-width: 0;
+    min-height: 0;
+    overflow: hidden;
     flex-direction: column;
     justify-content: center;
-    gap: 0.5rem;
-    padding: clamp(0.5rem, 1vw, 1rem);
-    border: 1px solid color-mix(in srgb, var(--entry-color) 48%, transparent);
-    border-radius: 0.75rem;
-    background: color-mix(in srgb, var(--entry-color) 12%, var(--color-rtds-bg-card));
+    align-items: flex-start;
+    gap: clamp(0.3rem, 0.65vw, 0.65rem);
+    padding: clamp(0.35rem, 0.7vh, 0.7rem);
+    border: 1px solid color-mix(in srgb, var(--entry-color) 58%, transparent);
+    border-radius: 0.65rem;
+    background: color-mix(in srgb, var(--entry-color) 22%, var(--color-rtds-bg-card));
+}
+
+.standby-card--current .standby-entry {
+    container-type: size;
+    min-height: clamp(6rem, 19vh, 13rem);
+    justify-content: flex-start;
+    align-items: stretch;
+}
+
+.standby-card--previous .standby-entry,
+.standby-card--next .standby-entry {
+    min-height: 0;
+    padding: clamp(0.25rem, 0.55vh, 0.55rem);
 }
 
 .standby-entry--chung {
@@ -335,30 +292,23 @@ const currentAccentClass = computed(() => ({
     box-shadow: inset 0 0 0 1px var(--color-rtds-yellow);
 }
 
-.standby-entry__identity {
-    display: flex;
-    min-width: 0;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
+.standby-entry--hong {
+    align-items: flex-end;
+    text-align: right;
 }
 
-.standby-entry__dan,
-.standby-entry__club,
-.standby-entry__members {
-    color: var(--color-rtds-text-secondary);
-    font-size: clamp(0.625rem, 0.8vw, 0.8rem);
+.standby-entry--solo {
+    grid-column: 1 / -1;
 }
 
-.standby-entry__members {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem 0.75rem;
+.standby-entry--hong :deep(.bar__names),
+.standby-entry--hong :deep(.bar) {
+    text-align: right;
 }
 
 .standby-entry__result {
     display: flex;
+    width: 100%;
     align-items: baseline;
     justify-content: space-between;
     gap: 0.5rem;
@@ -366,9 +316,30 @@ const currentAccentClass = computed(() => ({
     font-size: clamp(0.75rem, 1vw, 1rem);
 }
 
+.standby-entry--previous .standby-entry__result {
+    position: absolute;
+    z-index: 1;
+    right: clamp(0.45rem, 0.9vw, 0.9rem);
+    bottom: clamp(0.3rem, 0.6vh, 0.6rem);
+    width: auto;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0;
+}
+
+.standby-entry--previous.standby-entry--hong .standby-entry__result {
+    right: auto;
+    left: clamp(0.45rem, 0.9vw, 0.9rem);
+    align-items: flex-start;
+}
+
+.standby-entry--hong .standby-entry__result {
+    flex-direction: row-reverse;
+}
+
 .standby-entry__result strong {
     color: var(--color-rtds-gold-bright);
-    font-size: clamp(1.125rem, 2vw, 2rem);
+    font-size: clamp(1.5rem, 2.8vw, 3rem);
     font-variant-numeric: tabular-nums;
 }
 
@@ -386,38 +357,118 @@ const currentAccentClass = computed(() => ({
 .standby-card__details {
     display: flex;
     min-width: 0;
+    min-height: 0;
+    overflow: hidden;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: 0.65rem;
-    padding: 0.75rem;
+    justify-content: space-between;
+    gap: clamp(0.35rem, 0.8vh, 0.8rem);
+    padding: clamp(0.45rem, 0.9vh, 0.85rem);
     border: 1px solid var(--color-rtds-border);
     border-radius: 0.75rem;
     background: color-mix(in srgb, var(--color-rtds-bg-elevated) 58%, transparent);
 }
 
+.standby-card__details:not(.standby-card__details--current) {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    justify-content: stretch;
+    align-items: center;
+    gap: clamp(0.2rem, 0.55vh, 0.5rem);
+}
+
 .standby-card__round-number {
-    display: flex;
-    align-items: baseline;
-    gap: 0.5rem;
-    color: var(--color-rtds-text-secondary);
-    font-size: 0.7rem;
-    font-weight: 700;
-    text-transform: uppercase;
-}
-
-.standby-card__round-number strong {
     color: var(--color-rtds-text);
-    font-size: clamp(1.25rem, 2vw, 2rem);
-}
-
-.standby-card__other-forms {
-    color: var(--color-rtds-text-muted);
-    font-size: 0.65rem;
+    width: 100%;
+    font-size: clamp(1.5rem, min(2.5vw, 4vh), 2.5rem);
+    font-weight: 900;
+    line-height: 1.1;
     text-align: center;
 }
 
-.standby-card__awaiting-start,
+.standby-card__details:not(.standby-card__details--current) .standby-card__round-number {
+    grid-column: 1 / -1;
+}
+
+.standby-card__details--current .standby-card__round-number {
+    font-size: clamp(2rem, min(3.5vw, 5vh), 3.5rem);
+}
+
+.standby-card__details :deep(> span[dir="ltr"]) {
+    display: flex;
+    width: 100%;
+    max-width: 100%;
+    flex-wrap: wrap;
+    justify-content: center;
+    text-align: center;
+}
+
+.standby-card__details:not(.standby-card__details--current) :deep(> span[dir="ltr"]) {
+    height: 100%;
+    flex-wrap: nowrap;
+    gap: clamp(0.2rem, 0.55vw, 0.5rem);
+}
+
+.standby-card__details:not(.standby-card__details--current) :deep(> span[dir="ltr"] > span:last-child) {
+    font-size: clamp(1rem, min(1.7vw, 2.5vh), 1.8rem);
+}
+
+.standby-card__details :deep(> span[dir="ltr"] > span:last-child) {
+    overflow-wrap: anywhere;
+    white-space: normal;
+    font-size: clamp(1.25rem, min(2.2vw, 3.5vh), 2.3rem);
+    line-height: 1.05;
+    text-align: center;
+}
+
+.standby-card__details--current :deep(> span[dir="ltr"] > span:last-child) {
+    font-size: clamp(2rem, min(3.7vw, 6vh), 3.75rem);
+}
+
+.standby-card__status {
+    display: inline-flex;
+    max-width: 100%;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: clamp(0.45rem, 0.9vh, 0.8rem) clamp(0.55rem, 1vw, 1rem);
+    border: 1px solid currentColor;
+    border-radius: 0.55rem;
+    background: color-mix(in srgb, currentColor 12%, transparent);
+    font-size: clamp(0.75rem, min(1.1vw, 2vh), 1.25rem);
+    font-weight: 900;
+    line-height: 1.2;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.standby-card__details--current .standby-card__status {
+    font-size: clamp(1rem, min(1.7vw, 3vh), 1.55rem);
+}
+
+.standby-card__details:not(.standby-card__details--current) .standby-card__status {
+    padding: clamp(0.25rem, 0.45vh, 0.4rem);
+    font-size: clamp(0.625rem, min(0.9vw, 1.5vh), 1rem);
+    white-space: normal;
+}
+
+.standby-status--success {
+    color: var(--color-rtds-success);
+}
+
+.standby-status--live {
+    color: var(--color-rtds-blue-soft);
+}
+
+.standby-status--waiting {
+    color: var(--color-rtds-yellow);
+}
+
+.standby-status--previous {
+    color: var(--card-border);
+}
+
 .standby-card__empty {
     color: var(--color-rtds-text-secondary);
     font-size: clamp(0.7rem, 0.9vw, 0.9rem);
@@ -430,23 +481,47 @@ const currentAccentClass = computed(() => ({
 }
 
 @media (max-width: 760px) {
+    .standby-card__body,
     .standby-card__body--current {
         grid-template-columns: minmax(0, 1fr);
     }
 
     .standby-card__details {
-        flex-direction: row;
-        flex-wrap: wrap;
+        grid-column: auto;
+    }
+
+    .standby-card__entries {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
 @media (max-width: 520px) {
-    .standby-card__entries:not(.standby-card__entries--solo) {
+    .standby-card__body,
+    .standby-card__body--current {
         grid-template-columns: minmax(0, 1fr);
     }
 
-    .standby-card__header {
-        align-items: flex-start;
+    .standby-card__details {
+        grid-column: auto;
+    }
+
+    .standby-entry--solo {
+        grid-column: auto;
+    }
+
+    .standby-card__entries {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-height: 800px) {
+    .standby-card__details:not(.standby-card__details--current) :deep(> span[dir="ltr"] > img) {
+        width: clamp(2rem, 7vh, 4.5rem);
+        height: clamp(2rem, 7vh, 4.5rem);
+    }
+
+    .standby-card__details:not(.standby-card__details--current) :deep(> span[dir="ltr"] > span:last-child) {
+        font-size: clamp(1rem, min(2.2vw, 3vh), 2rem);
     }
 }
 </style>

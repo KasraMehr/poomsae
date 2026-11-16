@@ -21,10 +21,13 @@ const props = defineProps({
     number: { type: [String, Number], default: "" },
     side: { type: String, default: "" }, // 'chung' | 'hong' | '' (خنثی)
     name: { type: String, default: "" },
+    names: { type: Array, default: () => [] },
     country: { type: String, default: "" }, // فقط برای alt پرچم
     countryCode: { type: String, default: "" },
     flagUrl: { type: String, default: "" },
     size: { type: String, default: "md" }, // 'sm' | 'md' | 'lg' — سه سایز مستقل
+    badgeSizeOverride: { type: String, default: "" },
+    fill: { type: Boolean, default: false },
 });
 
 const isHong = computed(() => props.side === "hong");
@@ -112,10 +115,15 @@ const barClasses = computed(() => [
     sizeClasses[props.size]?.bar ?? sizeClasses.md.bar,
     barBackgrounds[sideKey.value],
     barBorders[sideKey.value][props.size] ?? barBorders[sideKey.value].md,
+    `bar--${sideKey.value}`,
 ]);
 
 const rootClasses = computed(() => {
     const anchor = isHong.value ? "items-end" : "items-start";
+    if (props.fill && props.layout === "vertical") {
+        return `flex h-full w-full min-h-0 flex-col ${anchor}`;
+    }
+
     switch (props.layout) {
         case "name-only":
             return "inline-flex";
@@ -133,6 +141,10 @@ const rootClasses = computed(() => {
 
 const showBadge = true;
 const badgeSize = computed(() => {
+    if (props.badgeSizeOverride) {
+        return props.badgeSizeOverride;
+    }
+
     if (props.layout === "horizontal") {
         return props.size;
     }
@@ -172,7 +184,7 @@ const badgeProps = computed(() => ({
         />
 
         <!-- نوار نام (در name-only هم فقط نوار داریم) -->
-        <span class="bar w-full" :class="barClasses">
+        <span class="bar w-full" :class="[barClasses, { 'bar--grouped': names.length > 0, 'bar--fill': fill }]">
             <!-- <span
                 v-if="number !== ''"
                 class="grid shrink-0 place-items-center bg-rtds-blue-soft/40 font-rtds font-bold tabular-nums text-white"
@@ -182,7 +194,22 @@ const badgeProps = computed(() => ({
             </span> -->
 
             <span
-                v-if="name !== ''"
+                v-if="names.length"
+                class="bar__names min-w-0 flex-1 font-rtds font-bold uppercase text-white"
+                :class="[
+                    isHong ? 'text-right' : 'text-left',
+                    `bar__names--${size}`,
+                    { 'bar__names--few': fill && names.length > 0 && names.length <= 2 },
+                    { 'bar__names--single': names.length === 1 },
+                    { 'bar__names--mirrored': isHong && names.length > 2 },
+                ]"
+            >
+                <span v-for="(memberName, index) in names" :key="`${memberName}-${index}`" class="bar__name">
+                    {{ memberName }}
+                </span>
+            </span>
+            <span
+                v-else-if="name !== ''"
                 class="min-w-0 flex-1 truncate font-rtds font-bold uppercase text-white"
                 :class="[
                     sizeClasses[size]?.name ?? sizeClasses.md.name,
@@ -201,3 +228,89 @@ const badgeProps = computed(() => ({
         />
     </span>
 </template>
+
+<style scoped>
+.bar--grouped {
+    height: auto;
+    min-height: 0;
+    padding-block: 0.35rem;
+}
+
+.bar--fill {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+    align-items: stretch;
+}
+
+.bar--fill.bar--grouped {
+    padding-block: 0;
+}
+
+.bar--chung.bar--grouped {
+    background: linear-gradient(
+        90deg,
+        var(--color-rtds-blue-dark) 32%,
+        color-mix(in srgb, var(--color-rtds-blue-dark) 8%, transparent)
+    );
+}
+
+.bar--hong.bar--grouped {
+    background: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--color-rtds-error) 8%, transparent),
+        var(--color-rtds-error) 68%
+    );
+}
+
+.bar__names {
+    display: grid;
+    grid-template-rows: repeat(2, minmax(0, auto));
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 0.12em clamp(0.5rem, 1.2vw, 1rem);
+    line-height: 1.08;
+    align-content: center;
+}
+
+.bar__names--lg {
+    font-size: clamp(1.5rem, min(8cqi, 11cqb), 4rem);
+}
+
+.bar__names--sm,
+.bar__names--md {
+    font-size: clamp(1rem, min(2vw, 3vh), 2rem);
+}
+
+.bar__names--mirrored {
+    direction: rtl;
+}
+
+.bar__names--single {
+    grid-template-rows: minmax(0, auto);
+}
+
+.bar__names--single.bar__names--lg {
+    font-size: clamp(1.5rem, min(8cqi, 11cqb), 4rem);
+}
+
+.bar__names--single.bar__names--sm,
+.bar__names--single.bar__names--md {
+    font-size: clamp(1rem, min(2vw, 3vh), 2rem);
+}
+
+.bar__names--few.bar__names--lg {
+    font-size: clamp(1.75rem, min(10cqi, 14cqb), 4.5rem);
+}
+
+.bar__names--few.bar__names--md {
+    font-size: clamp(1.35rem, min(3vw, 5vh), 2.5rem);
+}
+
+.bar__name {
+    padding: 0.08em 0.22em;
+    border-radius: 0.2em;
+    background: rgb(255 255 255 / 10%);
+    overflow-wrap: anywhere;
+}
+</style>
