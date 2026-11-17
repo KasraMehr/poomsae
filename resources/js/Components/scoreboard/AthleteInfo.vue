@@ -168,6 +168,8 @@ const badgeProps = computed(() => ({
     flagPosition: isHong.value ? "right" : "left",
     size: badgeSize.value,
 }));
+
+const nameLength = (value) => Math.max(Array.from(value).length, 1);
 </script>
 
 <template>
@@ -204,7 +206,12 @@ const badgeProps = computed(() => ({
                     { 'bar__names--mirrored': isHong && names.length > 2 },
                 ]"
             >
-                <span v-for="(memberName, index) in names" :key="`${memberName}-${index}`" class="bar__name">
+                <span
+                    v-for="(memberName, index) in names"
+                    :key="`${memberName}-${index}`"
+                    class="bar__name"
+                    :style="{ '--name-length': nameLength(memberName) }"
+                >
                     {{ memberName }}
                 </span>
             </span>
@@ -264,13 +271,13 @@ const badgeProps = computed(() => ({
 }
 
 .bar__names {
-    display: grid;
-    grid-template-rows: repeat(2, minmax(0, auto));
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(0, 1fr);
-    gap: 0.12em clamp(0.5rem, 1.2vw, 1rem);
-    line-height: 1.08;
+    display: flex;
+    flex-flow: row wrap;
     align-content: center;
+    container-type: inline-size;
+    column-gap: clamp(0.5rem, 1.2vw, 1rem);
+    row-gap: 0.12em;
+    line-height: 1.08;
 }
 
 .bar__names--lg {
@@ -287,7 +294,7 @@ const badgeProps = computed(() => ({
 }
 
 .bar__names--single {
-    grid-template-rows: minmax(0, auto);
+    justify-content: flex-start;
 }
 
 .bar__names--single.bar__names--lg {
@@ -308,9 +315,16 @@ const badgeProps = computed(() => ({
 }
 
 .bar__name {
+    box-sizing: border-box;
+    flex: 0 1 auto;
+    max-width: 100%;
     padding: 0.08em 0.22em;
     border-radius: 0.2em;
     background: rgb(255 255 255 / 10%);
-    overflow-wrap: anywhere;
+    font-size: min(1em, calc(140cqi / var(--name-length)));
+    line-height: 1.08;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 </style>
