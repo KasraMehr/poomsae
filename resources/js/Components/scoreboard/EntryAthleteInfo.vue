@@ -9,6 +9,25 @@ const props = defineProps({
         default: "current",
         validator: (value) => ["current", "compact"].includes(value),
     },
+    layout: {
+        type: String,
+        default: "vertical",
+        validator: (value) =>
+            ["name-only", "horizontal", "vertical", "vertical-under"].includes(value),
+    },
+    size: {
+        type: String,
+        default: "",
+        validator: (value) =>
+            value === "" || ["sm", "md", "lg", "xl", "xxl", "xxxl"].includes(value),
+    },
+    badgeSize: {
+        type: String,
+        default: "",
+        validator: (value) =>
+            value === "" || ["sm", "md", "lg", "xl", "xxl", "xxxl"].includes(value),
+    },
+    fill: { type: Boolean, default: true },
 });
 
 const names = computed(() => {
@@ -19,17 +38,22 @@ const names = computed(() => {
     return memberNames.length ? memberNames : [props.entry.name].filter(Boolean);
 });
 
-const size = computed(() => props.variant === "current" ? "lg" : "md");
-const layout = "vertical";
+const resolvedSize = computed(
+    () => props.size || (props.variant === "current" ? "lg" : "md"),
+);
+const resolvedBadgeSize = computed(
+    () => props.badgeSize || (props.variant === "current" ? "xl" : "md"),
+);
 </script>
 
 <template>
     <AthleteInfo
-        class="h-full min-h-0 w-full min-w-0 max-w-full flex-1"
+        class="min-h-0 min-w-0 max-w-full"
+        :class="fill ? 'h-full w-full flex-1' : ''"
         :layout="layout"
-        :size="size"
-        :badge-size-override="variant === 'current' ? 'xl' : 'md'"
-        fill
+        :size="resolvedSize"
+        :badge-size-override="resolvedBadgeSize"
+        :fill="fill"
         :names="names"
         :side="entry.side"
         :country-code="entry.country_code"
