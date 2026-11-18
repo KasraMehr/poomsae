@@ -4,6 +4,7 @@ import { Head } from "@inertiajs/vue3";
 import ScoreboardLayout from "../../Shared/Layouts/ScoreboardLayout.vue";
 import ScoreboardHeader from "../../Components/scoreboard/ScoreboardHeader.vue";
 import EntryAthleteInfo from "../../Components/scoreboard/EntryAthleteInfo.vue";
+import EntryAthleteInfoPair from "../../Components/scoreboard/EntryAthleteInfoPair.vue";
 import FormBadge from "../../Components/scoreboard/FormBadge.vue";
 
 const props = defineProps({
@@ -184,25 +185,19 @@ const category = computed(() => drawData.value?.category ?? "");
                      آماده برای حالت دو نفرهٔ Chung / Hong.
                      این حالت pair/team نیست.
                 -->
-                <section
+                <EntryAthleteInfoPair
                     v-else-if="mode === 'double'"
+                    :entries="doubleEntries"
                     class="grid w-full grid-cols-2 gap-10 pt-10"
-                >
-                    <EntryAthleteInfo
-                        v-for="entry in doubleEntries"
-                        :key="entry.id"
-                        layout="vertical-under"
-                        size="xl"
-                        name-size="xxl"
-                        :name-fit="true"
-                        :name-area-min-height="true"
-                        :responsive-badge="true"
-                        badge-size="lg"
-                        :number="entry.number"
-                        :entry="entry"
-                        :fill="false"
-                    />
-                </section>
+                    layout="vertical-under"
+                    size="xl"
+                    name-size="xxl"
+                    :name-fit="true"
+                    :name-area-min-height="true"
+                    :responsive-badge="true"
+                    badge-size="lg"
+                    :fill="false"
+                />
 
                 <!-- FORM DRAW -->
                 <section

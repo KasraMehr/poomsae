@@ -3,7 +3,8 @@ import { Head } from "@inertiajs/vue3";
 import { computed } from "vue";
 import ScoreboardLayout from "../../Shared/Layouts/ScoreboardLayout.vue";
 import ScoreboardHeader from "../../Components/scoreboard/ScoreboardHeader.vue";
-import AthleteInfo from "../../Components/scoreboard/AthleteInfo.vue";
+import EntryAthleteInfo from "../../Components/scoreboard/EntryAthleteInfo.vue";
+import EntryAthleteInfoPair from "../../Components/scoreboard/EntryAthleteInfoPair.vue";
 import FormBadge from "../../Components/scoreboard/FormBadge.vue";
 import { displayFormName, displayFormSymbolKey } from "../../Shared/Services/symbols";
 import ScoreItem from "../../Components/scoreboard/ScoreItem.vue";
@@ -118,6 +119,34 @@ const scoringPanels = computed(() =>
     ),
 );
 
+const orderedSides = (sides = []) =>
+    sides
+        .map((side, index) => {
+            const value = String(side.entry?.side ?? "").toLowerCase();
+            const normalizedSide =
+                value === "hong" || value === "red"
+                    ? "hong"
+                    : value === "chung" || value === "blue"
+                      ? "chung"
+                      : index === 1
+                        ? "hong"
+                        : "chung";
+
+            return {
+                ...side,
+                entry: side.entry
+                    ? { ...side.entry, side: normalizedSide }
+                    : side.entry,
+            };
+        })
+        .sort((first, second) =>
+            first.entry?.side === second.entry?.side
+                ? 0
+                : first.entry?.side === "chung"
+                  ? -1
+                  : 1,
+        );
+
 const currentCategory = computed(
     () => scoringPanels.value[0]?.category ?? null,
 );
@@ -198,14 +227,6 @@ const isFreestylePenaltyMode = (side) =>
     (detailOf(side)?.accuracy_components?.length === 3 &&
         detailOf(side)?.presentation_penalties?.length > 0);
 
-const athleteProps = (entry) => ({
-    number: entry?.number ?? "",
-    name: entry?.name ?? "",
-    side: entry?.side ?? "",
-    country: entry?.country ?? "",
-    countryCode: entry?.country_code ?? "",
-    flagUrl: entry?.flag_url ?? "",
-});
 </script>
 
 <template>
@@ -237,18 +258,17 @@ const athleteProps = (entry) => ({
         >
             <!-- Double scoring layout: mirrored athlete tables for simultaneous bouts. -->
             <div v-if="panel.variant === 'double'" class="flex flex-col gap-6">
-                <div class="flex items-center justify-between gap-6 pt-10">
-                    <AthleteInfo
-                        v-for="side in panel.sides"
-                        :key="side.entry?.id"
-                        v-bind="athleteProps(side.entry)"
-                        layout="horizontal"
-                        size="xl"
-                    />
-                </div>
+                <EntryAthleteInfoPair
+                    :entries="orderedSides(panel.sides).map((side) => side.entry)"
+                    class="grid grid-cols-2 items-center gap-6 pt-10"
+                    layout="horizontal"
+                    size="xl"
+                    name-size="xl"
+                    :name-fit="true"
+                />
                 <div class="grid grid-cols-2 gap-6 max-[900px]:grid-cols-1">
                     <DoubleScoringTable
-                        v-for="side in panel.sides"
+                        v-for="side in orderedSides(panel.sides)"
                         :key="side.entry?.id"
                         :side="side.entry?.side ?? 'chung'"
                         :judges="singleJudgesOf(side)"
@@ -262,10 +282,12 @@ const athleteProps = (entry) => ({
                 class="flex min-h-full flex-col justify-between gap-5"
             >
                 <div class="flex items-center justify-between gap-6">
-                    <AthleteInfo
-                        v-bind="athleteProps(panel.sides[0].entry)"
+                    <EntryAthleteInfo
+                        :entry="panel.sides[0].entry"
                         layout="horizontal"
                         size="xl"
+                        name-size="xl"
+                        :name-fit="true"
                     />
                     <FormBadge
                         size="xxxl"

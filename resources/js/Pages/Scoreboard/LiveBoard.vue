@@ -3,6 +3,7 @@ import { computed } from "vue";
 import ScoreboardLayout from "../../Shared/Layouts/ScoreboardLayout.vue";
 import ScoreboardHeader from "../../Components/scoreboard/ScoreboardHeader.vue";
 import EntryAthleteInfo from "../../Components/scoreboard/EntryAthleteInfo.vue";
+import EntryAthleteInfoPair from "../../Components/scoreboard/EntryAthleteInfoPair.vue";
 import FormBadge from "../../Components/scoreboard/FormBadge.vue";
 import Timer from "../../Components/scoreboard/Timer.vue";
 import { displayFormName, displayFormSymbolKey } from "../../Shared/Services/symbols";
@@ -193,26 +194,37 @@ const courts = computed(() => tournament.value?.courts ?? []);
             <template v-if="currentExecution">
                 <!-- ATHLETES -->
                 <section
-                    class="grid w-full shrink-0 items-start gap-10 pt-10"
-                    :class="mode === 'single' ? 'grid-cols-1' : 'grid-cols-2'"
+                    v-if="mode === 'single'"
+                    class="grid w-full shrink-0 grid-cols-1 items-start gap-10 pt-10"
                 >
                     <EntryAthleteInfo
                         v-for="entry in visibleEntries"
                         :key="entry.id"
-                        :layout="
-                            mode === 'single' ? 'horizontal' : 'vertical-under'
-                        "
+                        :entry="entry"
+                        layout="horizontal"
                         class="w-full"
-                        :size="mode === 'single' ? 'xxl' : 'xl'"
-                        :name-size="mode === 'single' ? 'xxxl' : 'xxl'"
+                        size="xxl"
+                        name-size="xxxl"
                         :name-fit="true"
                         :name-area-min-height="true"
-                        :responsive-badge="mode === 'double'"
-                        :badge-size="mode === 'single' ? 'xxl' : 'lg'"
-                        :entry="entry"
+                        badge-size="xxl"
                         :fill="false"
                     />
                 </section>
+
+                <EntryAthleteInfoPair
+                    v-else
+                    :entries="visibleEntries"
+                    class="grid w-full shrink-0 grid-cols-2 items-start gap-10 pt-10"
+                    layout="vertical-under"
+                    size="xl"
+                    name-size="xxl"
+                    :name-fit="true"
+                    :name-area-min-height="true"
+                    :responsive-badge="true"
+                    badge-size="lg"
+                    :fill="false"
+                />
 
                 <!-- FORM + TIMER -->
                 <section

@@ -29,6 +29,7 @@ const props = defineProps({
             value === "" || ["sm", "md", "lg", "xl", "xxl", "xxxl"].includes(value),
     },
     nameFit: { type: Boolean, default: false },
+    balancedNameRows: { type: Boolean, default: false },
     nameAreaMinHeight: { type: Boolean, default: false },
     responsiveBadge: { type: Boolean, default: false },
     badgeSize: {
@@ -69,12 +70,23 @@ const nameSizeStyles = {
 const resolvedBadgeSize = computed(
     () => props.badgeSize || (props.variant === "current" ? "xl" : "md"),
 );
+const resolvedSide = computed(() => {
+    const side = String(props.entry?.side ?? "").toLowerCase();
+
+    if (side === "hong" || side === "red") return "hong";
+    if (side === "chung" || side === "blue") return "chung";
+
+    return side;
+});
 </script>
 
 <template>
     <AthleteInfo
         class="min-h-0 min-w-0 max-w-full"
-        :class="fill ? 'h-full w-full flex-1' : ''"
+        :class="[
+            fill ? 'h-full w-full flex-1' : '',
+            { 'entry-athlete-info--balanced-rows': balancedNameRows },
+        ]"
         :layout="layout"
         :size="resolvedSize"
         :name-size-style="nameSize ? nameSizeStyles[nameSize] : ''"
@@ -85,9 +97,29 @@ const resolvedBadgeSize = computed(
         :fill="fill"
         :number="number || entry.number || ''"
         :names="names"
-        :side="entry.side"
+        :side="resolvedSide"
         :country-code="entry.country_code"
         :country="entry.country"
         :flag-url="entry.flag_url"
     />
 </template>
+
+<style scoped>
+.entry-athlete-info--balanced-rows :deep(.bar__names) {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    align-content: center;
+    align-items: center;
+}
+
+.entry-athlete-info--balanced-rows :deep(.bar__name) {
+    justify-self: start;
+}
+
+.entry-athlete-info--balanced-rows :deep(.bar__names--single .bar__name) {
+    grid-row: 1 / -1;
+    align-self: center;
+}
+</style>
