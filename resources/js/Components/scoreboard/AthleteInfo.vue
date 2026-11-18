@@ -26,6 +26,8 @@ const props = defineProps({
     countryCode: { type: String, default: "" },
     flagUrl: { type: String, default: "" },
     size: { type: String, default: "md" }, // 'sm' | 'md' | 'lg' — سه سایز مستقل
+    nameSizeStyle: { type: String, default: "" },
+    nameFit: { type: Boolean, default: false },
     badgeSizeOverride: { type: String, default: "" },
     fill: { type: Boolean, default: false },
 });
@@ -201,10 +203,13 @@ const nameLength = (value) => Math.max(Array.from(value).length, 1);
                 :class="[
                     isHong ? 'text-right' : 'text-left',
                     `bar__names--${size}`,
-                    { 'bar__names--few': fill && names.length > 0 && names.length <= 2 },
+                    { 'bar__names--fit': nameFit },
+                    { 'bar__names--few': (fill || nameFit) && names.length > 0 && names.length <= 2 },
+                    { 'bar__names--many': nameFit && names.length > 2 },
                     { 'bar__names--single': names.length === 1 },
                     { 'bar__names--mirrored': isHong && names.length > 2 },
                 ]"
+                :style="nameSizeStyle ? { fontSize: nameSizeStyle } : undefined"
             >
                 <span
                     v-for="(memberName, index) in names"
@@ -314,9 +319,18 @@ const nameLength = (value) => Math.max(Array.from(value).length, 1);
     font-size: clamp(1.35rem, min(3vw, 5vh), 2.5rem);
 }
 
+.bar__names--fit.bar__names--few .bar__name {
+    font-size: min(1.08em, calc(150cqi / var(--name-length)));
+}
+
+.bar__names--fit.bar__names--many .bar__name {
+    font-size: min(0.9em, calc(126cqi / var(--name-length)));
+}
+
 .bar__name {
     box-sizing: border-box;
     flex: 0 1 auto;
+    min-width: 0;
     max-width: 100%;
     padding: 0.08em 0.22em;
     border-radius: 0.2em;
