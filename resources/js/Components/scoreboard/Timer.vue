@@ -81,6 +81,12 @@ const display = computed(() => {
  * کادر ۳۱۵×۲۳۰ با حاشیهٔ ۴px در lg؛ برچسب و عدد از ۹۶px به ۴۸px در sm.
  */
 const sizeClasses = {
+    xl: {
+        wrap: "gap-2 pb-5",
+        label: "text-[clamp(28px,3vw,42px)] leading-none tracking-[3px] font-semibold",
+        box: "h-[min(260px,34vh)] w-[min(360px,100%)] border-4 rounded-lg",
+        digits: "text-[clamp(72px,8vw,112px)] leading-none font-bold",
+    },
     lg: {
         wrap: "gap-2 pb-5",
         label: "text-[34px] leading-[12px] tracking-[3px] font-semibold",
@@ -116,7 +122,10 @@ onBeforeUnmount(() => {
         :class="[s.wrap, 'font-rtds uppercase select-none']"
     >
         <!-- برچسب: زمان باقی‌مانده -->
-        <span class="text-rtds-gold py-3" :class="s.label">Remaining Time</span>
+        <span
+            class="py-3"
+            :class="[s.label, alertState ? 'text-rtds-error' : 'text-rtds-gold']"
+        >Remaining Time</span>
 
         <!-- کادر + عدد -->
         <div

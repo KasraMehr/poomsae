@@ -242,10 +242,13 @@ const courts = computed(() => tournament.value?.courts ?? []);
 
                     <!-- TIMER: RIGHT -->
                     <div class="flex items-center justify-center">
-                        <span v-if="phase === 'call'" class="text-6xl font-semibold uppercase text-rtds-gold-bright">READY</span>
+                        <span
+                            v-if="phase === 'call'"
+                            class="text-[clamp(5rem,8vw,7.5rem)] font-bold uppercase leading-none text-rtds-gold-bright"
+                        >READY</span>
                         <Timer
                             v-else-if="durationSeconds != null"
-                            size="xxl"
+                            size="xl"
                             :duration-seconds="durationSeconds"
                             :started-at="
                                 currentExecution.performance.started_at
