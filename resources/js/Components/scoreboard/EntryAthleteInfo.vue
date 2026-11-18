@@ -29,6 +29,8 @@ const props = defineProps({
             value === "" || ["sm", "md", "lg", "xl", "xxl", "xxxl"].includes(value),
     },
     nameFit: { type: Boolean, default: false },
+    nameAreaMinHeight: { type: Boolean, default: false },
+    responsiveBadge: { type: Boolean, default: false },
     badgeSize: {
         type: String,
         default: "",
@@ -50,19 +52,19 @@ const names = computed(() => {
 
     return memberNames.length
         ? memberNames
-        : [props.entry.name].filter(Boolean);
+        : [props.entry.short_name || props.entry.name].filter(Boolean);
 });
 
 const resolvedSize = computed(
     () => props.size || (props.variant === "current" ? "lg" : "md"),
 );
 const nameSizeStyles = {
-    sm: "clamp(0.875rem, min(2.5cqi, 4cqb), 1.25rem)",
-    md: "clamp(1rem, min(3.5cqi, 6cqb), 1.75rem)",
-    lg: "clamp(1.25rem, min(5cqi, 8cqb), 2.5rem)",
-    xl: "clamp(1.5rem, min(6cqi, 9cqb), 3rem)",
-    xxl: "clamp(1.75rem, min(7cqi, 10cqb), 3.75rem)",
-    xxxl: "clamp(2rem, min(8cqi, 11cqb), 4.5rem)",
+    sm: "clamp(14px, min(2.5vw, 4vh), 20px)",
+    md: "clamp(16px, min(3.5vw, 6vh), 28px)",
+    lg: "clamp(20px, min(5vw, 8vh), 40px)",
+    xl: "clamp(30px, min(6vw, 9vh), 52px)",
+    xxl: "clamp(36px, min(7vw, 10vh), 64px)",
+    xxxl: "clamp(40px, min(8vw, 11vh), 76px)",
 };
 const resolvedBadgeSize = computed(
     () => props.badgeSize || (props.variant === "current" ? "xl" : "md"),
@@ -77,6 +79,8 @@ const resolvedBadgeSize = computed(
         :size="resolvedSize"
         :name-size-style="nameSize ? nameSizeStyles[nameSize] : ''"
         :name-fit="nameFit"
+        :name-area-min-height="nameAreaMinHeight"
+        :responsive-badge="responsiveBadge"
         :badge-size-override="resolvedBadgeSize"
         :fill="fill"
         :number="number || entry.number || ''"

@@ -28,6 +28,8 @@ const props = defineProps({
     size: { type: String, default: "md" }, // 'sm' | 'md' | 'lg' — سه سایز مستقل
     nameSizeStyle: { type: String, default: "" },
     nameFit: { type: Boolean, default: false },
+    nameAreaMinHeight: { type: Boolean, default: false },
+    responsiveBadge: { type: Boolean, default: false },
     badgeSizeOverride: { type: String, default: "" },
     fill: { type: Boolean, default: false },
 });
@@ -131,8 +133,8 @@ const rootClasses = computed(() => {
             return "inline-flex";
         case "horizontal":
             return isHong.value
-                ? "inline-flex flex-row-reverse items-center"
-                : "inline-flex flex-row items-center";
+                ? "inline-flex flex-row-reverse items-stretch"
+                : "inline-flex flex-row items-stretch";
         case "vertical-under":
             return `flex w-full flex-col ${anchor}`;
         case "vertical":
@@ -172,10 +174,25 @@ const badgeProps = computed(() => ({
 }));
 
 const nameLength = (value) => Math.max(Array.from(value).length, 1);
+const nameAreaHeights = {
+    sm: "32px",
+    md: "48px",
+    lg: "64px",
+    xl: "107px",
+    xxl: "131px",
+    xxxl: "128px",
+};
 </script>
 
 <template>
-    <span dir="ltr" class="inline-flex align-middle" :class="rootClasses">
+    <span
+        dir="ltr"
+        class="inline-flex align-middle"
+        :class="[
+            rootClasses,
+            { 'athlete-info--horizontal': layout === 'horizontal' },
+        ]"
+    >
         <!-- بج قبل از نوار: vertical (بالا) و horizontal (کنار؛ برای hong آینه‌ای) -->
         <NationalityBadge
             v-if="
@@ -184,11 +201,31 @@ const nameLength = (value) => Math.max(Array.from(value).length, 1);
                 layout !== 'name-only'
             "
             v-bind="badgeProps"
+            :responsive="responsiveBadge"
             class="shrink-0"
+            :class="{ 'nationality-badge--match-height': layout === 'horizontal' }"
         />
 
         <!-- نوار نام (در name-only هم فقط نوار داریم) -->
-        <span class="bar w-full" :class="[barClasses, { 'bar--grouped': names.length > 0, 'bar--fill': fill }]">
+        <span
+            class="bar w-full"
+            :class="[
+                barClasses,
+                {
+                    'bar--grouped': names.length > 0,
+                    'bar--fill': fill,
+                    'bar--stacked-badge': layout === 'vertical-under',
+                },
+            ]"
+            :style="nameAreaMinHeight
+                ? {
+                    height: 'auto',
+                    minHeight: layout === 'vertical-under'
+                        ? 'clamp(142px, 14vh, 180px)'
+                        : nameAreaHeights[size],
+                }
+                : undefined"
+        >
             <!-- <span
                 v-if="number !== ''"
                 class="grid shrink-0 place-items-center bg-rtds-blue-soft/40 font-rtds font-bold tabular-nums text-white"
@@ -207,7 +244,8 @@ const nameLength = (value) => Math.max(Array.from(value).length, 1);
                     { 'bar__names--few': (fill || nameFit) && names.length > 0 && names.length <= 2 },
                     { 'bar__names--many': nameFit && names.length > 2 },
                     { 'bar__names--single': names.length === 1 },
-                    { 'bar__names--mirrored': isHong && names.length > 2 },
+                    { 'bar__names--mirrored': isHong },
+                    { 'bar__names--stacked-badge': layout === 'vertical-under' },
                 ]"
                 :style="nameSizeStyle ? { fontSize: nameSizeStyle } : undefined"
             >
@@ -236,6 +274,7 @@ const nameLength = (value) => Math.max(Array.from(value).length, 1);
         <NationalityBadge
             v-if="showBadge && layout === 'vertical-under'"
             v-bind="badgeProps"
+            :responsive="responsiveBadge"
             class="shrink-0"
         />
     </span>
@@ -246,6 +285,11 @@ const nameLength = (value) => Math.max(Array.from(value).length, 1);
     height: auto;
     min-height: 0;
     padding-block: 0.35rem;
+}
+
+.athlete-info--horizontal > .bar {
+    height: auto;
+    align-self: stretch;
 }
 
 .bar--fill {
@@ -325,6 +369,10 @@ const nameLength = (value) => Math.max(Array.from(value).length, 1);
 
 .bar__names--fit.bar__names--many .bar__name {
     font-size: min(0.9em, calc(126cqi / var(--name-length)));
+}
+
+.bar__names--stacked-badge.bar__names--few .bar__name {
+    font-size: min(1.2em, calc(165cqi / var(--name-length)));
 }
 
 .bar__name {

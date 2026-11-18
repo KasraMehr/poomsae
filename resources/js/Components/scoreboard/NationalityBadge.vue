@@ -14,6 +14,7 @@ defineProps({
     flagUrl: { type: String, default: "" },
     flagPosition: { type: String, default: "left" },
     size: { type: String, default: "md" },
+    responsive: { type: Boolean, default: false },
 });
 
 const sizeClasses = {
@@ -68,6 +69,7 @@ const sizeClasses = {
         :class="[
             sizeClasses[size]?.root ?? sizeClasses.md.root,
             flagPosition === 'right' ? 'flex-row-reverse' : 'flex-row',
+            { 'nationality-badge--responsive': responsive },
         ]"
     >
         <span
@@ -83,7 +85,7 @@ const sizeClasses = {
         </span>
 
         <span
-            class="flex h-full shrink-0 items-center justify-center bg-white/[0.11] font-rtds font-bold tracking-wide text-white"
+            class="nationality-badge__code flex h-full shrink-0 items-center justify-center bg-white/[0.11] font-rtds font-bold tracking-wide text-white"
             :class="sizeClasses[size]?.code ?? sizeClasses.md.code"
         >
             {{ code }}
@@ -96,5 +98,35 @@ const sizeClasses = {
     box-sizing: content-box;
     height: auto;
     aspect-ratio: 2.625 / 1;
+    container-type: inline-size;
 }
+
+.nationality-badge .nationality-badge__code {
+    padding-inline: 0;
+    font-size: clamp(20px, 20cqi, 56px);
+}
+
+.nationality-badge--responsive {
+    box-sizing: border-box;
+    width: min(45%, 290px);
+    min-width: 0;
+}
+
+.nationality-badge.nationality-badge--responsive {
+    padding-top: 0;
+}
+
+.nationality-badge--match-height {
+    box-sizing: border-box;
+    height: 100%;
+    padding-top: 0;
+    aspect-ratio: auto;
+    align-self: stretch;
+}
+
+.nationality-badge--match-height > span {
+    height: auto;
+    align-self: stretch;
+}
+
 </style>

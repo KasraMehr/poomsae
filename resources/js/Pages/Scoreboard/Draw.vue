@@ -3,7 +3,7 @@ import { computed } from "vue";
 import { Head } from "@inertiajs/vue3";
 import ScoreboardLayout from "../../Shared/Layouts/ScoreboardLayout.vue";
 import ScoreboardHeader from "../../Components/scoreboard/ScoreboardHeader.vue";
-import AthleteInfo from "../../Components/scoreboard/AthleteInfo.vue";
+import EntryAthleteInfo from "../../Components/scoreboard/EntryAthleteInfo.vue";
 import FormBadge from "../../Components/scoreboard/FormBadge.vue";
 
 const props = defineProps({
@@ -25,19 +25,23 @@ const props = defineProps({
     },
 });
 
+const tournament = computed(
+    () => props.tournament ?? props.display?.tournament ?? null,
+);
+
 const drawData = computed(() => {
     if (props.draw) {
         return props.draw;
     }
 
-    const tournament = props.display?.tournament ?? props.tournament;
+    const currentTournament = tournament.value;
     const court = props.display?.courts?.find(
         (item) => String(item.id) === String(props.courtId),
     );
     const target = court?.current ?? null;
 
     if (
-        !tournament ||
+        !currentTournament ||
         !target?.bout_id ||
         !["running", "scoring"].includes(target.status)
     ) {
@@ -45,7 +49,7 @@ const drawData = computed(() => {
     }
 
     const matchesId = (left, right) => String(left) === String(right);
-    const category = tournament.categories?.find((item) =>
+    const category = currentTournament.categories?.find((item) =>
         item.rounds?.some((round) =>
             round.bouts?.some((bout) => matchesId(bout.id, target.bout_id)),
         ),
@@ -93,8 +97,9 @@ const drawData = computed(() => {
     return {
         mode: target.entries?.length > 1 ? "double" : "single",
         stage: round.stage_label ?? round.name ?? "",
-        title: tournament.name ?? "",
+        title: currentTournament.name ?? "",
         category: category.name ?? "",
+        categoryEntries: category.entries ?? [],
         entries: target.entries ?? [],
         forms,
     };
@@ -104,10 +109,37 @@ const mode = computed(() =>
     drawData.value?.mode === "double" ? "double" : "single",
 );
 
-const entries = computed(() => drawData.value?.entries ?? []);
+const entries = computed(() => {
+    const providedCategoryEntries = drawData.value?.categoryEntries;
+    const categoryEntries = providedCategoryEntries?.length
+        ? providedCategoryEntries
+        : tournament.value?.categories?.flatMap((category) => category.entries ?? []) ?? [];
+
+    return (drawData.value?.entries ?? []).map((entry) => {
+        const details = categoryEntries.find(
+            (categoryEntry) => String(categoryEntry.id) === String(entry.id),
+        );
+
+        if (!details) return entry;
+
+        return {
+            ...entry,
+            members: Array.isArray(entry.members) && entry.members.length
+                ? entry.members
+                : details.members ?? [],
+            country_code: entry.country_code ?? details.country_code,
+            country: entry.country ?? details.country,
+            flag_url: entry.flag_url ?? details.flag_url,
+        };
+    });
+});
 const forms = computed(() => drawData.value?.forms ?? []);
 
-const singleEntry = computed(() => entries.value[0] ?? null);
+const singleEntry = computed(() => {
+    const entry = entries.value[0];
+
+    return entry ? { ...entry, side: "chung" } : null;
+});
 const doubleEntries = computed(() => entries.value.slice(0, 2));
 
 const stage = computed(() => drawData.value?.stage ?? "");
@@ -134,15 +166,17 @@ const category = computed(() => drawData.value?.category ?? "");
                     v-if="mode === 'single' && singleEntry"
                     class="flex w-full flex-col items-center pt-10"
                 >
-                    <AthleteInfo
+                    <EntryAthleteInfo
+                        class="w-full"
                         layout="horizontal"
                         size="xxl"
+                        name-size="xxxl"
+                        :name-fit="true"
+                        :name-area-min-height="true"
+                        badge-size="xxxl"
                         :number="singleEntry.number"
-                        :name="singleEntry.name"
-                        :country="singleEntry.country"
-                        :country-code="singleEntry.country_code"
-                        :flag-url="singleEntry.flag_url"
-                        side="chung"
+                        :entry="singleEntry"
+                        :fill="false"
                     />
                 </section>
 
@@ -154,17 +188,19 @@ const category = computed(() => drawData.value?.category ?? "");
                     v-else-if="mode === 'double'"
                     class="grid w-full grid-cols-2 gap-10 pt-10"
                 >
-                    <AthleteInfo
+                    <EntryAthleteInfo
                         v-for="entry in doubleEntries"
                         :key="entry.id"
                         layout="vertical-under"
                         size="xl"
+                        name-size="xxl"
+                        :name-fit="true"
+                        :name-area-min-height="true"
+                        :responsive-badge="true"
+                        badge-size="lg"
                         :number="entry.number"
-                        :name="entry.name"
-                        :country="entry.country"
-                        :country-code="entry.country_code"
-                        :flag-url="entry.flag_url"
-                        :side="entry.side"
+                        :entry="entry"
+                        :fill="false"
                     />
                 </section>
 
