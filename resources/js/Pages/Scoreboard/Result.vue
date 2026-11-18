@@ -142,12 +142,12 @@ const resultPanels = computed(() => {
                     rounds.at(-1)?.stage_label ||
                     rounds[0]?.stage_label ||
                     "",
-                title:
+                roundLabel:
                     rounds.length > 1
-                        ? "FINAL RESULT"
+                        ? `ROUNDS ${rounds[0]?.round?.sequence ?? 1}–${rounds.at(-1)?.round?.sequence ?? rounds.length}`
                         : rounds[0]?.round?.sequence != null
                           ? `ROUND ${rounds[0].round.sequence}`
-                          : "RESULT",
+                          : "",
                 rounds,
                 sides,
             });
@@ -164,17 +164,21 @@ const stage = computed(
 const categoryLabel = computed(
     () => resultPanels.value[0]?.category?.name ?? "",
 );
-const title = computed(() => resultPanels.value[0]?.title ?? "RESULT");
+const roundLabel = computed(() => resultPanels.value[0]?.roundLabel ?? "");
 </script>
 
 <template>
     <!-- <Head title="result"/> -->
-    <ScoreboardLayout :stage="stage" :center="title" :category="categoryLabel">
+    <ScoreboardLayout
+        :stage="stage"
+        :center="categoryLabel"
+        :category="categoryLabel"
+    >
         <template #header>
             <ScoreboardHeader
                 :stage="stage"
-                :event-title="title"
                 :category="categoryLabel"
+                :right-label="roundLabel"
             />
         </template>
 

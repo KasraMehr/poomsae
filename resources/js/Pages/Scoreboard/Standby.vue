@@ -221,20 +221,32 @@ const next = computed(() => {
     return candidates.find((b) => b.status === "pending") ?? null;
 });
 
+const categoryLabel = computed(
+    () =>
+        current.value?.bout?.category?.name ??
+        next.value?.category?.name ??
+        previous.value?.bout?.category?.name ??
+        tournament.value?.categories?.[0]?.name ??
+        "",
+);
+const headerRightLabel = computed(() =>
+    court.value ? `STANDBY · ${court.value}` : "STANDBY",
+);
+
 </script>
 
 <template>
     <!-- <Head title="liveBoard" /> -->
     <ScoreboardLayout
         :stage="stage"
-        :center="tournament?.name ?? ''"
+        :center="categoryLabel"
         :category="court ?? ''"
     >
         <template #header>
             <ScoreboardHeader
                 :stage="stage"
-                :event-title="tournament?.name ?? ''"
-                :category="court ?? ''"
+                :category="categoryLabel"
+                :right-label="headerRightLabel"
             />
         </template>
 

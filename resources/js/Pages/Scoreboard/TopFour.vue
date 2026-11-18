@@ -2,6 +2,7 @@
 import { computed } from "vue";
 import { Head } from "@inertiajs/vue3";
 import ScoreboardLayout from "../../Shared/Layouts/ScoreboardLayout.vue";
+import ScoreboardHeader from "../../Components/scoreboard/ScoreboardHeader.vue";
 import TopFourTable from "../../Components/scoreboard/tables/TopFourTable.vue";
 
 const props = defineProps({
@@ -67,23 +68,11 @@ const categoryLabel = computed(() => categories.value[0]?.name ?? "");
         :category="categoryLabel"
     >
         <template #header>
-            <header class="shrink-0 px-12 pt-8 pb-4">
-                <div
-                    class="grid grid-cols-[minmax(0,1.5fr)_minmax(280px,1fr)] items-center gap-5"
-                >
-                    <span
-                        class="text-[64px] leading-[36px] uppercase text-rtds-text-secondary"
-                    >
-                        {{ stage }}
-                    </span>
-                    <span
-                        class="text-[64px] leading-[36px] uppercase text-rtds-text-secondary"
-                    >
-                        {{ categoryLabel }}
-                    </span>
-                </div>
-                <div class="mt-4 h-px w-full bg-rtds-divider" />
-            </header>
+            <ScoreboardHeader
+                :stage="stage"
+                :category="categoryLabel"
+                right-label="TOP FOUR"
+            />
         </template>
 
         <div v-if="categories.length" class="flex flex-1 flex-col">

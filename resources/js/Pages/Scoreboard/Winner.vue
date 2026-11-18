@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from "vue";
 import ScoreboardLayout from "../../Shared/Layouts/ScoreboardLayout.vue";
+import ScoreboardHeader from "../../Components/scoreboard/ScoreboardHeader.vue";
 import AthleteInfo from "../../Components/scoreboard/AthleteInfo.vue";
 import FormBadge from "../../Components/scoreboard/FormBadge.vue";
 import { displayFormName, displayFormSymbolKey } from "../../Shared/Services/symbols";
@@ -177,28 +178,17 @@ const isTwoRoundResult = computed(
 </script>
 
 <template>
-    <ScoreboardLayout :stage="stage" center="WINNER" :category="categoryLabel">
+    <ScoreboardLayout
+        :stage="stage"
+        :center="categoryLabel"
+        :category="categoryLabel"
+    >
         <template #header>
-            <header class="shrink-0 px-10 pt-8 pb-4">
-                <div class="grid grid-cols-3 items-center gap-4">
-                    <span
-                        class="justify-self-start text-[45px] leading-[36px] uppercase tracking-wide text-rtds-text-secondary"
-                    >
-                        {{ stage }}
-                    </span>
-                    <h1
-                        class="text-center text-[64px] leading-[36px] font-semibold uppercase tracking-wider text-rtds-gold-bright"
-                    >
-                        WINNER
-                    </h1>
-                    <span
-                        class="justify-self-end text-right text-[45px] leading-[36px] uppercase tracking-wide text-rtds-text-secondary"
-                    >
-                        {{ categoryLabel }}
-                    </span>
-                </div>
-                <div class="mt-4 h-px w-full bg-rtds-divider" />
-            </header>
+            <ScoreboardHeader
+                :stage="stage"
+                :category="categoryLabel"
+                right-label="WINNER"
+            />
         </template>
 
         <section

@@ -24,7 +24,7 @@ const props = defineProps({
     endedAt: { type: [Number, String], default: null },
     /** Server clock sample used to align display timers with the operator console. */
     serverNow: { type: [Number, String], default: null },
-    /** اندازه — `lg` برای Standby (ابعاد طرح)، `sm` برای LiveBoard. */
+    /** Size preset — `lg` for Standby, `xl` for LiveBoard, `sm` for compact use. */
     size: { type: String, default: "lg" },
 });
 
@@ -82,10 +82,10 @@ const display = computed(() => {
  */
 const sizeClasses = {
     xl: {
-        wrap: "gap-2 pb-5",
-        label: "text-[clamp(28px,3vw,42px)] leading-none tracking-[3px] font-semibold",
-        box: "h-[min(260px,34vh)] w-[min(360px,100%)] border-4 rounded-lg",
-        digits: "text-[clamp(72px,8vw,112px)] leading-none font-bold",
+        wrap: "gap-3 pb-6",
+        label: "text-[clamp(36px,4vw,56px)] leading-none tracking-[3px] font-semibold",
+        box: "h-[min(330px,40vh)] w-[min(450px,100%)] border-4 rounded-lg",
+        digits: "text-[clamp(96px,11vw,160px)] leading-none font-bold",
     },
     lg: {
         wrap: "gap-2 pb-5",

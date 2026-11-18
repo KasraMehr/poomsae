@@ -80,7 +80,7 @@ const drawData = computed(() => {
               const performance = performancesByNumber.get(formNumber);
 
               return {
-                  round_label: `R - ${formNumber}`,
+                  round_label: `FORM ${formNumber}`,
                   form_number: formNumber,
                   symbol_key: performance?.form_badge ?? null,
                   form_name: formName,
@@ -89,7 +89,7 @@ const drawData = computed(() => {
         : [...performancesByNumber.values()]
               .sort((left, right) => left.form_number - right.form_number)
               .map((performance) => ({
-                  round_label: `R - ${performance.form_number}`,
+                  round_label: `FORM ${performance.form_number}`,
                   form_number: performance.form_number,
                   symbol_key: performance.form_badge,
                   form_name: performance.form_name,
@@ -158,14 +158,14 @@ const category = computed(() => drawData.value?.category ?? "");
     <div dir="ltr">
         <ScoreboardLayout
             :stage="stage"
-            center="FORM DRAW"
+            :center="category"
             :category="category"
         >
             <template #header>
                 <ScoreboardHeader
                     :stage="stage"
-                    event-title="FORM DRAW"
                     :category="category"
+                    right-label="FORM DRAW"
                 />
             </template>
 

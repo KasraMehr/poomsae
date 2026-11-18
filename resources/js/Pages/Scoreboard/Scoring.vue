@@ -102,7 +102,6 @@ const scoringPanels = computed(() =>
                             bout,
                             category,
                             round,
-                            roundLabel: roundLabelOf(round),
                             variant,
                             sides: group.map((performance) => ({
                                 performance,
@@ -154,7 +153,7 @@ const currentRound = computed(() => scoringPanels.value[0]?.round ?? null);
 const categoryLabel = computed(() => currentCategory.value?.name ?? "");
 const roundTitle = computed(() =>
     currentRound.value?.sequence == null
-        ? "SCORING"
+        ? ""
         : `ROUND ${currentRound.value.sequence}`,
 );
 const headerStage = computed(
@@ -163,9 +162,6 @@ const headerStage = computed(
         tournament.value?.name ||
         stage.value,
 );
-
-const roundLabelOf = (round) =>
-    round?.sequence == null ? "" : `R-${round.sequence}`;
 
 const detailOf = (side) => side?.performance?.detailed_scores ?? null;
 const judgesOf = (side) => detailOf(side)?.judges ?? [];
@@ -243,14 +239,14 @@ const isFreestylePenaltyMode = (side) =>
     <!-- <Head title="scoring"/> -->
     <ScoreboardLayout
         :stage="headerStage"
-        :center="roundTitle"
+        :center="categoryLabel"
         :category="categoryLabel"
     >
         <template #header>
             <ScoreboardHeader
                 :stage="headerStage"
-                :event-title="roundTitle"
                 :category="categoryLabel"
+                :right-label="roundTitle"
             />
         </template>
 
@@ -301,7 +297,6 @@ const isFreestylePenaltyMode = (side) =>
                     />
                     <FormBadge
                         size="xxxl"
-                        :round-label="panel.roundLabel"
                         :form-name="displayFormName(panel.category, panel.sides[0].performance)"
                         :symbol-key="displayFormSymbolKey(panel.category, panel.sides[0].performance)"
                     />

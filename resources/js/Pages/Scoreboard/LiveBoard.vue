@@ -143,7 +143,7 @@ const visibleEntries = computed(() => {
 const roundLabel = computed(() => {
     const sequence = currentExecution.value?.round?.sequence;
 
-    return sequence == null ? "LIVE BOARD" : `ROUND ${sequence}`;
+    return sequence == null ? "" : `ROUND ${sequence}`;
 });
 
 const headerStage = computed(
@@ -183,14 +183,14 @@ const courts = computed(() => tournament.value?.courts ?? []);
     <!-- <Head title="standby"/> -->
     <ScoreboardLayout
         :stage="headerStage"
-        :center="roundLabel"
+        :center="categoryName"
         :category="categoryName"
     >
         <template #header>
             <ScoreboardHeader
                 :stage="headerStage"
-                :event-title="roundLabel"
                 :category="categoryName"
+                :right-label="roundLabel"
             />
         </template>
 
