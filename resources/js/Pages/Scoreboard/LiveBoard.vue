@@ -141,12 +141,17 @@ const visibleEntries = computed(() => {
 });
 
 const roundLabel = computed(() => {
-    const name = currentExecution.value?.round?.name ?? "";
+    const sequence = currentExecution.value?.round?.sequence;
 
-    if (!name) return "";
-
-    return /^round/i.test(name) ? name : `${name}`;
+    return sequence == null ? "LIVE BOARD" : `ROUND ${sequence}`;
 });
+
+const headerStage = computed(
+    () =>
+        currentExecution.value?.round?.stage_label ||
+        tournament.value?.name ||
+        stage.value,
+);
 
 const categoryName = computed(
     () => currentExecution.value?.category?.name ?? "",
@@ -177,16 +182,15 @@ const courts = computed(() => tournament.value?.courts ?? []);
 <template>
     <!-- <Head title="standby"/> -->
     <ScoreboardLayout
-        :stage="stage"
+        :stage="headerStage"
         :center="roundLabel"
         :category="categoryName"
     >
         <template #header>
             <ScoreboardHeader
-                :stage="stage"
-                :event-title="tournament?.name ?? ''"
+                :stage="headerStage"
+                :event-title="roundLabel"
                 :category="categoryName"
-                :round-label="roundLabel"
             />
         </template>
 

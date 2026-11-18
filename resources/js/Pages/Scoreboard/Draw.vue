@@ -97,7 +97,7 @@ const drawData = computed(() => {
 
     return {
         mode: target.entries?.length > 1 ? "double" : "single",
-        stage: round.stage_label ?? round.name ?? "",
+        stage: round.stage_label ?? "",
         title: currentTournament.name ?? "",
         category: category.name ?? "",
         categoryEntries: category.entries ?? [],
@@ -143,20 +143,28 @@ const singleEntry = computed(() => {
 });
 const doubleEntries = computed(() => entries.value.slice(0, 2));
 
-const stage = computed(() => drawData.value?.stage ?? "");
-const title = computed(() => drawData.value?.title ?? "");
+const stage = computed(
+    () =>
+        drawData.value?.stage ||
+        tournament.value?.name ||
+        drawData.value?.title ||
+        "",
+);
 const category = computed(() => drawData.value?.category ?? "");
 </script>
 
 <template>
     <!-- <Head title="draw"/> -->
     <div dir="ltr">
-        <ScoreboardLayout>
+        <ScoreboardLayout
+            :stage="stage"
+            center="FORM DRAW"
+            :category="category"
+        >
             <template #header>
                 <ScoreboardHeader
-                    size="lg"
                     :stage="stage"
-                    :event-title="title"
+                    event-title="FORM DRAW"
                     :category="category"
                 />
             </template>

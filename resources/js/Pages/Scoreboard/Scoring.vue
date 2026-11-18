@@ -152,7 +152,17 @@ const currentCategory = computed(
 );
 const currentRound = computed(() => scoringPanels.value[0]?.round ?? null);
 const categoryLabel = computed(() => currentCategory.value?.name ?? "");
-const roundTitle = computed(() => currentRound.value?.name ?? "SCORING");
+const roundTitle = computed(() =>
+    currentRound.value?.sequence == null
+        ? "SCORING"
+        : `ROUND ${currentRound.value.sequence}`,
+);
+const headerStage = computed(
+    () =>
+        currentRound.value?.stage_label ||
+        tournament.value?.name ||
+        stage.value,
+);
 
 const roundLabelOf = (round) =>
     round?.sequence == null ? "" : `R-${round.sequence}`;
@@ -232,14 +242,14 @@ const isFreestylePenaltyMode = (side) =>
 <template>
     <!-- <Head title="scoring"/> -->
     <ScoreboardLayout
-        :stage="stage"
-        :center="tournament?.name ?? ''"
+        :stage="headerStage"
+        :center="roundTitle"
         :category="categoryLabel"
     >
         <template #header>
             <ScoreboardHeader
-                :stage="roundTitle"
-                event-title="SCORING"
+                :stage="headerStage"
+                :event-title="roundTitle"
                 :category="categoryLabel"
             />
         </template>

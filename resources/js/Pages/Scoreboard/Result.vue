@@ -138,11 +138,16 @@ const resultPanels = computed(() => {
             panels.push({
                 id: String(category.id) + "-" + matchup.key,
                 category,
-                stage: rounds[0]?.stage_label ?? "",
+                stage:
+                    rounds.at(-1)?.stage_label ||
+                    rounds[0]?.stage_label ||
+                    "",
                 title:
                     rounds.length > 1
-                        ? "RESULT"
-                        : (sides[0]?.rounds[0]?.label ?? "RESULT"),
+                        ? "FINAL RESULT"
+                        : rounds[0]?.round?.sequence != null
+                          ? `ROUND ${rounds[0].round.sequence}`
+                          : "RESULT",
                 rounds,
                 sides,
             });
@@ -152,7 +157,10 @@ const resultPanels = computed(() => {
     return panels;
 });
 
-const stage = computed(() => resultPanels.value[0]?.stage ?? "");
+const stage = computed(
+    () =>
+        resultPanels.value[0]?.stage || tournament.value?.name || "",
+);
 const categoryLabel = computed(
     () => resultPanels.value[0]?.category?.name ?? "",
 );
