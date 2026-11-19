@@ -64,12 +64,6 @@ const stateFor = performance => {
 
 <template>
     <section v-if="match" class="operator-confirmed-stage" aria-label="Confirmed form results and final result">
-        <header class="operator-confirmed-context">
-            <strong>No.{{ match.sequence }}</strong>
-            <span>{{ match.category_name }} · {{ match.round_name }}</span>
-            <span class="operator-confirmed-status" :class="{ complete: match.status === 'completed' }">{{ finalStatus }}</span>
-        </header>
-
         <section v-if="forms.length" class="operator-confirmed-forms" aria-label="Results by form">
             <article v-for="form in forms" :key="form.number" class="operator-confirmed-form">
                 <header class="operator-confirmed-form-head">
@@ -118,11 +112,7 @@ const stateFor = performance => {
 
 <style scoped>
 .operator-confirmed-stage{display:grid;gap:12px;min-height:100%;padding:12px;box-sizing:border-box;color:#0d192b}
-.operator-confirmed-context{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;padding-bottom:10px;border-bottom:1px solid #c4c9d2}
-.operator-confirmed-context>strong{font-size:24px;font-weight:900}
-.operator-confirmed-context>span{justify-self:center;color:#586478;font-size:13px;font-weight:700;text-align:center}
-.operator-confirmed-status{padding:5px 8px;border:1px solid #e0cf9f;background:#fff5df;color:#805c31!important;font-size:9px!important;font-weight:900!important;letter-spacing:.5px}
-.operator-confirmed-status.complete,.operator-confirmed-final header>strong.complete{border-color:#a8d5b5;background:#e4f3e9;color:#167651!important}
+.operator-confirmed-final header>strong.complete{border-color:#a8d5b5;background:#e4f3e9;color:#167651!important}
 .operator-confirmed-forms{display:grid;gap:10px}
 .operator-confirmed-form{border:1px solid #c4c9d2;background:#f7f8fc}
 .operator-confirmed-form-head{display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid #c4c9d2;background:#edf1f9}
@@ -156,5 +146,5 @@ const stateFor = performance => {
 .operator-confirmed-pending,.operator-confirmed-empty{margin:0;padding:8px 12px;color:#667184;font-size:10px}
 .operator-confirmed-empty{display:grid;min-height:260px;align-content:center;justify-items:center}
 .operator-confirmed-empty h2,.operator-confirmed-empty p{margin:4px}
-@media(max-width:600px){.operator-confirmed-context{grid-template-columns:auto minmax(0,1fr);gap:6px 10px}.operator-confirmed-context>span:nth-child(2){justify-self:end}.operator-confirmed-status{grid-column:1/-1;justify-self:end}.operator-confirmed-form-entries,.operator-confirmed-final-entries{gap:6px;padding:6px}.operator-confirmed-entry,.operator-confirmed-final-entry{padding:7px}.operator-confirmed-final-entry.winner{padding:6px}.operator-confirmed-total{font-size:27px}}
+@media(max-width:600px){.operator-confirmed-form-entries,.operator-confirmed-final-entries{gap:6px;padding:6px}.operator-confirmed-entry,.operator-confirmed-final-entry{padding:7px}.operator-confirmed-final-entry.winner{padding:6px}.operator-confirmed-total{font-size:27px}}
 </style>

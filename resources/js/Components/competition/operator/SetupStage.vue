@@ -60,7 +60,7 @@ const checklist = computed(() => [
         id: 'competition',
         title: 'Competition Data Loaded',
         detail: props.match && props.category && props.round && props.bout
-            ? `${props.match.category_name} · ${props.match.round_name} · No.${props.match.sequence}`
+            ? 'Match and competition context is available.'
             : 'Match category or round data is unavailable.',
         state: props.match && props.category && props.round && props.bout ? 'ready' : 'attention',
     },
@@ -125,10 +125,6 @@ const formState = number => {
 <template>
     <section v-if="match" class="operator-setup" aria-label="Match setup">
         <div class="operator-setup-left">
-            <header class="operator-setup-context">
-                <strong>No.{{ match.sequence }}</strong>
-                <span>{{ displayLabel(match.category_name) }} · {{ displayLabel(match.round_name) }}</span>
-            </header>
             <article v-for="(entry, index) in profiles" :key="entry.id" class="operator-setup-athlete" :class="profiles.length === 1 ? 'solo' : index === 0 ? 'chung' : 'hong'">
                 <header>
                     <strong>{{ profiles.length === 1 ? 'ATHLETE' : entry.side?.toUpperCase() ?? (index === 0 ? 'CHUNG / BLUE' : 'HONG / RED') }}</strong>
@@ -187,29 +183,6 @@ const formState = number => {
     padding: 12px;
     color: #0d192b;
     box-sizing: border-box;
-}
-
-.operator-setup-context {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: center;
-    gap: 12px;
-    padding: 0 0 10px;
-    border-bottom: 1px solid #c5c6cc;
-}
-
-.operator-setup-context strong {
-    justify-self: start;
-    font-size: 24px;
-    font-weight: 900;
-}
-
-.operator-setup-context span {
-    justify-self: end;
-    color: #586478;
-    font-size: 14px;
-    font-weight: 700;
-    text-align: right;
 }
 
 .operator-setup-left {
@@ -535,10 +508,6 @@ const formState = number => {
         padding: 8px;
     }
 
-    .operator-setup-context {
-        padding-bottom: 6px;
-    }
-
     .operator-setup-athlete {
         padding-top: 8px;
         padding-bottom: 9px;
@@ -572,15 +541,6 @@ const formState = number => {
 
     .operator-setup-checklist {
         padding: 14px;
-    }
-
-    .operator-setup-context {
-        gap: 6px 10px;
-    }
-
-    .operator-setup-context span {
-        justify-self: end;
-        text-align: right;
     }
 
     .operator-setup-form {

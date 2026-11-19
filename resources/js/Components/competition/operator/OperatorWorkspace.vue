@@ -24,6 +24,7 @@ const courtOptions = computed(() =>
     props.console.courts.map((item) => ({ value: item.id, label: item.name })),
 );
 const matchesOpen = ref(true);
+const mobileMatchesOpen = ref(false);
 const eventsOpen = ref(false);
 const matchId = ref(null);
 const activeStage = ref("setup");
@@ -49,6 +50,28 @@ const court = computed(
         props.console.courts[0],
 );
 const matches = computed(() => court.value?.matches ?? []);
+const matchGroups = computed(() => {
+    const groups = new Map();
+
+    for (const item of matches.value) {
+        const categoryLabel =
+            displayLabel(item.category_name) || "Unassigned division";
+        const divisionId = item.category_id ?? categoryLabel;
+        const key = String(divisionId);
+
+        if (!groups.has(key)) {
+            groups.set(key, {
+                key,
+                categoryLabel,
+                matches: [],
+            });
+        }
+
+        groups.get(key).matches.push(item);
+    }
+
+    return [...groups.values()];
+});
 const match = computed(
     () =>
         matches.value.find((item) => item.id === matchId.value) ??
@@ -63,6 +86,10 @@ const match = computed(
 watch(courtId, () => {
     matchId.value = null;
 });
+const selectMatch = (id) => {
+    matchId.value = id;
+    mobileMatchesOpen.value = false;
+};
 const category = computed(() =>
     props.console.tournament.categories.find(
         (item) => item.id === match.value?.category_id,
@@ -267,6 +294,16 @@ const time = (value) =>
             <nav aria-label="Competition sections">
                 <Link :href="page.props.urls.tournaments">COMPETITIONS</Link
                 ><span class="operator-tab active">SCORING</span>
+                <button
+                    v-if="court"
+                    type="button"
+                    class="operator-matches-toggle"
+                    :aria-expanded="mobileMatchesOpen"
+                    aria-controls="matches"
+                    @click="mobileMatchesOpen = !mobileMatchesOpen"
+                >
+                    List of matches
+                </button>
             </nav>
             <div class="operator-top-actions" dir="rtl">
                 <div class="operator-profile-badge" dir="ltr">
@@ -346,13 +383,24 @@ const time = (value) =>
             :class="{
                 'matches-collapsed': !matchesOpen,
                 'events-collapsed': !eventsOpen,
+                'mobile-match-drawer-open': mobileMatchesOpen,
             }"
             v-if="court"
         >
+            <button
+                v-if="mobileMatchesOpen"
+                type="button"
+                class="operator-match-drawer-backdrop"
+                aria-label="Close list of matches"
+                @click="mobileMatchesOpen = false"
+            ></button>
             <aside
                 id="matches"
                 class="operator-panel operator-match-list"
-                :class="{ 'match-list-collapsed': !matchesOpen }"
+                :class="{
+                    'match-list-collapsed': !matchesOpen,
+                    'mobile-drawer-open': mobileMatchesOpen,
+                }"
                 aria-label="Match list"
             >
                 <button
@@ -388,52 +436,57 @@ const time = (value) =>
                     class="operator-match-content"
                 >
                     <div class="operator-match-scroll">
-                        <button
-                            v-for="item in matches"
-                            :key="item.id"
-                            type="button"
-                            class="operator-match"
-                            :class="{
-                                selected: match?.id === item.id,
-                                ready: item.status === 'pending',
-                                live: item.status === 'running',
-                                completed: item.status === 'completed',
-                                cancelled: item.status === 'cancelled',
-                            }"
-                            @click="matchId = item.id"
+                        <section
+                            v-for="group in matchGroups"
+                            :key="group.key"
+                            class="operator-match-group"
                         >
-                            <span class="operator-match-number"
-                                >No.{{ item.sequence }}</span
-                            ><span
-                                class="operator-match-status"
+                            <h3 class="operator-match-group-title">
+                                <span>{{ group.categoryLabel }}</span>
+                            </h3>
+                            <button
+                                v-for="item in group.matches"
+                                :key="item.id"
+                                type="button"
+                                class="operator-match"
                                 :class="{
+                                    selected: match?.id === item.id,
                                     ready: item.status === 'pending',
                                     live: item.status === 'running',
                                     completed: item.status === 'completed',
                                     cancelled: item.status === 'cancelled',
                                 }"
+                                @click="selectMatch(item.id)"
+                            >
+                                <span class="operator-match-number"
+                                    >No.{{ item.sequence }}</span
                                 ><span
-                                    v-if="item.status === 'running'"
-                                    class="operator-match-live-dot"
-                                    aria-hidden="true"
-                                ></span
-                                >{{
-                                    statusLabels[item.status] ?? item.status
-                                }}</span
-                            >
-                            <strong>{{
-                                item.entries
-                                    .map(
-                                        (entry) =>
-                                            entry.short_name || entry.name,
-                                    )
-                                    .join("  /  ") || "No athletes assigned"
-                            }}</strong>
-                            <small
-                                >{{ displayLabel(item.category_name) }} ·
-                                {{ displayLabel(item.round_name) }}</small
-                            >
-                        </button>
+                                    class="operator-match-status"
+                                    :class="{
+                                        ready: item.status === 'pending',
+                                        live: item.status === 'running',
+                                        completed: item.status === 'completed',
+                                        cancelled: item.status === 'cancelled',
+                                    }"
+                                    ><span
+                                        v-if="item.status === 'running'"
+                                        class="operator-match-live-dot"
+                                        aria-hidden="true"
+                                    ></span
+                                    >{{
+                                        statusLabels[item.status] ?? item.status
+                                    }}</span
+                                >
+                                <strong>{{
+                                    item.entries
+                                        .map(
+                                            (entry) =>
+                                                entry.short_name || entry.name,
+                                        )
+                                        .join("  /  ") || "No athletes assigned"
+                                }}</strong>
+                            </button>
+                        </section>
                         <p v-if="!matches.length" class="operator-empty">
                             No matches are scheduled on this court.
                         </p>
@@ -524,6 +577,12 @@ const time = (value) =>
                     class="operator-match-meta"
                     aria-label="Selected match context"
                 >
+                    <div class="operator-match-meta-item operator-match-meta-bout">
+                        <span>MATCH NO.</span>
+                        <strong>
+                            {{ match ? `NO. ${match.sequence}` : "—" }}
+                        </strong>
+                    </div>
                     <div class="operator-match-meta-item operator-match-meta-event">
                         <span>COMPETITION</span>
                         <strong :title="props.console?.tournament?.name || undefined">
@@ -540,12 +599,6 @@ const time = (value) =>
                         <span>STAGE / ROUND</span>
                         <strong :title="roundContextLabel">
                             {{ roundContextLabel || "—" }}
-                        </strong>
-                    </div>
-                    <div class="operator-match-meta-item operator-match-meta-bout">
-                        <span>MATCH</span>
-                        <strong>
-                            {{ match ? `NO. ${match.sequence}` : "—" }}
                         </strong>
                     </div>
                     <div

@@ -71,12 +71,6 @@ const statusText = computed(() => ({
 
 <template>
     <section v-if="match" class="operator-live-stage" aria-label="Live performance">
-        <header class="operator-live-context">
-            <strong>No.{{ match.sequence }}</strong>
-            <span>{{ match.category_name }} · {{ match.round_name }}</span>
-            <span v-if="performance" class="operator-live-form">{{ performance.form_name }} · FORM {{ performance.form_number }}</span>
-        </header>
-
         <div class="operator-live-athletes" :class="{ 'single-athlete': athleteProfiles.length === 1 }">
             <article v-for="(entry, index) in athleteProfiles" :key="entry.id" class="operator-live-athlete" :class="[athleteProfiles.length === 1 ? 'solo' : entry.side?.toLowerCase() === 'hong' || index === 1 ? 'hong' : 'chung', { active: isActiveEntry(entry), scoring: isActiveEntry(entry) && performance?.status === 'scoring' }]">
                 <header>{{ athleteProfiles.length === 1 ? 'ATHLETE' : entry.sideLabel }}</header>
@@ -119,40 +113,13 @@ const statusText = computed(() => ({
 <style scoped>
 .operator-live-stage {
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    grid-template-rows: minmax(0, 1fr) auto auto;
     gap: clamp(10px, 2vh, 20px);
     height: 100%;
     min-height: 0;
     padding: clamp(10px, 1.5vw, 20px);
     box-sizing: border-box;
     color: #0d192b;
-}
-
-.operator-live-context {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 12px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #c4c9d2;
-}
-
-.operator-live-context > strong {
-    font-size: 24px;
-    font-weight: 900;
-}
-
-.operator-live-context > span {
-    justify-self: center;
-    color: #586478;
-    font-size: 14px;
-    font-weight: 700;
-    text-align: center;
-}
-
-.operator-live-context .operator-live-form {
-    justify-self: end;
-    text-align: right;
 }
 
 .operator-live-athletes {
@@ -336,19 +303,6 @@ const statusText = computed(() => ({
         padding-block: clamp(6px, 1vh, 12px);
     }
 
-    .operator-live-context {
-        gap: 8px;
-        padding-bottom: 6px;
-    }
-
-    .operator-live-context > strong {
-        font-size: clamp(18px, 2.2vh, 24px);
-    }
-
-    .operator-live-context > span {
-        font-size: clamp(11px, 1.5vh, 14px);
-    }
-
     .operator-live-athletes {
         gap: clamp(8px, 1vw, 14px);
     }
@@ -423,24 +377,9 @@ const statusText = computed(() => ({
 
 @media (max-width: 740px) {
     .operator-live-stage {
-        grid-template-rows: auto minmax(180px, 1fr) auto auto;
+        grid-template-rows: minmax(180px, 1fr) auto auto;
         gap: 10px;
         min-height: 0;
-    }
-
-    .operator-live-context {
-        grid-template-columns: auto minmax(0, 1fr);
-        gap: 6px 10px;
-    }
-
-    .operator-live-context > span:nth-child(2) {
-        justify-self: end;
-        text-align: right;
-    }
-
-    .operator-live-context .operator-live-form {
-        grid-column: 1 / -1;
-        justify-self: end;
     }
 
     .operator-live-athletes {
@@ -491,7 +430,7 @@ const statusText = computed(() => ({
 
 @media (max-width: 740px) and (max-height: 700px) {
     .operator-live-stage {
-        grid-template-rows: auto minmax(0, 1fr) auto auto;
+        grid-template-rows: minmax(0, 1fr) auto auto;
         gap: 6px;
         padding: 8px;
     }

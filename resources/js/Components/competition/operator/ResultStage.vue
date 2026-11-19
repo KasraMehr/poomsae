@@ -64,12 +64,6 @@ const statusMessage = computed(() => ({
 
 <template>
     <section v-if="match" class="operator-result-stage" aria-label="Match result and scoring">
-        <header class="operator-result-context">
-            <strong>No.{{ match.sequence }}</strong>
-            <span>{{ match.category_name }} · {{ match.round_name }}</span>
-            <span v-if="performance" class="operator-result-form">{{ performance.form_name }} · FORM {{ performance.form_number }}</span>
-        </header>
-
         <p class="operator-result-status" :class="performance?.status">{{ statusMessage }}</p>
 
         <template v-if="hasResult">
@@ -157,33 +151,6 @@ const statusMessage = computed(() => ({
     padding: 12px;
     box-sizing: border-box;
     color: #0d192b;
-}
-
-.operator-result-context {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 12px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #c4c9d2;
-}
-
-.operator-result-context strong {
-    font-size: 24px;
-    font-weight: 900;
-}
-
-.operator-result-context > span {
-    justify-self: center;
-    color: #586478;
-    font-size: 14px;
-    font-weight: 700;
-    text-align: center;
-}
-
-.operator-result-context .operator-result-form {
-    justify-self: end;
-    text-align: right;
 }
 
 .operator-result-status {
@@ -516,21 +483,6 @@ const statusMessage = computed(() => ({
 }
 
 @media (max-width: 600px) {
-    .operator-result-context {
-        grid-template-columns: auto minmax(0, 1fr);
-        gap: 6px 10px;
-    }
-
-    .operator-result-context > span:nth-child(2) {
-        justify-self: end;
-        text-align: right;
-    }
-
-    .operator-result-context .operator-result-form {
-        grid-column: 1 / -1;
-        justify-self: end;
-    }
-
     .operator-result-cards {
         gap: 7px;
     }
