@@ -28,9 +28,9 @@ const isCurrentPerformance = entry => {
     }
 
     return props.category?.execution_mode === 'simultaneous'
-        && ['running', 'scoring'].includes(props.performance?.status)
+        && ['running', 'scoring', 'approved'].includes(props.performance?.status)
         && formPerformance?.form_number === props.performance?.form_number
-        && formPerformance?.status === props.performance?.status;
+        && ['running', 'scoring', 'approved'].includes(formPerformance?.status);
 };
 const scoreFor = entry => {
     const formPerformance = formPerformanceFor(entry);

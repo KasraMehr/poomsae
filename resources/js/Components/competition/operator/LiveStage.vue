@@ -27,6 +27,11 @@ const elapsedSeconds = computed(() => {
     return Math.max(0, Math.floor((endAt - Date.parse(props.performance.started_at)) / 1000));
 });
 const remainingSeconds = computed(() => Math.max(0, durationSeconds.value - elapsedSeconds.value));
+const isOvertime = computed(() => props.performance?.status === 'running'
+    && Boolean(props.performance?.started_at)
+    && elapsedSeconds.value >= durationSeconds.value);
+const timerStopped = computed(() => Boolean(props.performance?.started_at)
+    && ['scoring', 'approved', 'completed', 'cancelled'].includes(props.performance?.status));
 const timerText = computed(() => {
     const seconds = remainingSeconds.value;
 
@@ -42,7 +47,7 @@ const athleteProfiles = computed(() => props.match?.entries?.map((entry, index) 
 })) ?? []);
 const activeEntryIds = computed(() => {
     const status = props.performance?.status;
-    if (!['running', 'scoring'].includes(status) || !props.performance?.entry_id) {
+    if (!['pending', 'running', 'scoring'].includes(status) || !props.performance?.entry_id) {
         return [];
     }
 
@@ -59,6 +64,11 @@ const activeEntryIds = computed(() => {
     return [props.performance.entry_id];
 });
 const isActiveEntry = entry => activeEntryIds.value.includes(entry.id);
+const activeStateText = computed(() => ({
+    pending: canStart.value ? 'READY TO PERFORM' : 'UP NEXT',
+    running: 'NOW PERFORMING',
+    scoring: 'SCORING THIS ATHLETE',
+})[props.performance?.status] ?? '');
 const statusText = computed(() => ({
     pending: canStart.value ? 'Match ready to begin' : 'Waiting for this match to reach the court queue',
     running: 'Performance in progress',
@@ -76,11 +86,11 @@ const statusText = computed(() => ({
                 <header>{{ athleteProfiles.length === 1 ? 'ATHLETE' : entry.sideLabel }}</header>
                 <h2>{{ entry.profile?.short_name || entry.short_name || entry.name }}</h2>
                 <p>{{ entry.profile?.club || entry.profile?.country_code || entry.team || ' ' }}</p>
-                <span v-if="isActiveEntry(entry)" class="operator-live-athlete-state">{{ performance?.status === 'running' ? 'NOW PERFORMING' : 'SCORING THIS ATHLETE' }}</span>
+                <span v-if="isActiveEntry(entry)" class="operator-live-athlete-state">{{ activeStateText }}</span>
             </article>
         </div>
 
-        <div class="operator-live-clock-panel" :class="performance?.status">
+        <div class="operator-live-clock-panel" :class="[performance?.status, { overtime: isOvertime, stopped: timerStopped }]">
             <span class="operator-live-clock-label">TIME REMAINING</span>
             <strong class="operator-live-clock" role="timer" aria-live="off">{{ timerText }}</strong>
             <span class="operator-live-elapsed">ELAPSED {{ elapsedText }}</span>
@@ -212,28 +222,38 @@ const statusText = computed(() => ({
 .operator-live-clock-panel {
     display: grid;
     justify-items: center;
-    gap: 5px;
-    padding: 8px 12px;
+    gap: 8px;
+    padding: 10px 12px;
 }
 
-.operator-live-clock-label,
-.operator-live-elapsed {
+.operator-live-clock-label {
     color: #738094;
-    font-size: 9px;
+    font-size: clamp(11px, 1vw, 14px);
     font-weight: 800;
     letter-spacing: 1.4px;
+}
+
+.operator-live-elapsed {
+    color: #738094;
+    font-size: clamp(13px, 1.15vw, 17px);
+    font-weight: 900;
+    letter-spacing: 1.2px;
+    line-height: 1.2;
 }
 
 .operator-live-clock {
     color: #0a1422;
     font-family: "OperatorMixedMono", Consolas, monospace;
-    font-size: clamp(52px, 8vw, 92px);
+    font-size: clamp(58px, 8.5vw, 116px);
     font-weight: 800;
     font-variant-numeric: tabular-nums;
     line-height: 1;
 }
 
-.operator-live-clock-panel.running .operator-live-clock {
+.operator-live-clock-panel.overtime .operator-live-clock,
+.operator-live-clock-panel.overtime .operator-live-elapsed,
+.operator-live-clock-panel.stopped .operator-live-clock,
+.operator-live-clock-panel.stopped .operator-live-elapsed {
     color: #a9232b;
 }
 
@@ -326,12 +346,16 @@ const statusText = computed(() => ({
     }
 
     .operator-live-clock-panel {
-        gap: 3px;
-        padding-block: 4px;
+        gap: 5px;
+        padding-block: 6px;
     }
 
     .operator-live-clock {
-        font-size: clamp(44px, 10vh, 82px);
+        font-size: clamp(54px, 11vh, 96px);
+    }
+
+    .operator-live-elapsed {
+        font-size: clamp(12px, 1.8vh, 15px);
     }
 
     .operator-live-controls {
@@ -366,12 +390,15 @@ const statusText = computed(() => ({
     }
 
     .operator-live-clock {
-        font-size: clamp(38px, 8vh, 58px);
+        font-size: clamp(46px, 9vh, 68px);
     }
 
-    .operator-live-clock-label,
+    .operator-live-clock-label {
+        font-size: 9px;
+    }
+
     .operator-live-elapsed {
-        font-size: 8px;
+        font-size: 11px;
     }
 }
 
@@ -414,7 +441,7 @@ const statusText = computed(() => ({
     }
 
     .operator-live-clock {
-        font-size: clamp(48px, 15vw, 68px);
+        font-size: clamp(50px, 15vw, 82px);
     }
 
     .operator-live-controls {
