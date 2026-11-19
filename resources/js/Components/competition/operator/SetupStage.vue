@@ -20,18 +20,62 @@ const profiles = computed(() => props.match?.entries?.map(entry => ({
 })) ?? []);
 const forms = computed(() => {
     const entryIds = new Set((props.match?.entries ?? []).map(entry => entry.id));
-    const uniqueForms = new Map();
+    const formsByNumber = new Map();
     [...(props.bout?.performances ?? [])]
         .filter(item => entryIds.has(item.entry_id))
-        .sort((left, right) => left.form_number - right.form_number)
-        .forEach(item => {
-            if (!uniqueForms.has(item.form_number)) {
-                uniqueForms.set(item.form_number, item.form_name);
+        .sort((left, right) => left.form_number - right.form_number || left.id - right.id)
+        .forEach(performance => {
+            if (!formsByNumber.has(performance.form_number)) {
+                formsByNumber.set(performance.form_number, {
+                    number: performance.form_number,
+                    name: performance.form_name,
+                    performances: [],
+                });
             }
+
+            formsByNumber.get(performance.form_number).performances.push(performance);
         });
 
-    return [...uniqueForms].map(([number, name]) => ({ number, name }));
+    const groupedForms = [...formsByNumber.values()];
+    const firstUnresolvedNumber = groupedForms.find(form => form.performances.some(performance => !['approved', 'cancelled'].includes(performance.status)))?.number;
+
+    return groupedForms.map(form => {
+        const statuses = form.performances.map(performance => performance.status);
+        const allResolved = statuses.length > 0 && statuses.every(status => ['approved', 'cancelled'].includes(status));
+        const currentPerformanceIsReady = props.performance?.bout_id === props.match?.id
+            && props.performance?.form_number === form.number
+            && props.performance?.status === 'pending'
+            && props.performance?.forms_ready === true
+            && props.performance?.previous_completed === true;
+        let state = 'waiting';
+
+        if (statuses.includes('running')) {
+            state = 'live';
+        } else if (statuses.includes('scoring')) {
+            state = 'scoring';
+        } else if (currentPerformanceIsReady) {
+            state = 'ready';
+        } else if (allResolved) {
+            state = statuses.includes('approved') ? 'completed' : 'cancelled';
+        } else if (statuses.some(status => ['approved', 'cancelled'].includes(status))) {
+            state = 'in-progress';
+        } else if (form.number !== firstUnresolvedNumber) {
+            state = 'upcoming';
+        }
+
+        return { ...form, state };
+    });
 });
+const formStateLabels = {
+    live: 'LIVE',
+    scoring: 'SCORING',
+    ready: 'READY TO START',
+    completed: 'COMPLETED',
+    cancelled: 'CANCELLED',
+    'in-progress': 'IN PROGRESS',
+    waiting: 'WAITING',
+    upcoming: 'NEXT',
+};
 const expectedFormCount = computed(() => props.category?.forms_per_round ?? 1);
 const formIsReady = computed(() => props.category?.discipline === 'freestyle'
     ? forms.value.length > 0
@@ -107,19 +151,6 @@ const continueLabel = computed(() => ({
     completed: 'VIEW CONFIRMED RESULT',
     cancelled: 'VIEW MATCH SUMMARY',
 })[performanceStatus.value] ?? 'CONTINUE MATCH');
-const formState = number => {
-    const currentNumber = props.performance?.form_number;
-
-    if (number === currentNumber) {
-        return performanceStatus.value === 'running' ? 'LIVE' : 'CURRENT';
-    }
-
-    if (currentNumber !== undefined && number < currentNumber) {
-        return 'COMPLETED';
-    }
-
-    return 'NEXT';
-};
 </script>
 
 <template>
@@ -142,10 +173,10 @@ const formState = number => {
                     <h2>{{ category?.discipline === 'freestyle' ? 'ASSIGNED PERFORMANCE' : 'ASSIGNED POOMSAE' }}</h2>
                 </header>
                 <div v-if="forms.length" class="operator-setup-form-list">
-                    <div v-for="form in forms" :key="form.number" class="operator-setup-form" :class="{ current: form.number === performance?.form_number, upcoming: form.number > (performance?.form_number ?? 0) }">
+                    <div v-for="form in forms" :key="form.number" class="operator-setup-form" :class="form.state">
                         <span class="operator-setup-form-number">{{ form.number }}</span>
                         <strong>{{ displayLabel(form.name) }}</strong>
-                        <small>{{ formState(form.number) }}</small>
+                        <small class="operator-setup-form-state" :class="form.state">{{ formStateLabels[form.state] }}</small>
                     </div>
                 </div>
                 <p v-else class="operator-setup-empty">{{ category?.discipline === 'freestyle' ? 'Performance details are not available yet.' : 'Poomsae have not been assigned yet.' }}</p>
@@ -349,11 +380,65 @@ const formState = number => {
     white-space: nowrap;
 }
 
-.operator-setup-form small {
-    color: #555f6d;
-    font-size: 10px;
+.operator-setup-form-state {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 24px;
+    padding: 3px 8px;
+    border: 1px solid #c5c6cc;
+    background: #edf1f7;
+    color: #566174;
+    font-size: 9px;
     font-weight: 800;
     letter-spacing: .4px;
+    line-height: 1.1;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.operator-setup-form.ready,
+.operator-setup-form-state.ready {
+    border-color: #7da5e8;
+    background: #e6efff;
+    color: #174eaa;
+}
+
+.operator-setup-form.live,
+.operator-setup-form-state.live {
+    border-color: #69b98c;
+    background: #e4f6eb;
+    color: #17683d;
+}
+
+.operator-setup-form.scoring,
+.operator-setup-form-state.scoring,
+.operator-setup-form.in-progress,
+.operator-setup-form-state.in-progress {
+    border-color: #e1bd69;
+    background: #fff4d9;
+    color: #805800;
+}
+
+.operator-setup-form.completed,
+.operator-setup-form-state.completed {
+    border-color: #aeb8c7;
+    background: #eef1f5;
+    color: #46546a;
+}
+
+.operator-setup-form.cancelled,
+.operator-setup-form-state.cancelled {
+    border-color: #d89393;
+    background: #fdeaea;
+    color: #9a3030;
+}
+
+.operator-setup-form.waiting,
+.operator-setup-form-state.waiting {
+    border-color: #d7c48c;
+    background: #faf4e4;
+    color: #75602c;
 }
 
 .operator-setup-empty {

@@ -101,17 +101,31 @@ const round = computed(() =>
 const bout = computed(() =>
     round.value?.bouts.find((item) => item.id === match.value?.id),
 );
-const performance = computed(() =>
-    court.value?.active?.bout_id === match.value?.id
-        ? court.value.active
-        : (court.value?.queue?.find(
-              (item) => item.bout_id === match.value?.id,
-          ) ??
-          bout.value?.performances.find(
-              (item) => item.status === "scoring" || item.status === "running",
-          ) ??
-          bout.value?.performances[0]),
-);
+const performance = computed(() => {
+    if (court.value?.active?.bout_id === match.value?.id) {
+        return court.value.active;
+    }
+
+    const queuedPerformance = court.value?.queue?.find(
+        (item) => item.bout_id === match.value?.id,
+    );
+    if (queuedPerformance) {
+        return queuedPerformance;
+    }
+
+    const orderedPerformances = [...(bout.value?.performances ?? [])].sort(
+        (left, right) =>
+            left.form_number - right.form_number || left.id - right.id,
+    );
+
+    return (
+        orderedPerformances.find((item) =>
+            ["running", "scoring"].includes(item.status),
+        ) ??
+        orderedPerformances.find((item) => item.status === "pending") ??
+        orderedPerformances[orderedPerformances.length - 1]
+    );
+});
 const divisionContextLabel = computed(() =>
     [displayLabel(category.value?.name), category.value?.display_label]
         .filter(Boolean)
