@@ -127,7 +127,7 @@ const statusText = computed(() => ({
     gap: clamp(10px, 2vh, 20px);
     height: 100%;
     min-height: 0;
-    padding: clamp(10px, 1.5vw, 20px);
+    padding: clamp(10px, 1.5vw, 20px) 0 0;
     box-sizing: border-box;
     color: #0d192b;
 }
@@ -459,7 +459,7 @@ const statusText = computed(() => ({
     .operator-live-stage {
         grid-template-rows: minmax(0, 1fr) auto auto;
         gap: 6px;
-        padding: 8px;
+        padding: 8px 0 0;
     }
 
     .operator-live-athlete {

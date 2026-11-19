@@ -211,7 +211,7 @@ const continueLabel = computed(() => ({
     gap: 12px;
     height: 100%;
     min-height: 0;
-    padding: 12px;
+    padding: 12px 0 0;
     color: #0d192b;
     box-sizing: border-box;
 }
@@ -590,7 +590,7 @@ const continueLabel = computed(() => ({
 @media (max-height: 800px) and (min-width: 1001px) {
     .operator-setup {
         gap: 8px;
-        padding: 8px;
+        padding: 8px 0 0;
     }
 
     .operator-setup-athlete {
@@ -621,7 +621,7 @@ const continueLabel = computed(() => ({
 @media (max-width: 500px) {
     .operator-setup {
         gap: 8px;
-        padding: 8px;
+        padding: 8px 0 0;
     }
 
     .operator-setup-checklist {

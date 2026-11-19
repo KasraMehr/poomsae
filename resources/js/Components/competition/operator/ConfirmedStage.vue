@@ -111,7 +111,7 @@ const stateFor = performance => {
 </template>
 
 <style scoped>
-.operator-confirmed-stage{display:grid;gap:12px;min-height:100%;padding:12px;box-sizing:border-box;color:#0d192b}
+.operator-confirmed-stage{display:grid;gap:12px;min-height:100%;padding:12px 0 0;box-sizing:border-box;color:#0d192b}
 .operator-confirmed-final header>strong.complete{border-color:#a8d5b5;background:#e4f3e9;color:#167651!important}
 .operator-confirmed-forms{display:grid;gap:10px}
 .operator-confirmed-form{border:1px solid #c4c9d2;background:#f7f8fc}
