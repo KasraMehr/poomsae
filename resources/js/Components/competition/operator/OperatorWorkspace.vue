@@ -274,6 +274,26 @@ const statusLabels = {
     completed: "COMPLETED",
     cancelled: "CANCELLED",
 };
+const stageFeedbackText = computed(() => {
+    if (["result", "confirmed"].includes(activeStage.value)) {
+        return ({
+            pending: "WAITING FOR PERFORMANCE",
+            running: "PERFORMANCE IS LIVE",
+            scoring: "REVIEW SCORES AND CONFIRM RESULT",
+            approved: "THE RESULT HAS BEEN CONFIRMED AND PUBLISHED",
+            completed: "MATCH COMPLETED",
+            cancelled: "MATCH CANCELLED",
+        })[performance.value?.status] ?? "RESULT STATUS UNAVAILABLE";
+    }
+
+    return performance.value?.status === "scoring"
+        ? "RESULT READY"
+        : (statusLabels[performance.value?.status] ?? "MATCH CONTROL");
+});
+const stageFeedbackIsSuccess = computed(() =>
+    ["result", "confirmed"].includes(activeStage.value)
+        && ["approved", "completed"].includes(performance.value?.status),
+);
 const eventLabels = {
     "performance.start": "Performance started",
     "performance.finish": "Performance finished",
@@ -627,17 +647,30 @@ const time = (value) =>
                 </div>
                 <div class="operator-stage-head">
                     <div>
-                        <h1>
+                        <template v-if="activeStage === 'result' || activeStage === 'confirmed'">
+                            <h1>{{ activeStage.toUpperCase() }}</h1>
+                            <p
+                                class="operator-stage-subtitle"
+                                :class="{
+                                    'operator-stage-feedback-success': stageFeedbackIsSuccess,
+                                }"
+                                :title="stageFeedbackText"
+                                aria-live="polite"
+                                role="status"
+                            >{{ stageFeedbackText }}</p>
+                        </template>
+                        <h1 v-else>
                             {{ activeStage.toUpperCase() }}
                             <span
-                                >/
-                                {{
-                                    performance?.status === "scoring"
-                                        ? "RESULT READY"
-                                        : (statusLabels[performance?.status] ??
-                                          "MATCH CONTROL")
-                                }}</span
+                                :class="{
+                                    'operator-stage-feedback-success': stageFeedbackIsSuccess,
+                                }"
+                                :title="stageFeedbackText"
+                                aria-live="polite"
+                                role="status"
                             >
+                                / {{ stageFeedbackText }}
+                            </span>
                         </h1>
                     </div>
                     <div
@@ -693,9 +726,9 @@ const time = (value) =>
                         :performance="performance"
                         :bout="bout"
                         :judges="judges"
+                        :errors="action.errors"
                         :manual-performance="manualPerformance"
                         :processing="action.processing"
-                        :errors="action.errors"
                         @command="command"
                         @manual="openManualDialog"
                         @details="openDetailsDialog"
