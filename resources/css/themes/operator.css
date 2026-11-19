@@ -1629,3 +1629,95 @@
         transform: none;
     }
 }
+
+.operator-match-meta {
+    display: grid;
+    grid-template-columns:
+        minmax(0, 1.15fr)
+        minmax(0, 1.35fr)
+        minmax(0, 1.05fr)
+        minmax(82px, 0.55fr)
+        minmax(0, 1.2fr);
+    align-items: stretch;
+    min-height: 68px;
+    margin-bottom: 8px;
+    padding: 8px 12px;
+    border: 1px solid #c4c9d2;
+    border-radius: 8px;
+    background: #f7f8fc;
+    box-sizing: border-box;
+}
+.operator-match-meta-item {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    padding: 0 12px;
+    border-inline-end: 1px solid #d5dae3;
+}
+.operator-match-meta-item:first-child {
+    padding-inline-start: 0;
+}
+.operator-match-meta-item:last-child {
+    padding-inline-end: 0;
+    border-inline-end: 0;
+}
+.operator-match-meta-item > span {
+    overflow: hidden;
+    color: #798291;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.operator-match-meta-item > strong {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    color: #0d192b;
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.operator-match-meta-bout > strong {
+    font-size: 15px;
+}
+
+@media (max-width: 1100px) {
+    .operator-match-meta {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        row-gap: 8px;
+    }
+    .operator-match-meta-item {
+        padding: 4px 10px;
+        border-inline-end: 0;
+    }
+}
+
+@media (max-width: 740px) {
+    .operator-match-meta {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        min-height: 0;
+        padding: 7px 9px;
+    }
+    .operator-match-meta-event {
+        grid-column: 1 / -1;
+    }
+    .operator-match-meta-item {
+        gap: 2px;
+        padding: 3px 6px;
+    }
+    .operator-match-meta-item > span {
+        font-size: 8px;
+    }
+    .operator-match-meta-item > strong {
+        font-size: 11px;
+    }
+    .operator-match-meta-bout > strong {
+        font-size: 12px;
+    }
+}

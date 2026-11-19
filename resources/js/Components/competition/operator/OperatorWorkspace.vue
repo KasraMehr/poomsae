@@ -85,6 +85,39 @@ const performance = computed(() =>
           ) ??
           bout.value?.performances[0]),
 );
+const divisionContextLabel = computed(() =>
+    [displayLabel(category.value?.name), category.value?.display_label]
+        .filter(Boolean)
+        .join(" · "),
+);
+const roundContextLabel = computed(() => {
+    if (!round.value) return "";
+
+    const stage = displayLabel(round.value.stage_label || round.value.name);
+    const roundNumber = round.value.sequence
+        ? `ROUND ${round.value.sequence}`
+        : "";
+
+    return stage?.toUpperCase() === roundNumber
+        ? stage
+        : [stage, roundNumber].filter(Boolean).join(" · ");
+});
+const formContextLabel = computed(() => {
+    if (
+        category.value?.discipline === "freestyle" ||
+        !["pending", "running", "scoring"].includes(performance.value?.status)
+    ) {
+        return "";
+    }
+
+    const formNumber = performance.value?.form_number;
+    const formName = displayLabel(performance.value?.form_name);
+    const numberLabel = formNumber == null
+        ? ""
+        : `FORM ${formNumber}${category.value?.forms_per_round > 1 ? ` / ${category.value.forms_per_round}` : ""}`;
+
+    return [numberLabel, formName].filter(Boolean).join(" · ");
+});
 const stageForStatus = (status) =>
     ({
         pending: "setup",
@@ -487,6 +520,44 @@ const time = (value) =>
             </aside>
 
             <section class="operator-center" aria-label="Match control">
+                <div
+                    class="operator-match-meta"
+                    aria-label="Selected match context"
+                >
+                    <div class="operator-match-meta-item operator-match-meta-event">
+                        <span>COMPETITION</span>
+                        <strong :title="props.console?.tournament?.name || undefined">
+                            {{ props.console?.tournament?.name || "—" }}
+                        </strong>
+                    </div>
+                    <div class="operator-match-meta-item operator-match-meta-division">
+                        <span>DIVISION</span>
+                        <strong :title="divisionContextLabel">
+                            {{ divisionContextLabel || "—" }}
+                        </strong>
+                    </div>
+                    <div class="operator-match-meta-item operator-match-meta-round">
+                        <span>STAGE / ROUND</span>
+                        <strong :title="roundContextLabel">
+                            {{ roundContextLabel || "—" }}
+                        </strong>
+                    </div>
+                    <div class="operator-match-meta-item operator-match-meta-bout">
+                        <span>MATCH</span>
+                        <strong>
+                            {{ match ? `NO. ${match.sequence}` : "—" }}
+                        </strong>
+                    </div>
+                    <div
+                        v-if="formContextLabel"
+                        class="operator-match-meta-item operator-match-meta-form"
+                    >
+                        <span>FORM</span>
+                        <strong :title="formContextLabel">
+                            {{ formContextLabel }}
+                        </strong>
+                    </div>
+                </div>
                 <div class="operator-stage-head">
                     <div>
                         <h1>
