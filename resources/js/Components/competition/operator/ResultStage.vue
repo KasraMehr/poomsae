@@ -227,9 +227,9 @@ const tableSummary = table => {
                     <p v-if="errorMessages.length" class="operator-result-errors" role="alert">{{ errorMessages.join(' · ') }}</p>
                 </div>
                 <div class="operator-result-action-buttons">
-                    <button v-if="performance?.status === 'scoring'" type="button" class="operator-result-primary" :disabled="processing || performance.submitted_count !== performance.judge_count || performance.pending_review_seats?.length" @click="emit('command', 'approve')">Confirm and publish result</button>
-                    <button v-if="hasManualScoreAction" type="button" class="operator-result-manual" @click="emit('manual')">{{ manualPerformance.pending_review_seats?.length ? 'Review manual score' : 'Manual score / correct judge score' }}</button>
                     <button type="button" class="operator-result-details" @click="emit('details')">Match controls and decisions ↗</button>
+                    <button v-if="hasManualScoreAction" type="button" class="operator-result-manual" @click="emit('manual')">{{ manualPerformance.pending_review_seats?.length ? 'Review manual score' : 'Manual score / correct judge score' }}</button>
+                    <button v-if="performance?.status === 'scoring'" type="button" class="operator-result-primary" :disabled="processing || performance.submitted_count !== performance.judge_count || performance.pending_review_seats?.length" @click="emit('command', 'approve')">Confirm and publish result</button>
                 </div>
             </div>
         </template>
