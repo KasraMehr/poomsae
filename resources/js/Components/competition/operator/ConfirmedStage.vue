@@ -13,6 +13,7 @@ const entries = computed(() => (props.match?.entries ?? []).map((entry, index) =
         ...entry,
         sideClass: isHong ? 'hong' : 'chung',
         sideLabel: isHong ? 'HONG' : 'CHUNG',
+        winner: props.match?.winner_entry_id === entry.id,
     };
 }));
 const number = value => value == null ? '—' : Number(value).toFixed(2);
@@ -62,7 +63,7 @@ const scoreFor = performance => performance?.result ?? performance?.preview_resu
                 v-for="entry in entries"
                 :key="`athlete-${entry.id}`"
                 class="operator-confirmed-athlete"
-                :class="entry.sideClass"
+                :class="[entry.sideClass, { 'winner-column': entry.winner }]"
             >
                 <span>{{ entry.sideLabel }}</span>
                 <h2>{{ entry.short_name || entry.name }}</h2>
@@ -72,7 +73,12 @@ const scoreFor = performance => performance?.result ?? performance?.preview_resu
                 FORM {{ forms[0].number }}
             </div>
             <div v-else class="operator-confirmed-table-spacer" aria-hidden="true"></div>
-            <div v-for="entry in entries" :key="`score-head-${entry.id}`" class="operator-confirmed-score-head">
+            <div
+                v-for="entry in entries"
+                :key="`score-head-${entry.id}`"
+                class="operator-confirmed-score-head"
+                :class="[entry.sideClass, { 'winner-column': entry.winner }]"
+            >
                 <span>ACCURACY</span>
                 <span>PRESENTATION</span>
                 <span>TOTAL</span>
@@ -91,7 +97,7 @@ const scoreFor = performance => performance?.result ?? performance?.preview_resu
                     v-for="entry in form.entries"
                     :key="`${form.number}-${entry.id}`"
                     class="operator-confirmed-score-group"
-                    :class="entry.sideClass"
+                    :class="[entry.sideClass, { 'winner-column': entry.winner }]"
                 >
                     <div class="operator-confirmed-score-part">{{ number(accuracyFor(entry.performance)) }}</div>
                     <div class="operator-confirmed-score-part">{{ number(presentationFor(entry.performance)) }}</div>
@@ -108,7 +114,7 @@ const scoreFor = performance => performance?.result ?? performance?.preview_resu
                 v-for="entry in finalResults"
                 :key="`final-${entry.id}`"
                 class="operator-confirmed-final-score"
-                :class="[entry.sideClass, { winner: entry.winner }]"
+                :class="[entry.sideClass, { 'winner-column': entry.winner }]"
             >
                 <div class="operator-confirmed-final-total">
                     <strong>{{ number(entry.total) }}</strong>
@@ -150,11 +156,14 @@ const scoreFor = performance => performance?.result ?? performance?.preview_resu
 .operator-confirmed-score-group.hong .operator-confirmed-score-total{color:#c44750}
 .operator-confirmed-final-label{display:grid;place-items:center;padding:10px;background:#0d192b;color:white;font-size:clamp(13px,1.4vw,18px);font-weight:900;letter-spacing:.5px;text-align:center}
 .operator-confirmed-final-score{display:grid;grid-template-columns:minmax(0,1fr);place-items:stretch;background:#ebf1fd}
-.operator-confirmed-final-score.winner{box-shadow:inset 0 0 0 2px #0d192b}
+.operator-confirmed-table .winner-column.chung{--winner-outline-color:#2475bf;box-shadow:inset 2px 0 var(--winner-outline-color),inset -2px 0 var(--winner-outline-color)}
+.operator-confirmed-table .winner-column.hong{--winner-outline-color:#c44750;box-shadow:inset 2px 0 var(--winner-outline-color),inset -2px 0 var(--winner-outline-color)}
+.operator-confirmed-table .operator-confirmed-athlete.winner-column{box-shadow:inset 2px 0 var(--winner-outline-color),inset -2px 0 var(--winner-outline-color),inset 0 2px var(--winner-outline-color)}
+.operator-confirmed-table .operator-confirmed-final-score.winner-column{box-shadow:inset 2px 0 var(--winner-outline-color),inset -2px 0 var(--winner-outline-color),inset 0 -2px var(--winner-outline-color)}
 .operator-confirmed-final-total{display:grid;align-content:center;justify-items:center;gap:5px;width:100%;padding:8px;text-align:center}
 .operator-confirmed-final-total strong{color:#2475bf;font-family:"OperatorMixedMono",Consolas,monospace;font-size:clamp(36px,5vw,62px);font-weight:900;line-height:1.05;white-space:nowrap}
 .operator-confirmed-final-score.hong .operator-confirmed-final-total strong{color:#c44750}
-.operator-confirmed-final-total>span{padding:3px 6px;background:#0d192b;color:white;font-size:9px;font-weight:900;letter-spacing:.6px}
+.operator-confirmed-final-total>span{color:var(--winner-outline-color,#2475bf);font-size:clamp(14px,1.5vw,20px);font-weight:900;letter-spacing:.8px}
 .operator-confirmed-empty{grid-column:1/-1;margin:0;padding:12px;color:#667184;font-size:10px}
 .operator-confirmed-empty h2,.operator-confirmed-empty p{margin:4px}
 @media(max-width:600px){.operator-confirmed-stage{padding-top:8px}.operator-confirmed-table{grid-template-columns:max-content repeat(2,minmax(0,1fr))}.operator-confirmed-table.single-entry{grid-template-columns:max-content minmax(0,1fr)}.operator-confirmed-form-column-head{font-size:8px}.operator-confirmed-athlete{padding:22px 6px 6px}.operator-confirmed-athlete>span{top:5px;left:6px;font-size:9px}.operator-confirmed-athlete h2{font-size:14px}.operator-confirmed-score-head>span{padding:5px 2px;font-size:8px}.operator-confirmed-form-label>span{min-height:26px;font-size:8px}.operator-confirmed-form-label>strong{max-width:min(24vw,130px);padding:5px;font-size:10px}.operator-confirmed-score-part{padding:5px 2px;font-size:clamp(13px,3.2vw,19px)}.operator-confirmed-score-total{padding:5px 2px;font-size:clamp(18px,4vw,26px)}.operator-confirmed-final-label{padding:6px;font-size:10px}.operator-confirmed-final-total{padding:5px}.operator-confirmed-final-total strong{font-size:clamp(26px,7vw,40px)}}

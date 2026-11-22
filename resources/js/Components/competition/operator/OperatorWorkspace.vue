@@ -50,6 +50,43 @@ const court = computed(
         props.console.courts[0],
 );
 const matches = computed(() => court.value?.matches ?? []);
+const matchListEntries = (item) => {
+    const category = props.console.tournament.categories.find(
+        (candidate) => candidate.id === item.category_id,
+    );
+    const entries = (item.entries ?? []).map((entry, index) => {
+        const side = String(entry.side ?? "").toLowerCase();
+        const listSide = (item.entries?.length ?? 0) === 1
+            ? "solo"
+            : ["chung", "blue"].includes(side)
+              ? "chung"
+              : ["hong", "red"].includes(side)
+                ? "hong"
+                : index === 1
+                  ? "hong"
+                  : "chung";
+        const categoryEntry = category?.entries?.find(
+            (candidate) => candidate.id === entry.id,
+        );
+        const members = (categoryEntry?.members ?? [])
+            .map((member) => member.short_name || member.name)
+            .filter((name) => typeof name === "string" && name.trim() !== "");
+
+        return {
+            ...entry,
+            listSide,
+            operatorMembers: members.length
+                ? members
+                : [entry.short_name || entry.name].filter(Boolean),
+        };
+    });
+
+    return entries.sort((left, right) => {
+        const sideOrder = { chung: 0, hong: 1 };
+
+        return sideOrder[left.listSide] - sideOrder[right.listSide];
+    });
+};
 const matchGroups = computed(() => {
     const groups = new Map();
 
@@ -67,7 +104,10 @@ const matchGroups = computed(() => {
             });
         }
 
-        groups.get(key).matches.push(item);
+        groups.get(key).matches.push({
+            ...item,
+            operatorEntries: matchListEntries(item),
+        });
     }
 
     return [...groups.values()];
@@ -492,33 +532,59 @@ const time = (value) =>
                                 }"
                                 @click="selectMatch(item.id)"
                             >
-                                <span class="operator-match-number"
-                                    >No.{{ item.sequence }}</span
-                                ><span
-                                    class="operator-match-status"
-                                    :class="{
-                                        ready: item.status === 'pending',
-                                        live: item.status === 'running',
-                                        completed: item.status === 'completed',
-                                        cancelled: item.status === 'cancelled',
-                                    }"
+                                <span class="operator-match-topline">
+                                    <span class="operator-match-number"
+                                        >No.{{ item.sequence }}</span
                                     ><span
-                                        v-if="item.status === 'running'"
-                                        class="operator-match-live-dot"
-                                        aria-hidden="true"
-                                    ></span
-                                    >{{
-                                        statusLabels[item.status] ?? item.status
-                                    }}</span
+                                        class="operator-match-status"
+                                        :class="{
+                                            ready: item.status === 'pending',
+                                            live: item.status === 'running',
+                                            completed: item.status === 'completed',
+                                            cancelled: item.status === 'cancelled',
+                                        }"
+                                        ><span
+                                            v-if="item.status === 'pending'"
+                                            class="operator-match-ready-dot"
+                                            aria-hidden="true"
+                                        ></span
+                                        ><span
+                                            v-else-if="item.status === 'running'"
+                                            class="operator-match-live-dot"
+                                            aria-hidden="true"
+                                        ></span
+                                        >{{
+                                            statusLabels[item.status] ?? item.status
+                                        }}</span
+                                    >
+                                </span>
+                                <span
+                                    v-if="item.operatorEntries.length"
+                                    class="operator-match-entries"
+                                    :class="{
+                                        'single-entry': item.operatorEntries.length === 1,
+                                    }"
                                 >
-                                <strong>{{
-                                    item.entries
-                                        .map(
-                                            (entry) =>
-                                                entry.short_name || entry.name,
-                                        )
-                                        .join("  /  ") || "No athletes assigned"
-                                }}</strong>
+                                    <span
+                                        v-for="entry in item.operatorEntries"
+                                        :key="entry.id"
+                                        class="operator-match-entry"
+                                        :class="entry.listSide"
+                                    >
+                                        <span class="operator-match-member-list">
+                                            <span
+                                                v-for="(name, nameIndex) in entry.operatorMembers"
+                                                :key="`${entry.id}-${nameIndex}`"
+                                                class="operator-match-member"
+                                                :title="name"
+                                                >{{ name }}</span
+                                            >
+                                        </span>
+                                    </span>
+                                </span>
+                                <span v-else class="operator-match-no-athletes"
+                                    >No athletes assigned</span
+                                >
                             </button>
                         </section>
                         <p v-if="!matches.length" class="operator-empty">
