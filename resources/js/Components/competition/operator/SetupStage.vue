@@ -1,6 +1,8 @@
 <script setup>
 import { computed } from 'vue';
 import { displayLabel } from './displayLabel';
+import { getEntryMemberNames, getEntrySideClass } from './entryPresentation';
+import { vAutoFitText } from './autoFitText';
 
 const props = defineProps({
     match: { type: Object, default: null },
@@ -14,10 +16,16 @@ const props = defineProps({
 
 const emit = defineEmits(['continue']);
 const performanceStatus = computed(() => props.performance?.status ?? props.match?.status ?? 'pending');
-const profiles = computed(() => props.match?.entries?.map(entry => ({
-    ...entry,
-    profile: props.category?.entries?.find(categoryEntry => categoryEntry.id === entry.id) ?? null,
-})) ?? []);
+const profiles = computed(() => props.match?.entries?.map((entry, index) => {
+    const profile = props.category?.entries?.find(categoryEntry => categoryEntry.id === entry.id) ?? null;
+
+    return {
+        ...entry,
+        profile,
+        sideClass: getEntrySideClass(entry, index),
+        memberNames: getEntryMemberNames(entry, profile),
+    };
+}) ?? []);
 const forms = computed(() => {
     const entryIds = new Set((props.match?.entries ?? []).map(entry => entry.id));
     const formsByNumber = new Map();
@@ -156,14 +164,22 @@ const continueLabel = computed(() => ({
 <template>
     <section v-if="match" class="operator-setup" aria-label="Match setup">
         <div class="operator-setup-left">
-            <article v-for="(entry, index) in profiles" :key="entry.id" class="operator-setup-athlete" :class="profiles.length === 1 ? 'solo' : index === 0 ? 'chung' : 'hong'">
+            <article v-for="(entry, index) in profiles" :key="entry.id" class="operator-setup-athlete" :class="profiles.length === 1 ? 'solo' : entry.sideClass">
                 <header>
                     <strong>{{ profiles.length === 1 ? 'ATHLETE' : entry.side?.toUpperCase() ?? (index === 0 ? 'CHUNG / BLUE' : 'HONG / RED') }}</strong>
+                    <span class="operator-setup-athlete-club" :title="entry.profile?.club || entry.profile?.country_code || entry.team || ''">
+                        {{ entry.profile?.club || entry.profile?.country_code || entry.team || '' }}
+                    </span>
                 </header>
                 <div class="operator-setup-athlete-info">
-                    <div>
-                        <h2>{{ entry.profile?.short_name || entry.short_name || entry.name }}</h2>
-                        <p>{{ entry.profile?.club || entry.profile?.country_code || 'Athlete profile loaded' }}</p>
+                    <div
+                        v-auto-fit-text="{ min: 14 }"
+                        class="operator-setup-member-list"
+                        :class="`member-count-${Math.min(entry.memberNames.length, 3)}`"
+                        dir="ltr"
+                        :title="entry.memberNames.join(' / ')"
+                    >
+                        {{ entry.memberNames.join(' / ') }}
                     </div>
                 </div>
             </article>
@@ -238,7 +254,7 @@ const continueLabel = computed(() => ({
 }
 
 .operator-setup-athlete.solo {
-    padding: 18px 24px;
+    padding: 10px 18px 12px;
     background: #edf2f9;
     text-align: center;
 }
@@ -248,15 +264,11 @@ const continueLabel = computed(() => ({
 }
 
 .operator-setup-athlete.solo header {
-    justify-content: center;
+    justify-content: space-between;
 }
 
 .operator-setup-athlete.solo .operator-setup-athlete-info {
     justify-content: center;
-}
-
-.operator-setup-athlete.solo h2 {
-    font-size: clamp(19px, 2vw, 24px);
 }
 
 .operator-setup-athlete::before {
@@ -275,6 +287,8 @@ const continueLabel = computed(() => ({
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 10px;
+    width: 100%;
     min-height: 24px;
 }
 
@@ -293,26 +307,54 @@ const continueLabel = computed(() => ({
     color: #c44750;
 }
 
+.operator-setup-athlete-club {
+    min-width: 0;
+    max-width: 58%;
+    overflow: hidden;
+    color: #555f6d;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .operator-setup-athlete-info {
     display: flex;
+    min-width: 0;
+    flex-direction: column;
     align-items: center;
-    margin-top: 5px;
+    gap: 4px;
+    margin-top: 2px;
 }
 
-.operator-setup-athlete-info h2 {
-    overflow-wrap: anywhere;
-    margin: 0;
+.operator-setup-member-list {
+    display: -webkit-box;
+    width: 100%;
+    min-width: 0;
+    max-height: 2.3em;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
     color: #0a1422;
-    font-size: clamp(15px, 1.5vw, 19px);
+    direction: ltr;
     font-weight: 800;
-    line-height: 1.25;
-    text-wrap: balance;
+    line-height: 1.15;
+    line-clamp: 2;
+    overflow-wrap: anywhere;
+    text-align: left;
 }
 
-.operator-setup-athlete-info p {
-    margin: 4px 0 0;
-    color: #555f6d;
-    font-size: 13px;
+.operator-setup-member-list.member-count-1 {
+    font-size: clamp(18px, 1.8vw, 24px);
+}
+
+.operator-setup-member-list.member-count-2 {
+    font-size: clamp(16px, 1.6vw, 20px);
+}
+
+.operator-setup-member-list.member-count-3 {
+    font-size: clamp(15px, 1.35vw, 17px);
 }
 
 .operator-setup-forms {
