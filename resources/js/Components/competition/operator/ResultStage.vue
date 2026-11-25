@@ -14,6 +14,8 @@ const props = defineProps({
 
 const emit = defineEmits(['command', 'manual', 'details', 'continue']);
 const hasResult = computed(() => ['scoring', 'approved', 'completed'].includes(props.performance?.status));
+const isBeforeStart = computed(() => !props.performance || props.performance.status === 'pending');
+const showResultLayout = computed(() => hasResult.value || isBeforeStart.value);
 const number = value => value == null ? '—' : Number(value).toFixed(2);
 const scorePart = (score, part) => score?.values?.[part] == null ? '—' : number(score.values[part] / 100);
 const formPerformanceFor = entry => (props.bout?.performances ?? []).find(item => item.entry_id === entry.id && item.form_number === props.performance?.form_number)
@@ -21,7 +23,7 @@ const formPerformanceFor = entry => (props.bout?.performances ?? []).find(item =
 const isCurrentPerformance = entry => {
     const formPerformance = formPerformanceFor(entry);
 
-    if (formPerformance?.id === props.performance?.id) {
+    if (props.performance && formPerformance?.id === props.performance.id) {
         return true;
     }
 
@@ -31,11 +33,15 @@ const isCurrentPerformance = entry => {
         && ['running', 'scoring', 'approved'].includes(formPerformance?.status);
 };
 const scoreFor = entry => {
+    if (isBeforeStart.value) {
+        return null;
+    }
+
     const formPerformance = formPerformanceFor(entry);
 
     return formPerformance?.result ?? formPerformance?.preview_result ?? formPerformance?.detailed_scores?.total ?? null;
 };
-const detailedScoresFor = entry => formPerformanceFor(entry)?.detailed_scores ?? null;
+const detailedScoresFor = entry => isBeforeStart.value ? null : formPerformanceFor(entry)?.detailed_scores ?? null;
 const hasManualScoreAction = computed(() => Boolean(props.manualPerformance));
 const errorMessages = computed(() => Object.values(props.errors ?? {})
     .flatMap(value => Array.isArray(value) ? value : [value])
@@ -68,9 +74,11 @@ const judgeTables = computed(() => {
                 .sort((left, right) => left.seat - right.seat)
                 .map(judge => ({
                     judge,
-                    score: scores.find(score => score.judge_assignment_id === judge.id)
-                        ?? scores.find(score => score.seat === judge.seat)
-                        ?? null,
+                    score: isBeforeStart.value
+                        ? null
+                        : scores.find(score => score.judge_assignment_id === judge.id)
+                            ?? scores.find(score => score.seat === judge.seat)
+                            ?? null,
                 })),
             judgeCount: props.judges.length || tablePerformance?.judge_count || props.category?.judge_count || 0,
         };
@@ -113,27 +121,16 @@ const judgeStatus = score => {
 const scoreTotal = score => score?.values
     ? number((score.values.score ?? ((score.values.accuracy ?? 0) + (score.values.presentation ?? 0))) / 100)
     : '—';
-const tableSummary = table => {
-    if (table.performance?.result != null) {
-        return `FINAL AVG: ${number(table.performance.result)}`;
-    }
-
-    if (table.performance?.preview_result != null) {
-        return `PREVIEW: ${number(table.performance.preview_result)}`;
-    }
-
-    return `${table.performance?.submitted_count ?? 0} / ${table.judgeCount} SCORES`;
-};
 </script>
 
 <template>
     <section
         v-if="match"
         class="operator-result-stage"
-        :class="{ 'with-table-tabs': judgeTables.length > 1 }"
+        :class="{ 'with-table-tabs': judgeTables.length > 1, 'is-empty': isBeforeStart }"
         aria-label="Match result and scoring"
     >
-        <template v-if="hasResult">
+        <template v-if="showResultLayout">
             <div class="operator-result-cards" :class="{ 'single-entry': match.entries.length === 1 }">
                 <article
                     v-for="(entry, index) in match.entries"
@@ -191,10 +188,6 @@ const tableSummary = table => {
                         'mobile-selected': selectedJudgeTableId === table.entryId,
                     }"
                 >
-                    <div class="operator-result-matrix-head">
-                        <strong>JUDGE SCORES</strong>
-                        <span v-if="tableSummary(table)">{{ tableSummary(table) }}</span>
-                    </div>
                     <div class="operator-result-table-wrap">
                         <table>
                             <thead><tr><th>JUDGE</th><th>ACCURACY</th><th>PRESENTATION</th><th>TOTAL</th><th>SCORE ENTRY</th><th>JUDGE STATUS</th></tr></thead>
@@ -227,7 +220,7 @@ const tableSummary = table => {
                     <p v-if="errorMessages.length" class="operator-result-errors" role="alert">{{ errorMessages.join(' · ') }}</p>
                 </div>
                 <div class="operator-result-action-buttons">
-                    <button type="button" class="operator-result-details" @click="emit('details')">Match controls and decisions ↗</button>
+                    <button type="button" class="operator-result-details" :disabled="isBeforeStart" @click="emit('details')">Match controls and decisions ↗</button>
                     <button v-if="hasManualScoreAction" type="button" class="operator-result-manual" @click="emit('manual')">{{ manualPerformance.pending_review_seats?.length ? 'Review manual score' : 'Manual score / correct judge score' }}</button>
                     <button v-if="performance?.status === 'scoring'" type="button" class="operator-result-primary" :disabled="processing || performance.submitted_count !== performance.judge_count || performance.pending_review_seats?.length" @click="emit('command', 'approve')">Confirm and publish result</button>
                 </div>
@@ -430,47 +423,6 @@ const tableSummary = table => {
 
 .operator-result-matrix.hong {
     border-color: #d5b8bc;
-}
-
-.operator-result-matrix-head {
-    display: flex;
-    min-width: 0;
-    flex: none;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    padding: 6px 8px;
-    background: #edf1f9;
-    font-size: 10px;
-}
-
-.operator-result-matrix.hong .operator-result-matrix-head {
-    background: #f9e8e9;
-    color: #a13c45;
-}
-
-.operator-result-matrix:not(.hong) .operator-result-matrix-head {
-    background: #e5efff;
-    color: #1f64a8;
-}
-
-.operator-result-matrix-head strong {
-    overflow: hidden;
-    min-width: 0;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.operator-result-matrix-head span {
-    flex: none;
-    padding: 1px 7px;
-    background: #dce4f3;
-    font-family: "OperatorMixedMono", Consolas, monospace;
-    font-size: 9px;
-}
-
-.operator-result-matrix.hong .operator-result-matrix-head > span {
-    background: #eddfe1;
 }
 
 .operator-result-table-wrap {
@@ -687,6 +639,11 @@ const tableSummary = table => {
     color: #0d192b;
 }
 
+.operator-result-details:disabled {
+    cursor: not-allowed;
+    opacity: .5;
+}
+
 .operator-result-no-athletes,
 .operator-result-empty {
     padding: 18px;
@@ -757,17 +714,6 @@ const tableSummary = table => {
     .operator-result-stage {
         padding: 6px 0 0;
         gap: 5px;
-    }
-
-    .operator-result-matrix-head {
-        gap: 4px;
-        padding: 5px;
-        font-size: 8px;
-    }
-
-    .operator-result-matrix-head > span {
-        padding: 1px 3px;
-        font-size: 7px;
     }
 
     .operator-result-table-wrap th,
