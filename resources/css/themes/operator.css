@@ -2094,3 +2094,204 @@
     border-radius: 50%;
     background: #d6aa2f;
 }
+
+/* Responsive sizing for the shared operator frame and its common bars. */
+.operator-workspace {
+    box-sizing: border-box;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+}
+
+.operator-topbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    min-width: 0;
+    gap: clamp(8px, 1.2vw, 20px);
+    padding-inline: clamp(10px, 1.75vw, 24px);
+}
+
+.operator-brand {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+}
+
+.operator-topbar nav {
+    position: static;
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: center;
+    width: max-content;
+    max-width: 100%;
+    min-width: 0;
+    transform: none;
+}
+
+.operator-top-actions {
+    grid-column: 3;
+    grid-row: 1;
+    justify-self: end;
+    min-width: 0;
+    gap: clamp(5px, 0.75vw, 10px);
+}
+
+.operator-columns {
+    box-sizing: border-box;
+    min-width: 0;
+    gap: clamp(8px, 1.2vw, 16px);
+    padding: clamp(8px, 1.2vw, 16px);
+}
+
+.operator-center,
+.operator-stage-head,
+.operator-stage-head > div:first-child,
+.operator-stage-content {
+    min-width: 0;
+}
+
+.operator-footer {
+    box-sizing: border-box;
+    min-width: 0;
+}
+
+.operator-footer > span,
+.operator-footer-status {
+    min-width: 0;
+}
+
+.operator-no-court {
+    box-sizing: border-box;
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+}
+
+@media (max-width: 1024px) {
+    .operator-topbar {
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-rows: auto auto;
+        height: auto;
+        min-height: 64px;
+        row-gap: 4px;
+        padding-block: 6px;
+    }
+
+    .operator-topbar nav {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        justify-self: stretch;
+        width: 100%;
+        height: 30px;
+        justify-content: center;
+    }
+
+    .operator-top-actions {
+        grid-column: 2;
+        grid-row: 1;
+    }
+
+    .operator-stage-head {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 7px;
+    }
+
+    .operator-steps {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        width: 100%;
+        gap: 6px;
+    }
+
+    .operator-steps button {
+        min-width: 0;
+        padding-inline: clamp(2px, 0.8vw, 9px);
+        white-space: normal;
+    }
+
+    .operator-steps button:not(:first-child)::before {
+        display: none;
+    }
+
+    .operator-footer {
+        height: auto;
+        min-height: 40px;
+        flex-wrap: wrap;
+        gap: 4px 10px;
+        padding: 6px 10px;
+        white-space: normal;
+    }
+
+    .operator-footer-status {
+        flex-wrap: wrap;
+    }
+}
+
+@media (max-width: 740px) {
+    .operator-topbar {
+        display: flex;
+        height: auto;
+        min-height: 60px;
+        flex-wrap: wrap;
+        align-content: center;
+        gap: 6px 8px;
+        padding: 8px 10px;
+    }
+
+    .operator-brand {
+        order: 0;
+    }
+
+    .operator-top-actions {
+        order: 1;
+        width: 100%;
+        justify-self: auto;
+        gap: 6px;
+    }
+
+    .operator-topbar nav {
+        order: 2;
+        width: 100%;
+        height: 36px;
+        justify-content: flex-start;
+        overflow: hidden;
+    }
+
+    .operator-columns {
+        gap: 8px;
+        padding: 10px;
+    }
+
+    .operator-footer {
+        align-items: flex-start;
+        padding: 6px 8px;
+    }
+}
+
+@media (max-height: 760px) and (min-width: 741px) {
+    .operator-topbar {
+        padding-block: 4px;
+    }
+
+    .operator-columns {
+        padding-block: 8px;
+    }
+
+    .operator-match-meta {
+        min-height: 56px;
+        margin-bottom: 6px;
+        padding-block: 6px;
+    }
+
+    .operator-stage-head {
+        min-height: 54px;
+        padding-block: 5px;
+    }
+
+    .operator-footer {
+        min-height: 32px;
+        padding-block: 4px;
+    }
+}
