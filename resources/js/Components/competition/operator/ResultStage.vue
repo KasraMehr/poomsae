@@ -1,5 +1,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
+import { getEntryMemberNames, getEntrySideClass } from './entryPresentation';
+import { vAutoFitText } from './autoFitText';
 
 const props = defineProps({
     match: { type: Object, default: null },
@@ -16,6 +18,19 @@ const emit = defineEmits(['command', 'manual', 'details', 'continue']);
 const hasResult = computed(() => ['scoring', 'approved', 'completed'].includes(props.performance?.status));
 const isBeforeStart = computed(() => !props.performance || props.performance.status === 'pending');
 const showResultLayout = computed(() => hasResult.value || isBeforeStart.value);
+const entries = computed(() => (props.match?.entries ?? [])
+    .map((entry, index) => {
+        const profile = props.category?.entries?.find(categoryEntry => categoryEntry.id === entry.id) ?? null;
+        const sideClass = getEntrySideClass(entry, index);
+
+        return {
+            ...entry,
+            sideClass,
+            sideLabel: sideClass.toUpperCase(),
+            memberNames: getEntryMemberNames(entry, profile),
+        };
+    })
+    .sort((left, right) => (left.sideClass === 'chung' ? 0 : 1) - (right.sideClass === 'chung' ? 0 : 1)));
 const number = value => value == null ? '—' : Number(value).toFixed(2);
 const scorePart = (score, part) => score?.values?.[part] == null ? '—' : number(score.values[part] / 100);
 const formPerformanceFor = entry => (props.bout?.performances ?? []).find(item => item.entry_id === entry.id && item.form_number === props.performance?.form_number)
@@ -51,15 +66,14 @@ const simultaneousEntries = computed(() =>
     props.category?.execution_mode === 'simultaneous' && (props.match?.entries?.length ?? 0) > 1,
 );
 const judgeTables = computed(() => {
-    const entries = props.match?.entries ?? [];
     const tableEntries = simultaneousEntries.value
-        ? entries
-        : entries.filter(entry => entry.id === props.performance?.entry_id).slice(0, 1);
+        ? entries.value
+        : entries.value.filter(entry => entry.id === props.performance?.entry_id).slice(0, 1);
     const resolvedEntries = tableEntries.length > 0
         ? tableEntries
-        : entries.slice(0, 1);
+        : entries.value.slice(0, 1);
 
-    return resolvedEntries.map((entry, index) => {
+    return resolvedEntries.map(entry => {
         const tablePerformance = simultaneousEntries.value
             ? formPerformanceFor(entry)
             : props.performance;
@@ -68,7 +82,7 @@ const judgeTables = computed(() => {
         return {
             entryId: entry.id,
             entry,
-            sideLabel: entry.side?.toUpperCase() ?? (index === 0 ? 'CHUNG / BLUE' : 'HONG / RED'),
+            sideLabel: entry.sideLabel,
             performance: tablePerformance,
             rows: [...props.judges]
                 .sort((left, right) => left.seat - right.seat)
@@ -131,25 +145,32 @@ const scoreTotal = score => score?.values
         aria-label="Match result and scoring"
     >
         <template v-if="showResultLayout">
-            <div class="operator-result-cards" :class="{ 'single-entry': match.entries.length === 1 }">
+            <div class="operator-result-cards" :class="{ 'single-entry': entries.length === 1 }">
                 <article
-                    v-for="(entry, index) in match.entries"
+                    v-for="entry in entries"
                     :key="entry.id"
                     class="operator-result-card"
                     :class="[
-                        match.entries.length === 1 ? 'solo' : entry.side?.toLowerCase() === 'hong' || index === 1 ? 'hong' : 'chung',
+                        entry.sideClass,
+                        { solo: entries.length === 1 },
                         {
                             winner: entry.id === bout?.winner_entry_id,
-                            'not-performed': !formPerformanceFor(entry),
+                            'not-performed': !isBeforeStart && !formPerformanceFor(entry),
                             'form-performer': isCurrentPerformance(entry),
                         },
                     ]"
                 >
                     <div class="operator-result-identity">
                         <div class="operator-result-card-head">
-                            <span>{{ match.entries.length === 1 ? 'ATHLETE' : entry.side?.toUpperCase() ?? (index === 0 ? 'CHUNG / BLUE' : 'HONG / RED') }}</span>
+                            <span>{{ entries.length === 1 ? 'ATHLETE' : entry.sideLabel }}</span>
                         </div>
-                        <h2>{{ entry.short_name || entry.name }}</h2>
+                        <h2
+                            v-auto-fit-text="{ min: 10 }"
+                            class="operator-result-member-list"
+                            :title="entry.memberNames.join(' / ')"
+                        >
+                            {{ entry.memberNames.join(' / ') }}
+                        </h2>
                     </div>
                     <div class="operator-result-card-scores">
                         <div class="operator-result-components">
@@ -162,7 +183,7 @@ const scoreTotal = score => score?.values
                         </div>
                     </div>
                 </article>
-                <article v-if="!match.entries.length" class="operator-result-no-athletes">No athletes assigned.</article>
+                <article v-if="!entries.length" class="operator-result-no-athletes">No athletes assigned.</article>
             </div>
 
             <div v-if="judgeTables.length > 1" class="operator-result-table-tabs" role="group" aria-label="Choose a side's judge scores">
@@ -171,7 +192,7 @@ const scoreTotal = score => score?.values
                     :key="table.entryId"
                     type="button"
                     :aria-pressed="selectedJudgeTableId === table.entryId"
-                    :class="{ active: selectedJudgeTableId === table.entryId, hong: table.entry.side?.toLowerCase() === 'hong' }"
+                    :class="{ active: selectedJudgeTableId === table.entryId, hong: table.entry.sideClass === 'hong' }"
                     @click="selectedJudgeTableId = table.entryId"
                 >
                     {{ table.sideLabel }}
@@ -183,10 +204,7 @@ const scoreTotal = score => score?.values
                     v-for="table in judgeTables"
                     :key="table.entryId"
                     class="operator-result-matrix"
-                    :class="{
-                        hong: table.entry.side?.toLowerCase() === 'hong',
-                        'mobile-selected': selectedJudgeTableId === table.entryId,
-                    }"
+                    :class="[table.entry.sideClass, { 'mobile-selected': selectedJudgeTableId === table.entryId }]"
                 >
                     <div class="operator-result-table-wrap">
                         <table>
@@ -257,7 +275,7 @@ const scoreTotal = score => score?.values
 }
 
 .operator-result-stage.with-table-tabs {
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
 .operator-result-cards {
@@ -275,16 +293,19 @@ const scoreTotal = score => score?.values
     position: relative;
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
-    align-items: center;
+    align-items: stretch;
     gap: 10px;
     min-width: 0;
-    padding: 9px 10px;
+    min-height: 78px;
+    padding: 6px 8px;
     border: 1px solid #c4c9d2;
     background: #ebf1fd;
+    direction: ltr;
 }
 
 .operator-result-card.hong {
     background: #f6f2f4;
+    direction: rtl;
 }
 
 .operator-result-card.winner {
@@ -305,15 +326,24 @@ const scoreTotal = score => score?.values
 }
 
 .operator-result-identity {
+    position: relative;
+    display: flex;
+    min-height: 64px;
+    flex-direction: column;
+    justify-content: center;
     min-width: 0;
+    box-sizing: border-box;
+    padding-top: 14px;
 }
 
-.operator-result-card-head,
-.operator-result-card-scores {
+.operator-result-card-head {
+    position: absolute;
+    top: 0;
+    right: auto;
+    left: 0;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 6px;
+    align-items: flex-start;
+    justify-content: flex-start;
 }
 
 .operator-result-card-head span {
@@ -328,20 +358,39 @@ const scoreTotal = score => score?.values
 }
 
 .operator-result-card h2 {
+    display: -webkit-box;
+    width: 100%;
+    max-height: 2.5em;
     overflow: hidden;
-    margin: 4px 0 2px;
+    margin: 0;
     font-size: clamp(16px, 1.5vw, 22px);
     font-weight: 800;
     text-align: left;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    line-height: 1.25;
+    direction: ltr;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow-wrap: anywhere;
+}
+
+.operator-result-card.hong h2 {
+    text-align: right;
+}
+
+.operator-result-card.hong .operator-result-card-head {
+    right: 0;
+    left: auto;
 }
 
 .operator-result-card-scores {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
     gap: 4px;
     min-width: 0;
+    min-height: 64px;
+    direction: inherit;
 }
 
 .operator-result-components {
@@ -354,13 +403,15 @@ const scoreTotal = score => score?.values
     min-width: 0;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    padding: 4px 3px;
+    justify-content: space-between;
+    height: 100%;
+    box-sizing: border-box;
+    padding: 2px 3px 1px;
     background: #ffffff75;
 }
 
 .operator-result-total {
-    gap: 5px;
+    gap: 0;
 }
 
 .operator-result-components small,
@@ -370,6 +421,16 @@ const scoreTotal = score => score?.values
     font-weight: 800;
     letter-spacing: .2px;
     white-space: nowrap;
+}
+
+.operator-result-card.chung .operator-result-components small,
+.operator-result-card.chung .operator-result-total small {
+    color: #2475bf;
+}
+
+.operator-result-card.hong .operator-result-components small,
+.operator-result-card.hong .operator-result-total small {
+    color: #c44750;
 }
 
 .operator-result-components strong,
@@ -659,28 +720,42 @@ const scoreTotal = score => score?.values
 
 @media (max-width: 600px) {
     .operator-result-cards {
+        grid-template-columns: minmax(0, 1fr);
         gap: 7px;
     }
 
     .operator-result-card {
-        grid-template-columns: minmax(0, 1fr);
-        padding: 8px;
+        grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+        min-height: 72px;
+        gap: 6px;
+        padding: 5px 6px;
+    }
+
+    .operator-result-identity,
+    .operator-result-card-scores {
+        min-height: 60px;
     }
 
     .operator-result-card h2 {
-        font-size: clamp(15px, 4vw, 18px);
+        font-size: clamp(12px, 3.5vw, 17px);
     }
 
     .operator-result-card-scores {
-        gap: 5px;
+        gap: 3px;
+    }
+
+    .operator-result-components small,
+    .operator-result-total small {
+        font-size: 6px;
+        letter-spacing: 0;
     }
 
     .operator-result-components strong {
-        font-size: clamp(15px, 4vw, 19px);
+        font-size: clamp(13px, 3.5vw, 18px);
     }
 
     .operator-result-total strong {
-        font-size: clamp(21px, 5vw, 25px);
+        font-size: clamp(17px, 4.5vw, 23px);
     }
 
     .operator-result-actions {
@@ -737,6 +812,10 @@ const scoreTotal = score => score?.values
 }
 
 @media (max-width: 900px) {
+    .operator-result-stage.with-table-tabs {
+        grid-template-rows: auto auto minmax(0, 1fr) auto;
+    }
+
     .operator-result-table-tabs {
         display: flex;
         min-width: 0;

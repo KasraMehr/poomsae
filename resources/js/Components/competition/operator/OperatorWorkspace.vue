@@ -800,7 +800,7 @@ const time = (value) =>
                         @details="openDetailsDialog"
                         @continue="selectStage"
                     />
-                    <ConfirmedStage v-else :match="match" :bout="bout" />
+                    <ConfirmedStage v-else :match="match" :category="category" :bout="bout" />
                 </div>
             </section>
 

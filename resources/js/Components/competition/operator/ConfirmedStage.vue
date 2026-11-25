@@ -1,21 +1,28 @@
 <script setup>
 import { computed } from 'vue';
+import { getEntryMemberNames, getEntrySideClass } from './entryPresentation';
+import { vAutoFitText } from './autoFitText';
 
 const props = defineProps({
     match: { type: Object, default: null },
+    category: { type: Object, default: null },
     bout: { type: Object, default: null },
 });
 
-const entries = computed(() => (props.match?.entries ?? []).map((entry, index) => {
-    const isHong = ['hong', 'red'].includes(entry.side?.toLowerCase()) || index === 1;
+const entries = computed(() => (props.match?.entries ?? [])
+    .map((entry, index) => {
+        const profile = props.category?.entries?.find(categoryEntry => categoryEntry.id === entry.id) ?? null;
+        const sideClass = getEntrySideClass(entry, index);
 
-    return {
-        ...entry,
-        sideClass: isHong ? 'hong' : 'chung',
-        sideLabel: isHong ? 'HONG' : 'CHUNG',
-        winner: props.match?.winner_entry_id === entry.id,
-    };
-}));
+        return {
+            ...entry,
+            sideClass,
+            sideLabel: sideClass.toUpperCase(),
+            memberNames: getEntryMemberNames(entry, profile),
+            winner: props.match?.winner_entry_id === entry.id,
+        };
+    })
+    .sort((left, right) => (left.sideClass === 'chung' ? 0 : 1) - (right.sideClass === 'chung' ? 0 : 1)));
 const number = value => value == null ? '—' : Number(value).toFixed(2);
 const forms = computed(() => {
     const groupedForms = new Map();
@@ -66,7 +73,12 @@ const scoreFor = performance => performance?.result ?? performance?.preview_resu
                 :class="[entry.sideClass, { 'winner-column': entry.winner }]"
             >
                 <span>{{ entry.sideLabel }}</span>
-                <h2>{{ entry.short_name || entry.name }}</h2>
+                <h2
+                    v-auto-fit-text="{ min: 7 }"
+                    :title="entry.memberNames.join(' / ')"
+                >
+                    {{ entry.memberNames.join(' / ') }}
+                </h2>
             </article>
 
             <div v-if="forms.length" class="operator-confirmed-form-column-head">
@@ -142,7 +154,7 @@ const scoreFor = performance => performance?.result ?? performance?.preview_resu
 .operator-confirmed-athlete>span{position:absolute;top:7px;left:10px;color:#2475bf;font-size:11px;font-weight:900;letter-spacing:1px}
 .operator-confirmed-athlete.hong>span{color:#c44750}
 .operator-confirmed-athlete h2{overflow:hidden;width:100%;margin:0;color:#0d192b;font-size:clamp(16px,1.5vw,22px);font-weight:800;text-overflow:ellipsis;white-space:nowrap}
-.operator-confirmed-score-head,.operator-confirmed-score-group{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,2fr);direction:ltr}
+.operator-confirmed-score-head,.operator-confirmed-score-group{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));direction:ltr}
 .operator-confirmed-score-head{background:#e5eaf3;color:#596678;text-align:center}
 .operator-confirmed-score-head>span{display:grid;place-items:center;padding:7px 4px;font-size:10px;font-weight:900;letter-spacing:.4px}
 .operator-confirmed-score-head>span+span,.operator-confirmed-score-part,.operator-confirmed-score-total{border-left:1px solid #c4c9d2}
@@ -167,4 +179,10 @@ const scoreFor = performance => performance?.result ?? performance?.preview_resu
 .operator-confirmed-empty{grid-column:1/-1;margin:0;padding:12px;color:#667184;font-size:10px}
 .operator-confirmed-empty h2,.operator-confirmed-empty p{margin:4px}
 @media(max-width:600px){.operator-confirmed-stage{padding-top:8px}.operator-confirmed-table{grid-template-columns:max-content repeat(2,minmax(0,1fr))}.operator-confirmed-table.single-entry{grid-template-columns:max-content minmax(0,1fr)}.operator-confirmed-form-column-head{font-size:8px}.operator-confirmed-athlete{padding:22px 6px 6px}.operator-confirmed-athlete>span{top:5px;left:6px;font-size:9px}.operator-confirmed-athlete h2{font-size:14px}.operator-confirmed-score-head>span{padding:5px 2px;font-size:8px}.operator-confirmed-form-label>span{min-height:26px;font-size:8px}.operator-confirmed-form-label>strong{max-width:min(24vw,130px);padding:5px;font-size:10px}.operator-confirmed-score-part{padding:5px 2px;font-size:clamp(13px,3.2vw,19px)}.operator-confirmed-score-total{padding:5px 2px;font-size:clamp(18px,4vw,26px)}.operator-confirmed-final-label{padding:6px;font-size:10px}.operator-confirmed-final-total{padding:5px}.operator-confirmed-final-total strong{font-size:clamp(26px,7vw,40px)}}
+
+.operator-confirmed-athlete h2{display:block;box-sizing:border-box;min-width:0;overflow:hidden;text-overflow:clip;white-space:nowrap;direction:ltr}
+.operator-confirmed-athlete.hong>span{right:10px;left:auto}
+.operator-confirmed-athlete.hong h2{text-align:center}
+.operator-confirmed-score-head.hong,.operator-confirmed-score-group.hong{grid-template-columns:repeat(3,minmax(0,1fr));direction:rtl}
+@media(max-width:600px){.operator-confirmed-athlete.hong>span{right:6px}}
 </style>
