@@ -613,19 +613,59 @@ const continueLabel = computed(() => ({
     margin: 0;
 }
 
-@media (max-width: 1000px) {
+@media (max-width: 640px) {
     .operator-setup {
         grid-template-columns: minmax(0, 1fr);
-        height: auto;
+        grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+        height: 100%;
         min-height: 100%;
     }
 
+    .operator-setup-left {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: auto minmax(0, 1fr);
+        gap: 8px;
+    }
+
+    .operator-setup-athlete.solo,
     .operator-setup-forms {
+        grid-column: 1 / -1;
+    }
+
+    .operator-setup-forms {
+        display: flex;
         flex: initial;
+        flex-direction: column;
+    }
+
+    .operator-setup-form-list {
+        min-height: 0;
+        flex: 1;
+        grid-auto-rows: minmax(0, 1fr);
     }
 
     .operator-setup-checklist {
         min-height: 0;
+    }
+
+    .operator-setup-checklist ul {
+        min-height: 0;
+        flex: 1;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-auto-rows: minmax(0, 1fr);
+    }
+
+    .operator-setup-checklist li {
+        min-width: 0;
+        min-height: 44px;
+        gap: 7px;
+        padding: 6px;
+    }
+
+    .operator-setup-check-icon {
+        width: 20px;
+        height: 20px;
     }
 }
 
@@ -676,6 +716,208 @@ const continueLabel = computed(() => ({
 
     .operator-setup-form small {
         grid-column: 2;
+    }
+}
+
+@media (max-height: 1000px) {
+    .operator-setup {
+        gap: clamp(6px, 1vh, 12px);
+        padding-top: clamp(4px, 1vh, 12px);
+    }
+
+    .operator-setup-left {
+        gap: clamp(5px, 0.8vh, 10px);
+    }
+
+    .operator-setup-athlete,
+    .operator-setup-athlete.solo {
+        padding-top: clamp(5px, 1vh, 10px);
+        padding-bottom: clamp(5px, 1.1vh, 12px);
+    }
+
+    .operator-setup-forms,
+    .operator-setup-checklist {
+        padding: clamp(8px, 1.25vh, 14px);
+    }
+
+    .operator-setup-forms > header,
+    .operator-setup-checklist > header {
+        padding-bottom: clamp(5px, 1.1vh, 9px);
+    }
+
+    .operator-setup-form-list {
+        gap: clamp(4px, 0.75vh, 10px);
+        margin-top: clamp(6px, 1vh, 12px);
+    }
+
+    .operator-setup-form {
+        min-height: clamp(40px, 7vh, 56px);
+        padding-block: clamp(5px, 1vh, 10px);
+        gap: clamp(6px, 0.75vw, 10px);
+    }
+
+    .operator-setup-form strong {
+        font-size: clamp(12px, 2vh, 16px);
+    }
+
+    .operator-setup-form-state {
+        min-height: clamp(20px, 3vh, 24px);
+        padding-block: clamp(2px, 0.4vh, 3px);
+        font-size: clamp(8px, 1.125vh, 9px);
+    }
+
+    .operator-setup-checklist h2 {
+        font-size: clamp(14px, 2.875vh, 23px);
+    }
+
+    .operator-setup-status-note {
+        margin-top: clamp(4px, 1vh, 8px);
+        font-size: clamp(10px, 1.5vh, 12px);
+        line-height: 1.35;
+    }
+
+    .operator-setup-checklist ul {
+        min-height: 0;
+        flex: 1;
+        gap: clamp(4px, 0.75vh, 8px);
+        margin-top: clamp(6px, 0.875vh, 10px);
+        grid-auto-rows: minmax(0, 1fr);
+    }
+
+    .operator-setup-checklist li {
+        min-height: clamp(34px, 5vh, 48px);
+        padding-block: clamp(4px, 0.75vh, 8px);
+    }
+
+    .operator-setup-check-copy strong {
+        font-size: clamp(11px, 1.625vh, 13px);
+    }
+
+    .operator-setup-check-copy small {
+        font-size: clamp(9px, 1.375vh, 11px);
+        line-height: 1.25;
+    }
+
+    .operator-setup-continue {
+        min-height: clamp(40px, 5.75vh, 54px);
+        padding-block: clamp(6px, 1vh, 12px);
+    }
+
+    .operator-setup-empty-state {
+        height: 100%;
+        min-height: 0;
+        padding: clamp(12px, 2vh, 24px);
+    }
+}
+
+@media (max-height: 620px) {
+    .operator-setup {
+        gap: 5px;
+        padding-top: 4px;
+    }
+
+    .operator-setup-left {
+        gap: 4px;
+    }
+
+    .operator-setup-athlete,
+    .operator-setup-athlete.solo {
+        padding: 4px 8px 5px 12px;
+    }
+
+    .operator-setup-athlete.solo {
+        padding-inline: 12px;
+    }
+
+    .operator-setup-athlete header {
+        gap: 6px;
+        min-height: 20px;
+    }
+
+    .operator-setup-forms,
+    .operator-setup-checklist {
+        padding: 7px;
+    }
+
+    .operator-setup-form-list {
+        gap: 4px;
+        margin-top: 5px;
+    }
+
+    .operator-setup-form {
+        min-height: 36px;
+        gap: 5px;
+        padding-block: 3px;
+    }
+
+    .operator-setup-form-number {
+        width: 24px;
+        height: 24px;
+    }
+
+    .operator-setup-form-state {
+        min-height: 18px;
+        padding: 2px 5px;
+    }
+
+    .operator-setup-checklist > header {
+        padding-bottom: 4px;
+    }
+
+    .operator-setup-status-note {
+        margin-top: 3px;
+    }
+
+    .operator-setup-checklist ul {
+        gap: 3px;
+        margin-top: 4px;
+    }
+
+    .operator-setup-checklist li {
+        min-height: 32px;
+        gap: 5px;
+        padding: 3px 5px;
+    }
+
+    .operator-setup-check-icon {
+        width: 18px;
+        height: 18px;
+    }
+
+    .operator-setup-check-copy {
+        gap: 1px;
+    }
+
+    .operator-setup-check-copy strong {
+        font-size: clamp(10px, 1.6vh, 13px);
+    }
+
+    .operator-setup-check-copy small {
+        font-size: clamp(8px, 1.3vh, 11px);
+    }
+
+    .operator-setup-continue {
+        min-height: 36px;
+        margin-top: 5px;
+        padding: 4px 8px;
+    }
+}
+
+@media (max-width: 640px) {
+    .operator-setup {
+        grid-template-rows: auto auto;
+        height: auto;
+        min-height: 100%;
+    }
+
+    .operator-setup-left {
+        grid-template-rows: auto auto;
+    }
+
+    .operator-setup-form-list,
+    .operator-setup-checklist ul {
+        flex: initial;
+        grid-auto-rows: auto;
     }
 }
 </style>
