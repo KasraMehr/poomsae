@@ -93,7 +93,7 @@ const statusText = computed(() => ({
                 </header>
                 <div class="operator-live-entry-content">
                     <div
-                        v-auto-fit-text="{ min: 18 }"
+                        v-auto-fit-text="{ min: 18, maxLines: 2 }"
                         class="operator-live-member-list"
                         :class="`member-count-${Math.min(entry.memberNames.length, 3)}`"
                         dir="ltr"

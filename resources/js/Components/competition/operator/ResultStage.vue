@@ -165,7 +165,7 @@ const scoreTotal = score => score?.values
                             <span>{{ entries.length === 1 ? 'ATHLETE' : entry.sideLabel }}</span>
                         </div>
                         <h2
-                            v-auto-fit-text="{ min: 10 }"
+                            v-auto-fit-text="{ min: 10, maxLines: 2 }"
                             class="operator-result-member-list"
                             :title="entry.memberNames.join(' / ')"
                         >

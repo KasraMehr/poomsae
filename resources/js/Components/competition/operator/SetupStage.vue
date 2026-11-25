@@ -173,7 +173,7 @@ const continueLabel = computed(() => ({
                 </header>
                 <div class="operator-setup-athlete-info">
                     <div
-                        v-auto-fit-text="{ min: 14 }"
+                        v-auto-fit-text="{ min: 14, maxLines: 2 }"
                         class="operator-setup-member-list"
                         :class="`member-count-${Math.min(entry.memberNames.length, 3)}`"
                         dir="ltr"

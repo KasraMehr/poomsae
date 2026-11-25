@@ -95,6 +95,14 @@
     border-bottom: 2px solid #0d192b;
     color: #0d192b;
 }
+.operator-auto-fit-text {
+    transition: font-size 120ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+    .operator-auto-fit-text {
+        transition: none;
+    }
+}
 .operator-top-actions {
     display: flex;
     align-items: center;
