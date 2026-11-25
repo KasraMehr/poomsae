@@ -222,9 +222,10 @@ const statusText = computed(() => ({
 }
 
 .operator-live-entry-content {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: end;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    align-content: stretch;
     gap: clamp(8px, 1vw, 14px);
     min-width: 0;
     min-height: 0;
@@ -237,8 +238,10 @@ const statusText = computed(() => ({
 
 .operator-live-member-list {
     display: -webkit-box;
-    width: 100%;
-    min-width: 0;
+    flex: 1 1 0;
+    width: auto;
+    min-width: min-content;
+    max-width: 100%;
     max-height: 2.9em;
     min-height: 0;
     overflow: hidden;
@@ -288,13 +291,14 @@ const statusText = computed(() => ({
 }
 
 .operator-live-athlete-state {
-    align-self: end;
-    justify-self: end;
+    align-self: flex-end;
+    flex: 0 1 auto;
     box-sizing: border-box;
     width: max-content;
     min-width: 0;
-    max-width: 58%;
+    max-width: 100%;
     margin: 0 0 2px;
+    margin-inline-start: auto;
     padding: 5px 10px;
     background: #dce4f3;
     color: #536176;
@@ -304,8 +308,7 @@ const statusText = computed(() => ({
     line-height: 1.15;
     direction: ltr;
     text-align: center;
-    white-space: normal;
-    overflow-wrap: anywhere;
+    white-space: nowrap;
 }
 
 .operator-live-clock-panel {
