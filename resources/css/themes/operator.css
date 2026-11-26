@@ -1127,11 +1127,25 @@
 }
 .operator-judge-pills span {
     border-width: 2px;
-    border-color: #586779;
+    border-color: #64748b;
+    color: #263446;
+    font-size: 11px;
+    font-weight: 900;
 }
 .operator-judge-pills .online {
     border-color: #087548;
-    background: #d4ecdf;
+    background: #087548;
+    color: #fff;
+}
+.operator-judge-pills .offline {
+    border-color: #b4232d;
+    background: #c4313b;
+    color: #fff;
+}
+.operator-judge-pills .unknown {
+    border-color: #64748b;
+    background: #d8dee9;
+    color: #334155;
 }
 .operator-judge-devices-indicator {
     width: 8px;

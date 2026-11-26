@@ -663,7 +663,13 @@ const time = (value) =>
                                     v-for="judge in judges"
                                     :key="judge.id"
                                     :title="`${judge.name}: ${judge.connected === null ? 'Presence unavailable' : judge.connected ? 'Connected' : 'Not connected'}`"
-                                    :class="{ online: judge.connected }"
+                                    :class="
+                                        judge.connected === null
+                                            ? 'unknown'
+                                            : judge.connected
+                                              ? 'online'
+                                              : 'offline'
+                                    "
                                     >J{{ judge.seat }}</span
                                 >
                             </div></template
