@@ -135,6 +135,15 @@ const judgeStatus = score => {
 const scoreTotal = score => score?.values
     ? number((score.values.score ?? ((score.values.accuracy ?? 0) + (score.values.presentation ?? 0))) / 100)
     : '—';
+const judgeTableTypography = table => {
+    const judgeCount = Math.max(1, table.rows.length || table.judgeCount || 1);
+    const additionalJudges = Math.max(0, judgeCount - 3);
+
+    return {
+        '--result-table-cell-font-size': `${Math.max(18, 25 - additionalJudges * 1.25)}px`,
+        '--result-table-badge-font-size': `${Math.max(12, 16 - additionalJudges * .75)}px`,
+    };
+};
 </script>
 
 <template>
@@ -205,10 +214,20 @@ const scoreTotal = score => score?.values
                     :key="table.entryId"
                     class="operator-result-matrix"
                     :class="[table.entry.sideClass, { 'mobile-selected': selectedJudgeTableId === table.entryId }]"
+                    :style="judgeTableTypography(table)"
                 >
                     <div class="operator-result-table-wrap">
                         <table>
-                            <thead><tr><th>JUDGE</th><th>ACCURACY</th><th>PRESENTATION</th><th>TOTAL</th><th>SCORE ENTRY</th><th>JUDGE STATUS</th></tr></thead>
+                            <thead>
+                                <tr>
+                                    <th v-auto-fit-text="{ min: 6, maxLines: 1 }">JUDGE</th>
+                                    <th v-auto-fit-text="{ min: 6, maxLines: 1 }">ACCURACY</th>
+                                    <th v-auto-fit-text="{ min: 6, maxLines: 1 }">PRESENTATION</th>
+                                    <th v-auto-fit-text="{ min: 6, maxLines: 1 }">TOTAL</th>
+                                    <th v-auto-fit-text="{ min: 6, maxLines: 1 }">SCORE ENTRY</th>
+                                    <th v-auto-fit-text="{ min: 6, maxLines: 1 }">JUDGE STATUS</th>
+                                </tr>
+                            </thead>
                             <tbody>
                                 <tr v-for="row in table.rows" :key="row.judge.id">
                                     <td>J{{ row.judge.seat }}</td>
@@ -480,6 +499,7 @@ const scoreTotal = score => score?.values
     flex-direction: column;
     border: 1px solid #c4c9d2;
     background: #f8f9fc;
+    container-type: inline-size;
 }
 
 .operator-result-matrix.hong {
@@ -504,53 +524,64 @@ const scoreTotal = score => score?.values
 .operator-result-table-wrap th,
 .operator-result-table-wrap td {
     overflow: hidden;
-    padding: 5px 7px;
+    padding: clamp(3px, .4vh, 6px) clamp(3px, .45vw, 7px);
     border-bottom: 1px solid #e0e3ea;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    line-height: 1.15;
+    overflow-wrap: normal;
 }
 
 .operator-result-table-wrap th:nth-child(1),
-.operator-result-table-wrap td:nth-child(1) { width: 10%; }
+.operator-result-table-wrap td:nth-child(1) { width: 9%; }
 .operator-result-table-wrap th:nth-child(2),
-.operator-result-table-wrap td:nth-child(2) { width: 16%; }
+.operator-result-table-wrap td:nth-child(2) { width: 14%; }
 .operator-result-table-wrap th:nth-child(3),
-.operator-result-table-wrap td:nth-child(3) { width: 17%; }
+.operator-result-table-wrap td:nth-child(3) { width: 15%; }
 .operator-result-table-wrap th:nth-child(4),
-.operator-result-table-wrap td:nth-child(4) { width: 12%; }
+.operator-result-table-wrap td:nth-child(4) { width: 10%; }
 .operator-result-table-wrap th:nth-child(5),
 .operator-result-table-wrap td:nth-child(5),
 .operator-result-table-wrap th:nth-child(6),
-.operator-result-table-wrap td:nth-child(6) { width: 22.5%; }
+.operator-result-table-wrap td:nth-child(6) { width: 26%; }
 
 .operator-result-table-wrap th {
     background: #dae1ee;
     color: #596579;
-    font-size: 10px;
-    letter-spacing: .2px;
+    font-size: clamp(7px, min(calc(.55cqw + 4.5px), 1.4vh), 12px);
+    font-weight: 900;
+    letter-spacing: .15px;
+    text-align: center;
+    white-space: nowrap;
 }
 
 .operator-result-table-wrap td {
     font-family: "OperatorMixedMono", Consolas, monospace;
-    font-size: 12px;
-    font-weight: 700;
+    font-size: clamp(10px, min(calc(1.1cqw + 8px), 2.5vh), var(--result-table-cell-font-size, 22px));
+    font-weight: 800;
+    text-align: center;
+}
+
+.operator-result-table-wrap td:nth-child(-n + 4) {
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
 }
 
 .operator-result-status-badge {
     display: inline-flex;
     max-width: 100%;
+    box-sizing: border-box;
     align-items: center;
     justify-content: center;
-    overflow: hidden;
-    padding: 2px 5px;
+    overflow: visible;
+    padding: clamp(3px, .35vh, 5px) clamp(4px, .4vw, 7px);
     border: 1px solid currentColor;
     border-radius: 0;
     font-family: inherit;
-    font-size: 9px;
+    font-size: clamp(6px, min(calc(2.4cqw - .5px), calc(.72cqw + 5px), 1.6vh), var(--result-table-badge-font-size, 14px));
     font-weight: 900;
-    line-height: 1.2;
-    text-overflow: ellipsis;
+    line-height: 1.1;
+    text-align: center;
     white-space: nowrap;
+    text-overflow: clip;
 }
 
 .operator-result-status-badge.none,
@@ -793,21 +824,26 @@ const scoreTotal = score => score?.values
 
     .operator-result-table-wrap th,
     .operator-result-table-wrap td {
-        padding: 4px 3px;
+        padding: 3px;
     }
 
     .operator-result-table-wrap th {
-        font-size: 8px;
         letter-spacing: 0;
     }
 
+    .operator-result-status-badge {
+        padding: 2px;
+    }
+}
+
+@media (max-height: 700px) {
+    .operator-result-table-wrap th,
     .operator-result-table-wrap td {
-        font-size: 10px;
+        padding-block: 2px;
     }
 
     .operator-result-status-badge {
-        padding: 2px 3px;
-        font-size: 8px;
+        padding-block: 2px;
     }
 }
 
@@ -857,6 +893,30 @@ const scoreTotal = score => score?.values
 
     .operator-result-matrices.paired .operator-result-matrix.mobile-selected {
         display: flex;
+    }
+}
+
+@media (max-width: 740px) {
+    .operator-result-stage:not(.with-table-tabs) {
+        grid-template-rows: auto minmax(150px, 1fr) auto;
+    }
+
+    .operator-result-stage.with-table-tabs {
+        grid-template-rows: auto auto minmax(150px, 1fr) auto;
+    }
+
+    .operator-result-matrices {
+        min-height: 150px;
+    }
+
+    .operator-result-table-wrap {
+        overflow-x: hidden;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+
+    .operator-result-table-wrap table {
+        height: auto;
     }
 }
 </style>
