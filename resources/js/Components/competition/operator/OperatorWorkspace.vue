@@ -877,7 +877,7 @@ const time = (value) =>
         </footer>
         <dialog
             ref="detailsDialog"
-            class="operator-modal"
+            class="operator-modal operator-details-modal"
             @click="
                 (event) => {
                     if (event.target === detailsDialog) detailsDialog.close();

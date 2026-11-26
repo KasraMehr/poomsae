@@ -756,6 +756,40 @@
 .operator-modal-body article {
     margin-bottom: 14px;
 }
+.operator-manual-modal[open],
+.operator-details-modal[open] {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    right: auto;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100vh;
+    max-height: 100dvh;
+    margin: 0;
+    transform: translateX(-50%);
+}
+.operator-manual-modal[open],
+.operator-details-modal[open] {
+    width: min(1000px, 94vw);
+}
+.operator-manual-modal .operator-modal-head,
+.operator-details-modal .operator-modal-head {
+    flex: none;
+}
+.operator-manual-modal .operator-modal-body,
+.operator-details-modal .operator-modal-body {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
 .operator-pages-modal {
     width: min(520px, 94vw);
 }
