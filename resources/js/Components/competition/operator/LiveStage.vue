@@ -600,4 +600,92 @@ const statusText = computed(() => ({
         min-width: 0;
     }
 }
+
+@media (min-width: 741px) and (min-height: 801px) and (max-height: 1000px) {
+    .operator-live-athlete {
+        min-height: clamp(110px, 14vh, 148px);
+    }
+
+    .operator-live-clock {
+        font-size: clamp(58px, 11.5vh, 116px);
+    }
+}
+
+@media (min-width: 741px) and (min-height: 621px) and (max-height: 800px) {
+    .operator-live-stage {
+        gap: clamp(5px, .8vh, 8px);
+    }
+
+    .operator-live-athlete {
+        min-height: clamp(92px, 14.5vh, 136px);
+    }
+}
+
+@media (max-width: 740px) and (max-height: 800px) {
+    .operator-live-stage {
+        gap: clamp(4px, .8vh, 7px);
+        padding-block: clamp(3px, .6vh, 5px);
+    }
+
+    .operator-live-athletes {
+        gap: clamp(5px, 1.2vw, 8px);
+    }
+
+    .operator-live-athlete {
+        min-height: clamp(84px, 14vh, 128px);
+        padding: clamp(4px, .8vh, 7px) clamp(4px, 1vw, 7px);
+    }
+
+    .operator-live-athlete.active {
+        padding: clamp(2px, .5vh, 5px) clamp(2px, .7vw, 5px);
+    }
+
+    .operator-live-member-list {
+        min-width: 0;
+    }
+
+    .operator-live-clock-panel {
+        gap: clamp(3px, .6vh, 5px);
+        padding-block: clamp(3px, .6vh, 5px);
+    }
+
+    .operator-live-clock {
+        font-size: clamp(46px, 9vh, 82px);
+    }
+}
+
+@media (max-height: 620px) {
+    .operator-live-stage {
+        gap: 4px;
+        padding-block: 3px;
+    }
+
+    .operator-live-athlete {
+        min-height: 88px;
+        padding-block: 4px 5px;
+    }
+
+    .operator-live-athlete.active {
+        padding-block: 2px 3px;
+    }
+
+    .operator-live-clock-panel {
+        gap: 2px;
+        padding-block: 2px;
+    }
+
+    .operator-live-clock {
+        font-size: clamp(42px, 9vh, 68px);
+    }
+
+    .operator-live-controls {
+        gap: 6px;
+        padding-top: 4px;
+    }
+
+    .operator-live-action {
+        min-height: 36px;
+        padding-block: 5px;
+    }
+}
 </style>
