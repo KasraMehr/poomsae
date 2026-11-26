@@ -34,6 +34,27 @@ const statusLabels = {
 
 const stage = computed(() => statusLabels[tournament.value?.status] ?? "");
 
+const withCategoryEntryDetails = (entry, category) => {
+    if (!entry) return null;
+
+    const details = category?.entries?.find(
+        (categoryEntry) => String(categoryEntry.id) === String(entry.id),
+    );
+
+    if (!details) return entry;
+
+    return {
+        ...details,
+        ...entry,
+        members: Array.isArray(entry.members) && entry.members.length
+            ? entry.members
+            : details.members ?? [],
+        country_code: entry.country_code ?? details.country_code,
+        country: entry.country ?? details.country,
+        flag_url: entry.flag_url ?? details.flag_url,
+    };
+};
+
 const isActivePerformance = (performance) =>
     ["running", "scoring"].includes(performance.status);
 
@@ -106,10 +127,13 @@ const scoringPanels = computed(() =>
                             sides: group.map((performance) => ({
                                 performance,
                                 category,
-                                entry: (bout.entries ?? []).find(
-                                    (entry) =>
-                                        String(entry.id) ===
-                                        String(performance.entry_id),
+                                entry: withCategoryEntryDetails(
+                                    (bout.entries ?? []).find(
+                                        (entry) =>
+                                            String(entry.id) ===
+                                            String(performance.entry_id),
+                                    ),
+                                    category,
                                 ),
                             })),
                         }));
@@ -260,19 +284,20 @@ const isFreestylePenaltyMode = (side) =>
         <section
             v-for="panel in scoringPanels"
             :key="panel.id"
-            class="min-h-full"
+            :class="panel.variant === 'double' ? 'flex min-h-0 flex-1 flex-col' : 'min-h-full'"
         >
             <!-- Double scoring layout: mirrored athlete tables for simultaneous bouts. -->
-            <div v-if="panel.variant === 'double'" class="flex flex-col gap-6">
+            <div v-if="panel.variant === 'double'" class="flex min-h-0 flex-1 flex-col gap-4">
                 <EntryAthleteInfoPair
                     :entries="orderedSides(panel.sides).map((side) => side.entry)"
-                    class="grid grid-cols-2 items-center gap-6 pt-10"
+                    class="scoring-double-athletes grid shrink-0 grid-cols-2 items-center gap-6 pt-4"
                     layout="horizontal"
-                    size="xl"
-                    name-size="xl"
+                    size="xxl"
+                    name-size="xxl"
                     :name-fit="true"
+                    :name-area-min-height="true"
                 />
-                <div class="grid grid-cols-2 gap-6 max-[900px]:grid-cols-1">
+                <div class="grid min-h-0 flex-1 grid-cols-2 items-stretch gap-6 max-[900px]:grid-cols-1 max-[900px]:overflow-y-auto">
                     <DoubleScoringTable
                         v-for="side in orderedSides(panel.sides)"
                         :key="side.entry?.id"
@@ -403,3 +428,19 @@ const isFreestylePenaltyMode = (side) =>
         </section>
     </ScoreboardLayout>
 </template>
+
+<style scoped>
+.scoring-double-athletes :deep(.nationality-badge--match-height) {
+    height: auto;
+    aspect-ratio: 2.625 / 1;
+    align-self: center;
+}
+
+.scoring-double-athletes :deep(.nationality-badge--match-height > span) {
+    height: 100%;
+}
+
+.scoring-double-athletes :deep(.nationality-badge__code) {
+    font-size: clamp(18px, 16cqi, 44px);
+}
+</style>

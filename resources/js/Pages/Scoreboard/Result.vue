@@ -2,7 +2,7 @@
 import { computed } from "vue";
 import ScoreboardLayout from "../../Shared/Layouts/ScoreboardLayout.vue";
 import ScoreboardHeader from "../../Components/scoreboard/ScoreboardHeader.vue";
-import AthleteInfo from "../../Components/scoreboard/AthleteInfo.vue";
+import EntryAthleteInfo from "../../Components/scoreboard/EntryAthleteInfo.vue";
 import ScoreItem from "../../Components/scoreboard/ScoreItem.vue";
 import { Head } from "@inertiajs/vue3";
 
@@ -34,6 +34,25 @@ const ruleMaximum = (rules, key) => {
         : rawMaximum > 20
           ? rawMaximum / 100
           : rawMaximum;
+};
+
+const withCategoryEntryDetails = (entry, category) => {
+    const details = category?.entries?.find(
+        (categoryEntry) => String(categoryEntry.id) === String(entry.id),
+    );
+
+    if (!details) return entry;
+
+    return {
+        ...details,
+        ...entry,
+        members: Array.isArray(entry.members) && entry.members.length
+            ? entry.members
+            : details.members ?? [],
+        country_code: entry.country_code ?? details.country_code,
+        country: entry.country ?? details.country,
+        flag_url: entry.flag_url ?? details.flag_url,
+    };
 };
 
 const resultPanels = computed(() => {
@@ -89,51 +108,55 @@ const resultPanels = computed(() => {
                         (sideOrder[right.side] ?? 2)
                     );
                 })
-                .map((entry) => ({
-                    entry,
-                    rounds: rounds.map(({ round, bout }) => {
-                        const performances = (bout.performances ?? []).filter(
-                            (performance) =>
-                                String(performance.entry_id) ===
-                                String(entry.id) &&
-                                (props.focusFormNumber == null || String(performance.form_number) === String(props.focusFormNumber)) &&
-                                (props.focusBoutId == null || performance.result != null),
-                        );
-                        const detailedScores =
-                            performances.length === 1
-                                ? performances[0].detailed_scores
-                                : bout.component_totals?.[entry.id] ?? null;
-                        const maximumScores =
-                            detailedScores ?? performances[0]?.detailed_scores ?? null;
-                        const accuracyMax =
-                            maximumFrom(maximumScores?.accuracy_max) ??
-                            ruleMaximum(category.rules, "accuracy");
-                        const presentationMax =
-                            maximumFrom(maximumScores?.presentation_max) ??
-                            ruleMaximum(category.rules, "presentation");
-                        const totalMax =
-                            maximumFrom(maximumScores?.total_max) ??
-                            (accuracyMax != null && presentationMax != null
-                                ? accuracyMax + presentationMax
-                                : null);
+                .map((sourceEntry) => {
+                    const entry = withCategoryEntryDetails(sourceEntry, category);
 
-                        return {
-                            id: round.id,
-                            label: String(round.name ?? "").replace(
-                                /\s*-\s*/g,
-                                "-",
-                            ),
-                            accuracy: detailedScores?.accuracy ?? null,
-                            accuracyMax,
-                            presentation: detailedScores?.presentation ?? null,
-                            presentationMax,
-                            total: props.focusFormNumber == null
-                                ? bout.totals?.[entry.id] ?? null
-                                : performances.find(performance => performance.result != null)?.result ?? null,
-                            totalMax,
-                        };
-                    }),
-                }));
+                    return {
+                        entry,
+                        rounds: rounds.map(({ round, bout }) => {
+                            const performances = (bout.performances ?? []).filter(
+                                (performance) =>
+                                    String(performance.entry_id) ===
+                                    String(entry.id) &&
+                                    (props.focusFormNumber == null || String(performance.form_number) === String(props.focusFormNumber)) &&
+                                    (props.focusBoutId == null || performance.result != null),
+                            );
+                            const detailedScores =
+                                performances.length === 1
+                                    ? performances[0].detailed_scores
+                                    : bout.component_totals?.[entry.id] ?? null;
+                            const maximumScores =
+                                detailedScores ?? performances[0]?.detailed_scores ?? null;
+                            const accuracyMax =
+                                maximumFrom(maximumScores?.accuracy_max) ??
+                                ruleMaximum(category.rules, "accuracy");
+                            const presentationMax =
+                                maximumFrom(maximumScores?.presentation_max) ??
+                                ruleMaximum(category.rules, "presentation");
+                            const totalMax =
+                                maximumFrom(maximumScores?.total_max) ??
+                                (accuracyMax != null && presentationMax != null
+                                    ? accuracyMax + presentationMax
+                                    : null);
+
+                            return {
+                                id: round.id,
+                                label: String(round.name ?? "").replace(
+                                    /\s*-\s*/g,
+                                    "-",
+                                ),
+                                accuracy: detailedScores?.accuracy ?? null,
+                                accuracyMax,
+                                presentation: detailedScores?.presentation ?? null,
+                                presentationMax,
+                                total: props.focusFormNumber == null
+                                    ? bout.totals?.[entry.id] ?? null
+                                    : performances.find(performance => performance.result != null)?.result ?? null,
+                                totalMax,
+                            };
+                        }),
+                    };
+                });
 
             panels.push({
                 id: String(category.id) + "-" + matchup.key,
@@ -194,30 +217,30 @@ const roundLabel = computed(() => resultPanels.value[0]?.roundLabel ?? "");
             :key="panel.id"
             class="flex min-h-0 flex-1 flex-col"
         >
-            <div class="grid items-center gap-[60px]" :class="panel.sides.length === 1 ? 'grid-cols-1' : 'grid-cols-2'">
-                <AthleteInfo
+            <div class="mb-4 grid shrink-0 items-center gap-[60px]" :class="panel.sides.length === 1 ? 'grid-cols-1' : 'grid-cols-2'">
+                <EntryAthleteInfo
                     v-for="side in panel.sides"
                     :key="side.entry.id"
                     :number="side.entry.number ?? ''"
-                    :name="side.entry.name ?? ''"
-                    :side="side.entry.side ?? ''"
-                    :country="side.entry.country ?? ''"
-                    :country-code="side.entry.country_code ?? ''"
-                    :flag-url="side.entry.flag_url ?? ''"
+                    :entry="side.entry"
                     layout="horizontal"
-                    size="xl"
+                    size="xxl"
+                    name-size="xxl"
+                    :name-fit="true"
+                    :name-area-min-height="true"
+                    :fill="false"
                 />
             </div>
 
             <!-- One-round result: each athlete has a stacked subscore column and a full-height total. -->
             <div
                 v-if="panel.rounds.length === 1"
-                class="mt-[45px] grid flex-1 items-stretch gap-[60px]" :class="panel.sides.length === 1 ? 'grid-cols-1' : 'grid-cols-2'"
+                class="grid min-h-0 flex-1 items-stretch gap-[60px]" :class="panel.sides.length === 1 ? 'grid-cols-1' : 'grid-cols-2'"
             >
                 <div
                     v-for="side in panel.sides"
                     :key="side.entry.id"
-                    class="grid min-h-[365px] grid-cols-2 grid-rows-2 gap-x-8 gap-y-6"
+                    class="grid h-full min-h-[365px] grid-cols-2 grid-rows-2 gap-x-8 gap-y-4"
                 >
                     <ScoreItem
                         label="Accuracy"
@@ -261,16 +284,17 @@ const roundLabel = computed(() => resultPanels.value[0]?.roundLabel ?? "");
             </div>
 
             <!-- Two-round result: each round shows its subscores and total, without winner highlighting. -->
-            <div v-else class="mt-2 grid flex-1 gap-[60px]" :class="panel.sides.length === 1 ? 'grid-cols-1' : 'grid-cols-2'">
+            <div v-else class="grid min-h-0 flex-1 gap-[60px]" :class="panel.sides.length === 1 ? 'grid-cols-1' : 'grid-cols-2'">
                 <div
                     v-for="side in panel.sides"
                     :key="side.entry.id"
-                    class="flex flex-col gap-3"
+                    class="grid min-h-0 gap-3"
+                    :style="{ gridTemplateRows: `repeat(${side.rounds.length}, minmax(0, 1fr))` }"
                 >
                     <div
                         v-for="round in side.rounds"
                         :key="round.id"
-                        class="min-h-[250px]"
+                        class="flex min-h-0 flex-col"
                     >
                         <div
                             class="flex h-8 items-center justify-between bg-rtds-border-strong px-4 font-rtds text-2xl font-semibold uppercase text-white"
@@ -280,7 +304,7 @@ const roundLabel = computed(() => resultPanels.value[0]?.roundLabel ?? "");
                             <span>TOTAL</span>
                         </div>
                         <div
-                            class="grid min-h-[214px] grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-stretch gap-5 pt-1"
+                            class="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-stretch gap-5 pt-1"
                             :dir="side.entry.side === 'hong' ? 'rtl' : 'ltr'"
                         >
                             <div class="grid min-h-0 grid-rows-2 gap-2">
