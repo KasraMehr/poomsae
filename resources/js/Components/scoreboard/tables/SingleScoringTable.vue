@@ -34,6 +34,10 @@ const rows = computed(() =>
         : Array.from({ length: props.judgeCount }, () => ({})),
 );
 
+const judgeFontScale = computed(() => 7 / Math.max(rows.value.length, 1));
+const scaledFontSize = (baseVw, minPx, maxPx) =>
+    `clamp(${minPx}px, calc(${baseVw}vw * ${judgeFontScale.value}), ${maxPx}px)`;
+
 const judgeLabel = (row, index) => row.label ?? `J${index + 1}`;
 
 const format = (value) => {
@@ -45,8 +49,8 @@ const format = (value) => {
 
 const gridColumns = computed(() =>
     props.showSubScores
-        ? "minmax(110px, 0.9fr) minmax(140px, 1.25fr) repeat(3, minmax(100px, 1fr)) minmax(170px, 1.5fr)"
-        : "minmax(110px, 0.9fr) minmax(140px, 1.25fr) minmax(170px, 1.5fr)",
+        ? "minmax(3.5rem, 0.72fr) minmax(0, 1.05fr) repeat(3, minmax(0, 0.72fr)) minmax(0, 1.45fr)"
+        : "minmax(3.5rem, 0.72fr) minmax(0, 1.05fr) minmax(0, 1.45fr)",
 );
 
 const panelClass = (tone) => {
@@ -57,10 +61,21 @@ const panelClass = (tone) => {
 
 const valueClass = (tone) => {
     if (tone === "judge")
-        return "font-rtds text-[36px] font-bold leading-10 text-rtds-gold-bright";
+        return "font-rtds font-bold leading-none text-rtds-gold-bright";
     if (tone === "sub")
-        return "font-rtds text-[36px] font-medium leading-10 text-rtds-text-light";
-    return "font-rtds text-[50px] font-semibold leading-10 text-rtds-surface-light";
+        return "font-rtds font-medium leading-none text-rtds-text-light";
+    return "font-rtds font-semibold leading-none text-rtds-surface-light";
+};
+
+const valueStyle = (tone) => {
+    if (tone === "judge") {
+        return { fontSize: scaledFontSize(1.8, 16, 48) };
+    }
+    if (tone === "sub") {
+        return { fontSize: scaledFontSize(1.7, 14, 46) };
+    }
+
+    return { fontSize: scaledFontSize(2.5, 16, 60) };
 };
 
 const isRejected = (row, key, partIndex = null) => {
@@ -99,16 +114,17 @@ const headerClass = (tone) =>
 </script>
 
 <template>
-    <div class="min-w-0 overflow-x-auto">
+    <div class="flex h-full min-h-0 w-full min-w-0 flex-col">
         <div
-            class="grid h-[67px] min-w-[760px] items-end border-b border-rtds-divider/30"
+            class="grid h-[67px] w-full shrink-0 items-end border-b border-rtds-divider/30"
             :style="{ gridTemplateColumns: gridColumns }"
         >
             <span
                 v-for="column in columns"
                 :key="column.key"
-                class="whitespace-nowrap text-center font-rtds text-xl font-normal uppercase leading-9"
+                class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center font-rtds font-normal uppercase leading-9"
                 :class="headerClass(column.tone)"
+                :style="{ fontSize: scaledFontSize(1.25, 10, 28) }"
             >
                 {{ column.label }}
             </span>
@@ -117,23 +133,24 @@ const headerClass = (tone) =>
         <div
             v-for="(row, index) in rows"
             :key="index"
-            class="grid min-w-[760px] items-center border-b border-rtds-divider/20"
+            class="grid min-h-[54px] w-full min-w-0 flex-1 items-stretch border-b border-rtds-divider/20"
             :style="{ gridTemplateColumns: gridColumns }"
         >
             <div
                 v-for="column in columns"
                 :key="column.key"
-                class="flex h-[68px] items-center justify-center px-2"
+                class="flex min-h-0 min-w-0 items-center justify-center overflow-hidden px-1 sm:px-2"
                 :class="panelClass(column.tone)"
             >
                 <span
-                    class="text-center"
+                    class="min-w-0 whitespace-nowrap text-center"
                     :class="[
                         valueClass(column.tone),
                         column.key === 'judge'
                             ? ''
                             : scoreStateClass(row, column.key),
                     ]"
+                    :style="valueStyle(column.tone)"
                 >
                     {{ column.key === "judge" ? judgeLabel(row, index) : format(row[column.key]) }}
                 </span>

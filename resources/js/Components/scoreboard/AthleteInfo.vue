@@ -21,10 +21,17 @@ const props = defineProps({
     number: { type: [String, Number], default: "" },
     side: { type: String, default: "" }, // 'chung' | 'hong' | '' (خنثی)
     name: { type: String, default: "" },
+    names: { type: Array, default: () => [] },
     country: { type: String, default: "" }, // فقط برای alt پرچم
     countryCode: { type: String, default: "" },
     flagUrl: { type: String, default: "" },
     size: { type: String, default: "md" }, // 'sm' | 'md' | 'lg' — سه سایز مستقل
+    nameSizeStyle: { type: String, default: "" },
+    nameFit: { type: Boolean, default: false },
+    nameAreaMinHeight: { type: Boolean, default: false },
+    responsiveBadge: { type: Boolean, default: false },
+    badgeSizeOverride: { type: String, default: "" },
+    fill: { type: Boolean, default: false },
 });
 
 const isHong = computed(() => props.side === "hong");
@@ -112,17 +119,22 @@ const barClasses = computed(() => [
     sizeClasses[props.size]?.bar ?? sizeClasses.md.bar,
     barBackgrounds[sideKey.value],
     barBorders[sideKey.value][props.size] ?? barBorders[sideKey.value].md,
+    `bar--${sideKey.value}`,
 ]);
 
 const rootClasses = computed(() => {
     const anchor = isHong.value ? "items-end" : "items-start";
+    if (props.fill && props.layout === "vertical") {
+        return `flex h-full w-full min-h-0 flex-col ${anchor}`;
+    }
+
     switch (props.layout) {
         case "name-only":
             return "inline-flex";
         case "horizontal":
             return isHong.value
-                ? "inline-flex flex-row-reverse items-center"
-                : "inline-flex flex-row items-center";
+                ? "inline-flex flex-row-reverse items-stretch"
+                : "inline-flex flex-row items-stretch";
         case "vertical-under":
             return `flex w-full flex-col ${anchor}`;
         case "vertical":
@@ -133,6 +145,10 @@ const rootClasses = computed(() => {
 
 const showBadge = true;
 const badgeSize = computed(() => {
+    if (props.badgeSizeOverride) {
+        return props.badgeSizeOverride;
+    }
+
     if (props.layout === "horizontal") {
         return props.size;
     }
@@ -150,16 +166,33 @@ const badgeSize = computed(() => {
 });
 
 const badgeProps = computed(() => ({
-    code: props.countryCode,
+    code: props.countryCode || "IRI",
     country: props.country,
     flagUrl: props.flagUrl,
     flagPosition: isHong.value ? "right" : "left",
     size: badgeSize.value,
 }));
+
+const nameLength = (value) => Math.max(Array.from(value).length, 1);
+const nameAreaHeights = {
+    sm: "32px",
+    md: "48px",
+    lg: "64px",
+    xl: "107px",
+    xxl: "131px",
+    xxxl: "128px",
+};
 </script>
 
 <template>
-    <span dir="ltr" class="inline-flex align-middle" :class="rootClasses">
+    <span
+        dir="ltr"
+        class="inline-flex align-middle"
+        :class="[
+            rootClasses,
+            { 'athlete-info--horizontal': layout === 'horizontal' },
+        ]"
+    >
         <!-- بج قبل از نوار: vertical (بالا) و horizontal (کنار؛ برای hong آینه‌ای) -->
         <NationalityBadge
             v-if="
@@ -168,11 +201,31 @@ const badgeProps = computed(() => ({
                 layout !== 'name-only'
             "
             v-bind="badgeProps"
+            :responsive="responsiveBadge"
             class="shrink-0"
+            :class="{ 'nationality-badge--match-height': layout === 'horizontal' }"
         />
 
         <!-- نوار نام (در name-only هم فقط نوار داریم) -->
-        <span class="bar w-full" :class="barClasses">
+        <span
+            class="bar w-full"
+            :class="[
+                barClasses,
+                {
+                    'bar--grouped': names.length > 0,
+                    'bar--fill': fill,
+                    'bar--stacked-badge': layout === 'vertical-under',
+                },
+            ]"
+            :style="nameAreaMinHeight
+                ? {
+                    height: 'auto',
+                    minHeight: layout === 'vertical-under'
+                        ? 'clamp(142px, 14vh, 180px)'
+                        : nameAreaHeights[size],
+                }
+                : undefined"
+        >
             <!-- <span
                 v-if="number !== ''"
                 class="grid shrink-0 place-items-center bg-rtds-blue-soft/40 font-rtds font-bold tabular-nums text-white"
@@ -182,7 +235,31 @@ const badgeProps = computed(() => ({
             </span> -->
 
             <span
-                v-if="name !== ''"
+                v-if="names.length"
+                class="bar__names min-w-0 flex-1 font-rtds font-bold uppercase text-white"
+                :class="[
+                    isHong ? 'text-right' : 'text-left',
+                    `bar__names--${size}`,
+                    { 'bar__names--fit': nameFit },
+                    { 'bar__names--few': (fill || nameFit) && names.length > 0 && names.length <= 2 },
+                    { 'bar__names--many': nameFit && names.length > 2 },
+                    { 'bar__names--single': names.length === 1 },
+                    { 'bar__names--mirrored': isHong },
+                    { 'bar__names--stacked-badge': layout === 'vertical-under' },
+                ]"
+                :style="nameSizeStyle ? { fontSize: nameSizeStyle } : undefined"
+            >
+                <span
+                    v-for="(memberName, index) in names"
+                    :key="`${memberName}-${index}`"
+                    class="bar__name"
+                    :style="{ '--name-length': nameLength(memberName) }"
+                >
+                    {{ memberName }}
+                </span>
+            </span>
+            <span
+                v-else-if="name !== ''"
                 class="min-w-0 flex-1 truncate font-rtds font-bold uppercase text-white"
                 :class="[
                     sizeClasses[size]?.name ?? sizeClasses.md.name,
@@ -197,7 +274,119 @@ const badgeProps = computed(() => ({
         <NationalityBadge
             v-if="showBadge && layout === 'vertical-under'"
             v-bind="badgeProps"
+            :responsive="responsiveBadge"
             class="shrink-0"
         />
     </span>
 </template>
+
+<style scoped>
+.bar--grouped {
+    height: auto;
+    min-height: 0;
+    padding-block: 0.35rem;
+}
+
+.athlete-info--horizontal > .bar {
+    height: auto;
+    align-self: stretch;
+}
+
+.bar--fill {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+    align-items: stretch;
+}
+
+.bar--fill.bar--grouped {
+    padding-block: 0;
+}
+
+.bar--chung.bar--grouped {
+    background: linear-gradient(
+        90deg,
+        var(--color-rtds-blue-dark) 32%,
+        color-mix(in srgb, var(--color-rtds-blue-dark) 8%, transparent)
+    );
+}
+
+.bar--hong.bar--grouped {
+    background: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--color-rtds-error) 8%, transparent),
+        var(--color-rtds-error) 68%
+    );
+}
+
+.bar__names {
+    display: flex;
+    flex-flow: row wrap;
+    align-content: center;
+    container-type: inline-size;
+    column-gap: clamp(0.5rem, 1.2vw, 1rem);
+    row-gap: 0.12em;
+    line-height: 1.08;
+}
+
+.bar__names--lg {
+    font-size: clamp(1.5rem, min(8cqi, 11cqb), 4rem);
+}
+
+.bar__names--sm,
+.bar__names--md {
+    font-size: clamp(1rem, min(2vw, 3vh), 2rem);
+}
+
+.bar__names--mirrored {
+    direction: rtl;
+}
+
+.bar__names--single {
+    justify-content: flex-start;
+}
+
+.bar__names--single.bar__names--lg {
+    font-size: clamp(1.5rem, min(8cqi, 11cqb), 4rem);
+}
+
+.bar__names--single.bar__names--sm,
+.bar__names--single.bar__names--md {
+    font-size: clamp(1rem, min(2vw, 3vh), 2rem);
+}
+
+.bar__names--few.bar__names--lg {
+    font-size: clamp(1.75rem, min(10cqi, 14cqb), 4.5rem);
+}
+
+.bar__names--few.bar__names--md {
+    font-size: clamp(1.35rem, min(3vw, 5vh), 2.5rem);
+}
+
+.bar__names--fit.bar__names--few .bar__name {
+    font-size: min(1.08em, calc(150cqi / var(--name-length)));
+}
+
+.bar__names--fit.bar__names--many .bar__name {
+    font-size: min(0.9em, calc(126cqi / var(--name-length)));
+}
+
+.bar__names--stacked-badge.bar__names--few .bar__name {
+    font-size: min(1.2em, calc(165cqi / var(--name-length)));
+}
+
+.bar__name {
+    box-sizing: border-box;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
+    padding: 0.08em 0.22em;
+    border-radius: 0.2em;
+    background: rgb(255 255 255 / 10%);
+    font-size: min(1em, calc(140cqi / var(--name-length)));
+    line-height: 1.08;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+</style>

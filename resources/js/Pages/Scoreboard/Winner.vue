@@ -1,7 +1,8 @@
 <script setup>
 import { computed } from "vue";
 import ScoreboardLayout from "../../Shared/Layouts/ScoreboardLayout.vue";
-import AthleteInfo from "../../Components/scoreboard/AthleteInfo.vue";
+import ScoreboardHeader from "../../Components/scoreboard/ScoreboardHeader.vue";
+import EntryAthleteInfo from "../../Components/scoreboard/EntryAthleteInfo.vue";
 import FormBadge from "../../Components/scoreboard/FormBadge.vue";
 import { displayFormName, displayFormSymbolKey } from "../../Shared/Services/symbols";
 import ScoreItem from "../../Components/scoreboard/ScoreItem.vue";
@@ -14,6 +15,25 @@ const props = defineProps({
 const tournament = computed(
     () => props.display?.tournament ?? props.tournament,
 );
+
+const withCategoryEntryDetails = (entry, category) => {
+    const details = category?.entries?.find(
+        (categoryEntry) => String(categoryEntry.id) === String(entry.id),
+    );
+
+    if (!details) return entry;
+
+    return {
+        ...details,
+        ...entry,
+        members: Array.isArray(entry.members) && entry.members.length
+            ? entry.members
+            : details.members ?? [],
+        country_code: entry.country_code ?? details.country_code,
+        country: entry.country ?? details.country,
+        flag_url: entry.flag_url ?? details.flag_url,
+    };
+};
 
 const completedWinnerBouts = computed(() => {
     const bouts = [];
@@ -43,7 +63,7 @@ const completedWinnerBouts = computed(() => {
                     category,
                     round,
                     bout,
-                    winnerEntry,
+                    winnerEntry: withCategoryEntryDetails(winnerEntry, category),
                     total: bout.totals?.[winnerEntry.id] ?? null,
                 });
             }
@@ -116,7 +136,7 @@ const winner = computed(() => {
 
         return {
             category,
-            winnerEntry,
+            winnerEntry: withCategoryEntryDetails(winnerEntry, category),
             executionBouts,
             roundCount: Number(currentResult.round_count),
             total: currentResult.winner_total ?? null,
@@ -177,28 +197,17 @@ const isTwoRoundResult = computed(
 </script>
 
 <template>
-    <ScoreboardLayout :stage="stage" center="WINNER" :category="categoryLabel">
+    <ScoreboardLayout
+        :stage="stage"
+        :center="categoryLabel"
+        :category="categoryLabel"
+    >
         <template #header>
-            <header class="shrink-0 px-10 pt-8 pb-4">
-                <div class="grid grid-cols-3 items-center gap-4">
-                    <span
-                        class="justify-self-start text-[45px] leading-[36px] uppercase tracking-wide text-rtds-text-secondary"
-                    >
-                        {{ stage }}
-                    </span>
-                    <h1
-                        class="text-center text-[64px] leading-[36px] font-semibold uppercase tracking-wider text-rtds-gold-bright"
-                    >
-                        WINNER
-                    </h1>
-                    <span
-                        class="justify-self-end text-right text-[45px] leading-[36px] uppercase tracking-wide text-rtds-text-secondary"
-                    >
-                        {{ categoryLabel }}
-                    </span>
-                </div>
-                <div class="mt-4 h-px w-full bg-rtds-divider" />
-            </header>
+            <ScoreboardHeader
+                :stage="stage"
+                :category="categoryLabel"
+                right-label="WINNER"
+            />
         </template>
 
         <section
@@ -206,15 +215,15 @@ const isTwoRoundResult = computed(
             class="flex min-h-0 flex-1 flex-col items-center justify-center gap-5"
         >
             <div class="w-full bg-rtds-gold-bright/20 px-8 py-2">
-                <AthleteInfo
+                <EntryAthleteInfo
                     :number="winner.winnerEntry.number ?? ''"
-                    :name="winner.winnerEntry.name ?? ''"
-                    :side="winner.winnerEntry.side ?? ''"
-                    :country="winner.winnerEntry.country ?? ''"
-                    :country-code="winner.winnerEntry.country_code ?? ''"
-                    :flag-url="winner.winnerEntry.flag_url ?? ''"
+                    :entry="winner.winnerEntry"
                     layout="horizontal"
                     size="xxl"
+                    name-size="xxl"
+                    :name-fit="true"
+                    :name-area-min-height="true"
+                    :fill="false"
                     class="w-full"
                 />
             </div>

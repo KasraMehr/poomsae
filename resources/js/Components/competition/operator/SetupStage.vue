@@ -1,6 +1,8 @@
 <script setup>
 import { computed } from 'vue';
 import { displayLabel } from './displayLabel';
+import { getEntryMemberNames, getEntrySideClass } from './entryPresentation';
+import { vAutoFitText } from './autoFitText';
 
 const props = defineProps({
     match: { type: Object, default: null },
@@ -14,24 +16,74 @@ const props = defineProps({
 
 const emit = defineEmits(['continue']);
 const performanceStatus = computed(() => props.performance?.status ?? props.match?.status ?? 'pending');
-const profiles = computed(() => props.match?.entries?.map(entry => ({
-    ...entry,
-    profile: props.category?.entries?.find(categoryEntry => categoryEntry.id === entry.id) ?? null,
-})) ?? []);
+const profiles = computed(() => props.match?.entries?.map((entry, index) => {
+    const profile = props.category?.entries?.find(categoryEntry => categoryEntry.id === entry.id) ?? null;
+
+    return {
+        ...entry,
+        profile,
+        sideClass: getEntrySideClass(entry, index),
+        memberNames: getEntryMemberNames(entry, profile),
+    };
+}) ?? []);
 const forms = computed(() => {
     const entryIds = new Set((props.match?.entries ?? []).map(entry => entry.id));
-    const uniqueForms = new Map();
+    const formsByNumber = new Map();
     [...(props.bout?.performances ?? [])]
         .filter(item => entryIds.has(item.entry_id))
-        .sort((left, right) => left.form_number - right.form_number)
-        .forEach(item => {
-            if (!uniqueForms.has(item.form_number)) {
-                uniqueForms.set(item.form_number, item.form_name);
+        .sort((left, right) => left.form_number - right.form_number || left.id - right.id)
+        .forEach(performance => {
+            if (!formsByNumber.has(performance.form_number)) {
+                formsByNumber.set(performance.form_number, {
+                    number: performance.form_number,
+                    name: performance.form_name,
+                    performances: [],
+                });
             }
+
+            formsByNumber.get(performance.form_number).performances.push(performance);
         });
 
-    return [...uniqueForms].map(([number, name]) => ({ number, name }));
+    const groupedForms = [...formsByNumber.values()];
+    const firstUnresolvedNumber = groupedForms.find(form => form.performances.some(performance => !['approved', 'cancelled'].includes(performance.status)))?.number;
+
+    return groupedForms.map(form => {
+        const statuses = form.performances.map(performance => performance.status);
+        const allResolved = statuses.length > 0 && statuses.every(status => ['approved', 'cancelled'].includes(status));
+        const currentPerformanceIsReady = props.performance?.bout_id === props.match?.id
+            && props.performance?.form_number === form.number
+            && props.performance?.status === 'pending'
+            && props.performance?.forms_ready === true
+            && props.performance?.previous_completed === true;
+        let state = 'waiting';
+
+        if (statuses.includes('running')) {
+            state = 'live';
+        } else if (statuses.includes('scoring')) {
+            state = 'scoring';
+        } else if (currentPerformanceIsReady) {
+            state = 'ready';
+        } else if (allResolved) {
+            state = statuses.includes('approved') ? 'completed' : 'cancelled';
+        } else if (statuses.some(status => ['approved', 'cancelled'].includes(status))) {
+            state = 'in-progress';
+        } else if (form.number !== firstUnresolvedNumber) {
+            state = 'upcoming';
+        }
+
+        return { ...form, state };
+    });
 });
+const formStateLabels = {
+    live: 'LIVE',
+    scoring: 'SCORING',
+    ready: 'READY TO START',
+    completed: 'COMPLETED',
+    cancelled: 'CANCELLED',
+    'in-progress': 'IN PROGRESS',
+    waiting: 'WAITING',
+    upcoming: 'NEXT',
+};
 const expectedFormCount = computed(() => props.category?.forms_per_round ?? 1);
 const formIsReady = computed(() => props.category?.discipline === 'freestyle'
     ? forms.value.length > 0
@@ -60,7 +112,7 @@ const checklist = computed(() => [
         id: 'competition',
         title: 'Competition Data Loaded',
         detail: props.match && props.category && props.round && props.bout
-            ? `${props.match.category_name} · ${props.match.round_name} · No.${props.match.sequence}`
+            ? 'Match and competition context is available.'
             : 'Match category or round data is unavailable.',
         state: props.match && props.category && props.round && props.bout ? 'ready' : 'attention',
     },
@@ -107,36 +159,27 @@ const continueLabel = computed(() => ({
     completed: 'VIEW CONFIRMED RESULT',
     cancelled: 'VIEW MATCH SUMMARY',
 })[performanceStatus.value] ?? 'CONTINUE MATCH');
-const formState = number => {
-    const currentNumber = props.performance?.form_number;
-
-    if (number === currentNumber) {
-        return performanceStatus.value === 'running' ? 'LIVE' : 'CURRENT';
-    }
-
-    if (currentNumber !== undefined && number < currentNumber) {
-        return 'COMPLETED';
-    }
-
-    return 'NEXT';
-};
 </script>
 
 <template>
     <section v-if="match" class="operator-setup" aria-label="Match setup">
         <div class="operator-setup-left">
-            <header class="operator-setup-context">
-                <strong>No.{{ match.sequence }}</strong>
-                <span>{{ displayLabel(match.category_name) }} · {{ displayLabel(match.round_name) }}</span>
-            </header>
-            <article v-for="(entry, index) in profiles" :key="entry.id" class="operator-setup-athlete" :class="profiles.length === 1 ? 'solo' : index === 0 ? 'chung' : 'hong'">
+            <article v-for="(entry, index) in profiles" :key="entry.id" class="operator-setup-athlete" :class="profiles.length === 1 ? 'solo' : entry.sideClass">
                 <header>
                     <strong>{{ profiles.length === 1 ? 'ATHLETE' : entry.side?.toUpperCase() ?? (index === 0 ? 'CHUNG / BLUE' : 'HONG / RED') }}</strong>
+                    <span class="operator-setup-athlete-club" :title="entry.profile?.club || entry.profile?.country_code || entry.team || ''">
+                        {{ entry.profile?.club || entry.profile?.country_code || entry.team || '' }}
+                    </span>
                 </header>
                 <div class="operator-setup-athlete-info">
-                    <div>
-                        <h2>{{ entry.profile?.short_name || entry.short_name || entry.name }}</h2>
-                        <p>{{ entry.profile?.club || entry.profile?.country_code || 'Athlete profile loaded' }}</p>
+                    <div
+                        v-auto-fit-text="{ min: 14, maxLines: 2 }"
+                        class="operator-setup-member-list"
+                        :class="`member-count-${Math.min(entry.memberNames.length, 3)}`"
+                        dir="ltr"
+                        :title="entry.memberNames.join(' / ')"
+                    >
+                        {{ entry.memberNames.join(' / ') }}
                     </div>
                 </div>
             </article>
@@ -146,10 +189,10 @@ const formState = number => {
                     <h2>{{ category?.discipline === 'freestyle' ? 'ASSIGNED PERFORMANCE' : 'ASSIGNED POOMSAE' }}</h2>
                 </header>
                 <div v-if="forms.length" class="operator-setup-form-list">
-                    <div v-for="form in forms" :key="form.number" class="operator-setup-form" :class="{ current: form.number === performance?.form_number, upcoming: form.number > (performance?.form_number ?? 0) }">
+                    <div v-for="form in forms" :key="form.number" class="operator-setup-form" :class="form.state">
                         <span class="operator-setup-form-number">{{ form.number }}</span>
                         <strong>{{ displayLabel(form.name) }}</strong>
-                        <small>{{ formState(form.number) }}</small>
+                        <small class="operator-setup-form-state" :class="form.state">{{ formStateLabels[form.state] }}</small>
                     </div>
                 </div>
                 <p v-else class="operator-setup-empty">{{ category?.discipline === 'freestyle' ? 'Performance details are not available yet.' : 'Poomsae have not been assigned yet.' }}</p>
@@ -184,32 +227,9 @@ const formState = number => {
     gap: 12px;
     height: 100%;
     min-height: 0;
-    padding: 12px;
+    padding: 12px 0 0;
     color: #0d192b;
     box-sizing: border-box;
-}
-
-.operator-setup-context {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: center;
-    gap: 12px;
-    padding: 0 0 10px;
-    border-bottom: 1px solid #c5c6cc;
-}
-
-.operator-setup-context strong {
-    justify-self: start;
-    font-size: 24px;
-    font-weight: 900;
-}
-
-.operator-setup-context span {
-    justify-self: end;
-    color: #586478;
-    font-size: 14px;
-    font-weight: 700;
-    text-align: right;
 }
 
 .operator-setup-left {
@@ -234,7 +254,7 @@ const formState = number => {
 }
 
 .operator-setup-athlete.solo {
-    padding: 18px 24px;
+    padding: 10px 18px 12px;
     background: #edf2f9;
     text-align: center;
 }
@@ -244,15 +264,11 @@ const formState = number => {
 }
 
 .operator-setup-athlete.solo header {
-    justify-content: center;
+    justify-content: space-between;
 }
 
 .operator-setup-athlete.solo .operator-setup-athlete-info {
     justify-content: center;
-}
-
-.operator-setup-athlete.solo h2 {
-    font-size: clamp(19px, 2vw, 24px);
 }
 
 .operator-setup-athlete::before {
@@ -271,6 +287,8 @@ const formState = number => {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 10px;
+    width: 100%;
     min-height: 24px;
 }
 
@@ -289,26 +307,54 @@ const formState = number => {
     color: #c44750;
 }
 
+.operator-setup-athlete-club {
+    min-width: 0;
+    max-width: 58%;
+    overflow: hidden;
+    color: #555f6d;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .operator-setup-athlete-info {
     display: flex;
+    min-width: 0;
+    flex-direction: column;
     align-items: center;
-    margin-top: 5px;
+    gap: 4px;
+    margin-top: 2px;
 }
 
-.operator-setup-athlete-info h2 {
-    overflow-wrap: anywhere;
-    margin: 0;
+.operator-setup-member-list {
+    display: -webkit-box;
+    width: 100%;
+    min-width: 0;
+    max-height: 2.3em;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
     color: #0a1422;
-    font-size: clamp(15px, 1.5vw, 19px);
+    direction: ltr;
     font-weight: 800;
-    line-height: 1.25;
-    text-wrap: balance;
+    line-height: 1.15;
+    line-clamp: 2;
+    overflow-wrap: anywhere;
+    text-align: left;
 }
 
-.operator-setup-athlete-info p {
-    margin: 4px 0 0;
-    color: #555f6d;
-    font-size: 13px;
+.operator-setup-member-list.member-count-1 {
+    font-size: clamp(18px, 1.8vw, 24px);
+}
+
+.operator-setup-member-list.member-count-2 {
+    font-size: clamp(16px, 1.6vw, 20px);
+}
+
+.operator-setup-member-list.member-count-3 {
+    font-size: clamp(15px, 1.35vw, 17px);
 }
 
 .operator-setup-forms {
@@ -376,11 +422,65 @@ const formState = number => {
     white-space: nowrap;
 }
 
-.operator-setup-form small {
-    color: #555f6d;
-    font-size: 10px;
+.operator-setup-form-state {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 24px;
+    padding: 3px 8px;
+    border: 1px solid #c5c6cc;
+    background: #edf1f7;
+    color: #566174;
+    font-size: 9px;
     font-weight: 800;
     letter-spacing: .4px;
+    line-height: 1.1;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.operator-setup-form.ready,
+.operator-setup-form-state.ready {
+    border-color: #7da5e8;
+    background: #e6efff;
+    color: #174eaa;
+}
+
+.operator-setup-form.live,
+.operator-setup-form-state.live {
+    border-color: #69b98c;
+    background: #e4f6eb;
+    color: #17683d;
+}
+
+.operator-setup-form.scoring,
+.operator-setup-form-state.scoring,
+.operator-setup-form.in-progress,
+.operator-setup-form-state.in-progress {
+    border-color: #e1bd69;
+    background: #fff4d9;
+    color: #805800;
+}
+
+.operator-setup-form.completed,
+.operator-setup-form-state.completed {
+    border-color: #aeb8c7;
+    background: #eef1f5;
+    color: #46546a;
+}
+
+.operator-setup-form.cancelled,
+.operator-setup-form-state.cancelled {
+    border-color: #d89393;
+    background: #fdeaea;
+    color: #9a3030;
+}
+
+.operator-setup-form.waiting,
+.operator-setup-form-state.waiting {
+    border-color: #d7c48c;
+    background: #faf4e4;
+    color: #75602c;
 }
 
 .operator-setup-empty {
@@ -513,30 +613,66 @@ const formState = number => {
     margin: 0;
 }
 
-@media (max-width: 1000px) {
+@media (max-width: 640px) {
     .operator-setup {
         grid-template-columns: minmax(0, 1fr);
-        height: auto;
+        grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+        height: 100%;
         min-height: 100%;
     }
 
+    .operator-setup-left {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: auto minmax(0, 1fr);
+        gap: 8px;
+    }
+
+    .operator-setup-athlete.solo,
     .operator-setup-forms {
+        grid-column: 1 / -1;
+    }
+
+    .operator-setup-forms {
+        display: flex;
         flex: initial;
+        flex-direction: column;
+    }
+
+    .operator-setup-form-list {
+        min-height: 0;
+        flex: 1;
+        grid-auto-rows: minmax(0, 1fr);
     }
 
     .operator-setup-checklist {
         min-height: 0;
+    }
+
+    .operator-setup-checklist ul {
+        min-height: 0;
+        flex: 1;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-auto-rows: minmax(0, 1fr);
+    }
+
+    .operator-setup-checklist li {
+        min-width: 0;
+        min-height: 44px;
+        gap: 7px;
+        padding: 6px;
+    }
+
+    .operator-setup-check-icon {
+        width: 20px;
+        height: 20px;
     }
 }
 
 @media (max-height: 800px) and (min-width: 1001px) {
     .operator-setup {
         gap: 8px;
-        padding: 8px;
-    }
-
-    .operator-setup-context {
-        padding-bottom: 6px;
+        padding: 8px 0 0;
     }
 
     .operator-setup-athlete {
@@ -567,20 +703,11 @@ const formState = number => {
 @media (max-width: 500px) {
     .operator-setup {
         gap: 8px;
-        padding: 8px;
+        padding: 8px 0 0;
     }
 
     .operator-setup-checklist {
         padding: 14px;
-    }
-
-    .operator-setup-context {
-        gap: 6px 10px;
-    }
-
-    .operator-setup-context span {
-        justify-self: end;
-        text-align: right;
     }
 
     .operator-setup-form {
@@ -589,6 +716,208 @@ const formState = number => {
 
     .operator-setup-form small {
         grid-column: 2;
+    }
+}
+
+@media (max-height: 1000px) {
+    .operator-setup {
+        gap: clamp(6px, 1vh, 12px);
+        padding-top: clamp(4px, 1vh, 12px);
+    }
+
+    .operator-setup-left {
+        gap: clamp(5px, 0.8vh, 10px);
+    }
+
+    .operator-setup-athlete,
+    .operator-setup-athlete.solo {
+        padding-top: clamp(5px, 1vh, 10px);
+        padding-bottom: clamp(5px, 1.1vh, 12px);
+    }
+
+    .operator-setup-forms,
+    .operator-setup-checklist {
+        padding: clamp(8px, 1.25vh, 14px);
+    }
+
+    .operator-setup-forms > header,
+    .operator-setup-checklist > header {
+        padding-bottom: clamp(5px, 1.1vh, 9px);
+    }
+
+    .operator-setup-form-list {
+        gap: clamp(4px, 0.75vh, 10px);
+        margin-top: clamp(6px, 1vh, 12px);
+    }
+
+    .operator-setup-form {
+        min-height: clamp(40px, 7vh, 56px);
+        padding-block: clamp(5px, 1vh, 10px);
+        gap: clamp(6px, 0.75vw, 10px);
+    }
+
+    .operator-setup-form strong {
+        font-size: clamp(12px, 2vh, 16px);
+    }
+
+    .operator-setup-form-state {
+        min-height: clamp(20px, 3vh, 24px);
+        padding-block: clamp(2px, 0.4vh, 3px);
+        font-size: clamp(8px, 1.125vh, 9px);
+    }
+
+    .operator-setup-checklist h2 {
+        font-size: clamp(14px, 2.875vh, 23px);
+    }
+
+    .operator-setup-status-note {
+        margin-top: clamp(4px, 1vh, 8px);
+        font-size: clamp(10px, 1.5vh, 12px);
+        line-height: 1.35;
+    }
+
+    .operator-setup-checklist ul {
+        min-height: 0;
+        flex: 1;
+        gap: clamp(4px, 0.75vh, 8px);
+        margin-top: clamp(6px, 0.875vh, 10px);
+        grid-auto-rows: minmax(0, 1fr);
+    }
+
+    .operator-setup-checklist li {
+        min-height: clamp(34px, 5vh, 48px);
+        padding-block: clamp(4px, 0.75vh, 8px);
+    }
+
+    .operator-setup-check-copy strong {
+        font-size: clamp(11px, 1.625vh, 13px);
+    }
+
+    .operator-setup-check-copy small {
+        font-size: clamp(9px, 1.375vh, 11px);
+        line-height: 1.25;
+    }
+
+    .operator-setup-continue {
+        min-height: clamp(40px, 5.75vh, 54px);
+        padding-block: clamp(6px, 1vh, 12px);
+    }
+
+    .operator-setup-empty-state {
+        height: 100%;
+        min-height: 0;
+        padding: clamp(12px, 2vh, 24px);
+    }
+}
+
+@media (max-height: 620px) {
+    .operator-setup {
+        gap: 5px;
+        padding-top: 4px;
+    }
+
+    .operator-setup-left {
+        gap: 4px;
+    }
+
+    .operator-setup-athlete,
+    .operator-setup-athlete.solo {
+        padding: 4px 8px 5px 12px;
+    }
+
+    .operator-setup-athlete.solo {
+        padding-inline: 12px;
+    }
+
+    .operator-setup-athlete header {
+        gap: 6px;
+        min-height: 20px;
+    }
+
+    .operator-setup-forms,
+    .operator-setup-checklist {
+        padding: 7px;
+    }
+
+    .operator-setup-form-list {
+        gap: 4px;
+        margin-top: 5px;
+    }
+
+    .operator-setup-form {
+        min-height: 36px;
+        gap: 5px;
+        padding-block: 3px;
+    }
+
+    .operator-setup-form-number {
+        width: 24px;
+        height: 24px;
+    }
+
+    .operator-setup-form-state {
+        min-height: 18px;
+        padding: 2px 5px;
+    }
+
+    .operator-setup-checklist > header {
+        padding-bottom: 4px;
+    }
+
+    .operator-setup-status-note {
+        margin-top: 3px;
+    }
+
+    .operator-setup-checklist ul {
+        gap: 3px;
+        margin-top: 4px;
+    }
+
+    .operator-setup-checklist li {
+        min-height: 32px;
+        gap: 5px;
+        padding: 3px 5px;
+    }
+
+    .operator-setup-check-icon {
+        width: 18px;
+        height: 18px;
+    }
+
+    .operator-setup-check-copy {
+        gap: 1px;
+    }
+
+    .operator-setup-check-copy strong {
+        font-size: clamp(10px, 1.6vh, 13px);
+    }
+
+    .operator-setup-check-copy small {
+        font-size: clamp(8px, 1.3vh, 11px);
+    }
+
+    .operator-setup-continue {
+        min-height: 36px;
+        margin-top: 5px;
+        padding: 4px 8px;
+    }
+}
+
+@media (max-width: 640px) {
+    .operator-setup {
+        grid-template-rows: auto auto;
+        height: auto;
+        min-height: 100%;
+    }
+
+    .operator-setup-left {
+        grid-template-rows: auto auto;
+    }
+
+    .operator-setup-form-list,
+    .operator-setup-checklist ul {
+        flex: initial;
+        grid-auto-rows: auto;
     }
 }
 </style>

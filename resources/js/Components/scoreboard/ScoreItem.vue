@@ -74,6 +74,7 @@ const formattedValue = computed(() => {
 const sizes = {
     sm: {
         label: "text-xs leading-[1.1] font-normal",
+        maxLabel: "text-xs leading-[1.1] font-normal",
         box: "h-12 w-full",
         value: "text-2xl leading-[1.1] font-bold",
         totalBox: "h-20 w-full",
@@ -81,6 +82,7 @@ const sizes = {
     },
     md: {
         label: "text-sm leading-[1.1] font-normal",
+        maxLabel: "text-sm leading-[1.1] font-normal",
         box: "h-16 w-full",
         value: "text-4xl leading-[1.1] font-bold",
         totalBox: "h-28 w-full",
@@ -88,20 +90,23 @@ const sizes = {
     },
     lg: {
         label: "text-lg leading-[1.1] font-normal",
+        maxLabel: "text-lg leading-[1.1] font-normal",
         box: "h-24 w-full",
         value: "text-6xl leading-[1.1] font-bold",
         totalBox: "h-40 w-full",
         totalValue: "text-7xl leading-[1.05] font-bold",
     },
     xl: {
-        label: "text-xl leading-[1.1] font-normal",
+        label: "text-2xl leading-[1.1] font-bold",
+        maxLabel: "text-xl leading-[1.1] font-normal",
         box: "min-h-0 flex-1 w-full",
         value: "text-7xl leading-[1.1] font-bold",
         totalBox: "min-h-0 flex-1 w-full",
         totalValue: "text-8xl leading-[1.05] font-bold",
     },
     xxl: {
-        label: "text-2xl leading-[1.1] font-normal",
+        label: "text-3xl leading-[1.1] font-bold",
+        maxLabel: "text-2xl leading-[1.1] font-normal",
         box: "min-h-0 flex-1 w-full",
         value: "text-9xl leading-[1.1] font-bold",
         totalBox: "min-h-0 flex-1 w-full",
@@ -147,7 +152,7 @@ const totalPaddingClass = computed(() =>
             <span
                 v-if="showMax && max != null"
                 class="shrink-0 text-rtds-text-tertiary"
-                :class="s.label"
+                :class="s.maxLabel"
                 >/{{ max.toFixed(1) }}</span
             >
         </div>

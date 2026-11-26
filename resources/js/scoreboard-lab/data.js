@@ -50,9 +50,8 @@ const flags = {
 
 export const eventInfo = {
     stage: "مرحلهٔ نهایی",
-    title: "جام جهانی پومسه",
     category: "مردان — کلاس ۱",
-    roundLabel: "دور ۳ · زمین ۲",
+    rightLabel: "دور ۳ · زمین ۲",
 };
 
 export const headerCases = [
@@ -65,8 +64,11 @@ export const headerCases = [
         props: { ...eventInfo, logoUrl: "" },
     },
     {
-        title: "حداقلی — فقط عنوان رویداد",
-        props: { eventTitle: eventInfo.title },
+        title: "Category and right-side title",
+        props: {
+            category: eventInfo.category,
+            rightLabel: "EVENT",
+        },
     },
 ];
 

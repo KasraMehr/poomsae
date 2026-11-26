@@ -31,6 +31,14 @@ const seatRows = computed(() =>
     isHong.value ? [...rows.value].reverse() : rows.value,
 );
 
+const judgeColumns = computed(() =>
+    `repeat(${seatRows.value.length}, minmax(0, 1fr))`,
+);
+const judgeFontScale = computed(() => 7 / Math.max(seatRows.value.length, 1));
+const scaledFontSize = (baseVw, minPx, maxPx) =>
+    `clamp(${minPx}px, calc(${baseVw}vw * ${judgeFontScale.value}), ${maxPx}px)`;
+const labelColumnStyle = { flex: "0 0 clamp(5.5rem, 22%, 8.25rem)" };
+
 const categories = computed(() => [
     { key: "accuracy", label: "ACCURACY", score: true },
     ...(props.showSubScores
@@ -71,9 +79,6 @@ const scoreStateClass = (row, key) =>
         ? "!text-rtds-red line-through decoration-2"
         : "!text-white";
 
-const labelWidth = "132px";
-const labelGap = "15px"; // فاصلهٔ ستون برچسب تا ناحیهٔ اعداد
-
 const sideLabelClass = computed(() =>
     isHong.value ? "text-rtds-red" : "text-rtds-blue",
 );
@@ -81,29 +86,29 @@ const sideLabelClass = computed(() =>
 const placeClass = (alignSide) => {
     // alignSide: برچسب‌ها در سمت «بیرون» جدول‌اند
     const onLeft = alignSide === "left";
-    return [
-        onLeft ? "mr-[15px] justify-end text-right" : "ml-[15px] justify-start text-left",
-    ];
+    return onLeft ? "justify-end text-right" : "justify-start text-left";
 };
 
 const reverseClass = computed(() => (isHong.value ? "flex-row-reverse" : ""));
 </script>
 
 <template>
-    <div class="flex w-[580px] flex-col gap-4">
+    <div class="flex h-full min-h-0 w-full min-w-0 flex-col gap-2">
         <!-- نوار داوران (فقط بالای ستون‌های اعداد) -->
-        <div class="flex w-full" :class="reverseClass">
+        <div class="flex h-[60px] w-full shrink-0 gap-2" :class="reverseClass">
             <div
                 class="shrink-0"
-                :style="{ width: labelWidth, marginLeft: isHong ? labelGap : undefined, marginRight: isHong ? undefined : labelGap }"
+                :style="labelColumnStyle"
             />
             <div
-                class="flex h-[60px] flex-1 items-center gap-[15px] bg-rtds-gold-bright/20 px-2.5"
+                class="grid min-w-0 flex-1 items-center gap-x-1 bg-rtds-gold-bright/20 px-1 sm:px-2"
+                :style="{ gridTemplateColumns: judgeColumns }"
             >
                 <span
                     v-for="(row, index) in seatRows"
                     :key="index"
-                    class="flex-1 text-center font-rtds text-[36px] font-bold leading-10 text-rtds-gold-bright"
+                    class="min-w-0 whitespace-nowrap text-center font-rtds font-bold leading-none text-rtds-gold-bright"
+                    :style="{ fontSize: scaledFontSize(1.4, 12, 40) }"
                 >
                     {{ judgeLabel(row, index) }}
                 </span>
@@ -114,40 +119,47 @@ const reverseClass = computed(() => (isHong.value ? "flex-row-reverse" : ""));
         <div
             v-for="category in categories"
             :key="category.key"
-            class="flex w-full"
+            class="flex min-h-[55px] w-full min-w-0 flex-1 gap-2"
             :class="reverseClass"
         >
             <div
-                class="flex shrink-0 items-center"
+                class="flex min-w-0 shrink-0 items-center overflow-hidden"
                 :class="placeClass(isHong ? 'right' : 'left')"
-                :style="{ width: labelWidth }"
+                :style="labelColumnStyle"
             >
                 <span
-                    class="whitespace-nowrap font-rtds text-[25px] font-normal uppercase leading-9"
+                    class="overflow-hidden text-ellipsis whitespace-nowrap font-rtds font-normal uppercase leading-tight"
                     :class="category.score ? sideLabelClass : 'text-rtds-text-light'"
+                    :style="{ fontSize: scaledFontSize(1, 10, 22) }"
                 >
                     {{ category.label }}
                 </span>
             </div>
 
             <div
-                class="flex h-[55px] flex-1 gap-6 px-2"
+                class="grid min-w-0 flex-1 items-center gap-x-1 px-1"
                 :class="
                     category.score
                         ? 'rounded-t-[2px] bg-[rgba(30,41,59,0.4)]'
                         : ''
                 "
+                :style="{ gridTemplateColumns: judgeColumns }"
             >
                 <span
                     v-for="(row, index) in seatRows"
                     :key="index"
-                    class="flex flex-1 items-center justify-center"
+                    class="min-w-0 whitespace-nowrap text-center"
                     :class="[
                         category.score
-                            ? 'font-rtds text-[50px] font-semibold leading-10'
-                            : 'font-rtds text-[36px] font-medium leading-10',
+                            ? 'font-rtds font-semibold leading-none'
+                            : 'font-rtds font-medium leading-none',
                         scoreStateClass(row, category.key),
                     ]"
+                    :style="{
+                        fontSize: category.score
+                            ? scaledFontSize(2, 14, 50)
+                            : scaledFontSize(1.5, 12, 40),
+                    }"
                 >
                     {{ format(row[category.key]) }}
                 </span>

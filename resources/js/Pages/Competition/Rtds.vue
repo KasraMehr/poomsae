@@ -201,6 +201,7 @@ const drawData = computed(() => {
         stage: round.stage_label ?? round.name ?? '',
         title: display.value.tournament.name ?? '',
         category: category.name ?? '',
+        categoryEntries: category.entries ?? [],
         entries: bout.entries ?? [],
         forms,
     };

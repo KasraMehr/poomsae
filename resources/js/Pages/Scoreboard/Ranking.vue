@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from "vue";
 import ScoreboardLayout from "../../Shared/Layouts/ScoreboardLayout.vue";
+import ScoreboardHeader from "../../Components/scoreboard/ScoreboardHeader.vue";
 import RankingTable from "../../Components/scoreboard/tables/RankingTable.vue";
 import { Head } from "@inertiajs/vue3";
 
@@ -56,33 +57,11 @@ const categoryLabel = computed(
         :category="categoryLabel"
     >
         <template #header>
-            <header class="shrink-0 px-12 pt-8 pb-4">
-                <div
-                    class="grid grid-cols-[minmax(190px,0.85fr)_minmax(280px,1fr)_minmax(320px,1.5fr)] items-center gap-5"
-                >
-                    <span
-                        class="text-[45px] leading-[36px] uppercase text-rtds-text-secondary"
-                    >
-                        {{ stage }}
-                    </span>
-                    <span
-                        class="text-[45px] leading-[36px] uppercase text-rtds-text-secondary"
-                    >
-                        {{ categoryLabel }}
-                    </span>
-                    <div
-                        class="grid grid-cols-2 justify-self-end gap-[6.55px] text-[45px] leading-[36px] uppercase text-rtds-text-secondary"
-                    >
-                        <span class="w-[142px] text-center">R - 1</span>
-                        <span
-                            class="w-[142px] border-l border-rtds-text-light text-center"
-                        >
-                            R - 2
-                        </span>
-                    </div>
-                </div>
-                <div class="mt-4 h-px w-full bg-rtds-divider" />
-            </header>
+            <ScoreboardHeader
+                :stage="stage"
+                :category="categoryLabel"
+                right-label="RANKING"
+            />
         </template>
 
         <div v-if="categories.length" class="flex flex-col gap-8">

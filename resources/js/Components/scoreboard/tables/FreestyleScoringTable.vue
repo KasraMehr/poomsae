@@ -26,6 +26,12 @@ const rows = computed(() =>
         : Array.from({ length: props.judgeCount }, () => ({})),
 );
 
+const judgeFontScale = computed(() => 7 / Math.max(rows.value.length, 1));
+const scaledFontSize = (baseVw, minPx, maxPx) =>
+    `clamp(${minPx}px, calc(${baseVw}vw * ${judgeFontScale.value}), ${maxPx}px)`;
+
+const gridColumns = "minmax(3.25rem, 0.58fr) minmax(0, 1fr) minmax(0, 1.65fr)";
+
 const judgeLabel = (row, index) => row.label ?? `J${index + 1}`;
 
 const format = (value) => {
@@ -43,8 +49,6 @@ const partsOf = (row, key) => {
         : [row[key]];
 };
 
-/** عرض ستون‌ها ثابت است: با تقسیم/ادغام زیرستون‌ها، ستون‌ها جابه‌جا نمی‌شوند. */
-const widths = { judge: "59px", accuracy: "268px", presentation: "432px" };
 const valuesOf = (row, key, count) => {
     const parts = partsOf(row, key);
 
@@ -84,33 +88,36 @@ const scoreStateClass = (row, key, partIndex) =>
 </script>
 
 <template>
-    <div class="w-[759px] min-w-0">
+    <div class="flex h-full min-h-0 w-full min-w-0 flex-col">
         <!-- Header: سه هدر ثابت، هم‌عرض با ستون‌های بدنه -->
-        <div class="flex h-[42px] items-end">
+        <div
+            class="grid h-[42px] w-full shrink-0 items-end"
+            :style="{ gridTemplateColumns: gridColumns }"
+        >
             <div
-                class="flex h-9 items-center justify-center bg-rtds-gold-bright/20"
-                :style="{ width: widths.judge }"
+                class="flex min-w-0 items-center justify-center overflow-hidden bg-rtds-gold-bright/20"
             >
                 <span
-                    class="whitespace-nowrap font-rtds text-xl font-normal uppercase leading-9 text-rtds-gold-bright"
+                    class="whitespace-nowrap font-rtds font-normal uppercase leading-9 text-rtds-gold-bright"
+                    :style="{ fontSize: scaledFontSize(1.25, 10, 28) }"
                     >JUDGE</span
                 >
             </div>
             <div
-                class="flex h-9 items-center justify-center bg-rtds-border"
-                :style="{ width: widths.accuracy }"
+                class="flex min-w-0 items-center justify-center overflow-hidden bg-rtds-border"
             >
                 <span
-                    class="whitespace-nowrap font-rtds text-xl font-normal uppercase leading-9 text-rtds-text-light"
+                    class="whitespace-nowrap font-rtds font-normal uppercase leading-9 text-rtds-text-light"
+                    :style="{ fontSize: scaledFontSize(1.25, 10, 28) }"
                     >ACCURACY</span
                 >
             </div>
             <div
-                class="flex h-9 items-center justify-center bg-rtds-blue-soft/40"
-                :style="{ width: widths.presentation }"
+                class="flex min-w-0 items-center justify-center overflow-hidden bg-rtds-blue-soft/40"
             >
                 <span
-                    class="whitespace-nowrap font-rtds text-xl font-normal uppercase leading-9 text-rtds-text-light"
+                    class="whitespace-nowrap font-rtds font-normal uppercase leading-9 text-rtds-text-light"
+                    :style="{ fontSize: scaledFontSize(1.25, 10, 28) }"
                     >{{ presentationLabel }}</span
                 >
             </div>
@@ -120,40 +127,45 @@ const scoreStateClass = (row, key, partIndex) =>
         <div
             v-for="(row, index) in rows"
             :key="index"
-            class="flex h-[77px] items-center border-b border-white/5"
+            class="grid min-h-[58px] w-full min-w-0 flex-1 items-stretch border-b border-white/5"
+            :style="{ gridTemplateColumns: gridColumns }"
         >
             <div
-                class="flex shrink-0 items-center justify-center"
-                :style="{ width: widths.judge }"
+                class="flex min-w-0 items-center justify-center overflow-hidden"
             >
-                <span class="font-rtds text-2xl font-semibold leading-7 text-rtds-gold-bright">
+                <span
+                    class="whitespace-nowrap font-rtds font-semibold leading-none text-rtds-gold-bright"
+                    :style="{ fontSize: scaledFontSize(1.5, 14, 40) }"
+                >
                     {{ judgeLabel(row, index) }}
                 </span>
             </div>
 
             <div
-                class="flex shrink-0 items-center justify-center gap-4 px-6"
-                :style="{ width: widths.accuracy }"
+                class="grid min-w-0 items-center gap-x-1 px-1 sm:px-2"
+                :style="{ gridTemplateColumns: `repeat(${valuesOf(row, 'accuracy', accuracyCount).length}, minmax(0, 1fr))` }"
             >
                 <span
                     v-for="(value, partIndex) in valuesOf(row, 'accuracy', accuracyCount)"
                     :key="partIndex"
-                    class="flex-1 text-center font-rtds text-[32px] font-medium leading-[52px]"
+                    class="min-w-0 whitespace-nowrap text-center font-rtds font-medium leading-none"
                     :class="scoreStateClass(row, 'accuracy', partIndex)"
+                    :style="{ fontSize: scaledFontSize(1.7, 12, 38) }"
                 >
                     {{ format(value) }}
                 </span>
             </div>
 
             <div
-                class="flex shrink-0 items-center justify-center gap-2 px-6"
-                :style="{ width: widths.presentation }"
+                class="grid min-w-0 items-center gap-x-1 px-1 sm:px-2"
+                :style="{ gridTemplateColumns: `repeat(${valuesOf(row, 'presentation', presentationCount).length}, minmax(0, 1fr))` }"
             >
                 <span
                     v-for="(value, partIndex) in valuesOf(row, 'presentation', presentationCount)"
                     :key="partIndex"
-                    class="flex-1 text-center font-rtds text-[32px] font-semibold leading-9"
+                    class="min-w-0 whitespace-nowrap text-center font-rtds font-semibold leading-none"
                     :class="scoreStateClass(row, 'presentation', partIndex)"
+                    :style="{ fontSize: scaledFontSize(1.7, 12, 38) }"
                 >
                     {{ format(value) }}
                 </span>

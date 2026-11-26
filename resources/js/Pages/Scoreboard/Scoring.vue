@@ -3,7 +3,8 @@ import { Head } from "@inertiajs/vue3";
 import { computed } from "vue";
 import ScoreboardLayout from "../../Shared/Layouts/ScoreboardLayout.vue";
 import ScoreboardHeader from "../../Components/scoreboard/ScoreboardHeader.vue";
-import AthleteInfo from "../../Components/scoreboard/AthleteInfo.vue";
+import EntryAthleteInfo from "../../Components/scoreboard/EntryAthleteInfo.vue";
+import EntryAthleteInfoPair from "../../Components/scoreboard/EntryAthleteInfoPair.vue";
 import FormBadge from "../../Components/scoreboard/FormBadge.vue";
 import { displayFormName, displayFormSymbolKey } from "../../Shared/Services/symbols";
 import ScoreItem from "../../Components/scoreboard/ScoreItem.vue";
@@ -32,6 +33,27 @@ const statusLabels = {
 };
 
 const stage = computed(() => statusLabels[tournament.value?.status] ?? "");
+
+const withCategoryEntryDetails = (entry, category) => {
+    if (!entry) return null;
+
+    const details = category?.entries?.find(
+        (categoryEntry) => String(categoryEntry.id) === String(entry.id),
+    );
+
+    if (!details) return entry;
+
+    return {
+        ...details,
+        ...entry,
+        members: Array.isArray(entry.members) && entry.members.length
+            ? entry.members
+            : details.members ?? [],
+        country_code: entry.country_code ?? details.country_code,
+        country: entry.country ?? details.country,
+        flag_url: entry.flag_url ?? details.flag_url,
+    };
+};
 
 const isActivePerformance = (performance) =>
     ["running", "scoring"].includes(performance.status);
@@ -101,15 +123,17 @@ const scoringPanels = computed(() =>
                             bout,
                             category,
                             round,
-                            roundLabel: roundLabelOf(round),
                             variant,
                             sides: group.map((performance) => ({
                                 performance,
                                 category,
-                                entry: (bout.entries ?? []).find(
-                                    (entry) =>
-                                        String(entry.id) ===
-                                        String(performance.entry_id),
+                                entry: withCategoryEntryDetails(
+                                    (bout.entries ?? []).find(
+                                        (entry) =>
+                                            String(entry.id) ===
+                                            String(performance.entry_id),
+                                    ),
+                                    category,
                                 ),
                             })),
                         }));
@@ -118,15 +142,50 @@ const scoringPanels = computed(() =>
     ),
 );
 
+const orderedSides = (sides = []) =>
+    sides
+        .map((side, index) => {
+            const value = String(side.entry?.side ?? "").toLowerCase();
+            const normalizedSide =
+                value === "hong" || value === "red"
+                    ? "hong"
+                    : value === "chung" || value === "blue"
+                      ? "chung"
+                      : index === 1
+                        ? "hong"
+                        : "chung";
+
+            return {
+                ...side,
+                entry: side.entry
+                    ? { ...side.entry, side: normalizedSide }
+                    : side.entry,
+            };
+        })
+        .sort((first, second) =>
+            first.entry?.side === second.entry?.side
+                ? 0
+                : first.entry?.side === "chung"
+                  ? -1
+                  : 1,
+        );
+
 const currentCategory = computed(
     () => scoringPanels.value[0]?.category ?? null,
 );
 const currentRound = computed(() => scoringPanels.value[0]?.round ?? null);
 const categoryLabel = computed(() => currentCategory.value?.name ?? "");
-const roundTitle = computed(() => currentRound.value?.name ?? "SCORING");
-
-const roundLabelOf = (round) =>
-    round?.sequence == null ? "" : `R-${round.sequence}`;
+const roundTitle = computed(() =>
+    currentRound.value?.sequence == null
+        ? ""
+        : `ROUND ${currentRound.value.sequence}`,
+);
+const headerStage = computed(
+    () =>
+        currentRound.value?.stage_label ||
+        tournament.value?.name ||
+        stage.value,
+);
 
 const detailOf = (side) => side?.performance?.detailed_scores ?? null;
 const judgesOf = (side) => detailOf(side)?.judges ?? [];
@@ -198,28 +257,20 @@ const isFreestylePenaltyMode = (side) =>
     (detailOf(side)?.accuracy_components?.length === 3 &&
         detailOf(side)?.presentation_penalties?.length > 0);
 
-const athleteProps = (entry) => ({
-    number: entry?.number ?? "",
-    name: entry?.name ?? "",
-    side: entry?.side ?? "",
-    country: entry?.country ?? "",
-    countryCode: entry?.country_code ?? "",
-    flagUrl: entry?.flag_url ?? "",
-});
 </script>
 
 <template>
     <!-- <Head title="scoring"/> -->
     <ScoreboardLayout
-        :stage="stage"
-        :center="tournament?.name ?? ''"
+        :stage="headerStage"
+        :center="categoryLabel"
         :category="categoryLabel"
     >
         <template #header>
             <ScoreboardHeader
-                :stage="roundTitle"
-                event-title="SCORING"
+                :stage="headerStage"
                 :category="categoryLabel"
+                :right-label="roundTitle"
             />
         </template>
 
@@ -233,22 +284,22 @@ const athleteProps = (entry) => ({
         <section
             v-for="panel in scoringPanels"
             :key="panel.id"
-            class="min-h-full"
+            :class="panel.variant === 'double' ? 'flex min-h-0 flex-1 flex-col' : 'min-h-full'"
         >
             <!-- Double scoring layout: mirrored athlete tables for simultaneous bouts. -->
-            <div v-if="panel.variant === 'double'" class="flex flex-col gap-6">
-                <div class="flex items-center justify-between gap-6 pt-10">
-                    <AthleteInfo
-                        v-for="side in panel.sides"
-                        :key="side.entry?.id"
-                        v-bind="athleteProps(side.entry)"
-                        layout="horizontal"
-                        size="xl"
-                    />
-                </div>
-                <div class="grid grid-cols-2 gap-6 max-[900px]:grid-cols-1">
+            <div v-if="panel.variant === 'double'" class="flex min-h-0 flex-1 flex-col gap-4">
+                <EntryAthleteInfoPair
+                    :entries="orderedSides(panel.sides).map((side) => side.entry)"
+                    class="scoring-double-athletes grid shrink-0 grid-cols-2 items-center gap-6 pt-4"
+                    layout="horizontal"
+                    size="xxl"
+                    name-size="xxl"
+                    :name-fit="true"
+                    :name-area-min-height="true"
+                />
+                <div class="grid min-h-0 flex-1 grid-cols-2 items-stretch gap-6 max-[900px]:grid-cols-1 max-[900px]:overflow-y-auto">
                     <DoubleScoringTable
-                        v-for="side in panel.sides"
+                        v-for="side in orderedSides(panel.sides)"
                         :key="side.entry?.id"
                         :side="side.entry?.side ?? 'chung'"
                         :judges="singleJudgesOf(side)"
@@ -262,14 +313,15 @@ const athleteProps = (entry) => ({
                 class="flex min-h-full flex-col justify-between gap-5"
             >
                 <div class="flex items-center justify-between gap-6">
-                    <AthleteInfo
-                        v-bind="athleteProps(panel.sides[0].entry)"
+                    <EntryAthleteInfo
+                        :entry="panel.sides[0].entry"
                         layout="horizontal"
                         size="xl"
+                        name-size="xl"
+                        :name-fit="true"
                     />
                     <FormBadge
                         size="xxxl"
-                        :round-label="panel.roundLabel"
                         :form-name="displayFormName(panel.category, panel.sides[0].performance)"
                         :symbol-key="displayFormSymbolKey(panel.category, panel.sides[0].performance)"
                     />
@@ -376,3 +428,19 @@ const athleteProps = (entry) => ({
         </section>
     </ScoreboardLayout>
 </template>
+
+<style scoped>
+.scoring-double-athletes :deep(.nationality-badge--match-height) {
+    height: auto;
+    aspect-ratio: 2.625 / 1;
+    align-self: center;
+}
+
+.scoring-double-athletes :deep(.nationality-badge--match-height > span) {
+    height: 100%;
+}
+
+.scoring-double-athletes :deep(.nationality-badge__code) {
+    font-size: clamp(18px, 16cqi, 44px);
+}
+</style>

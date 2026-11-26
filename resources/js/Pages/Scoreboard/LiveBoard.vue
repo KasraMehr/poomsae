@@ -2,7 +2,8 @@
 import { computed } from "vue";
 import ScoreboardLayout from "../../Shared/Layouts/ScoreboardLayout.vue";
 import ScoreboardHeader from "../../Components/scoreboard/ScoreboardHeader.vue";
-import AthleteInfo from "../../Components/scoreboard/AthleteInfo.vue";
+import EntryAthleteInfo from "../../Components/scoreboard/EntryAthleteInfo.vue";
+import EntryAthleteInfoPair from "../../Components/scoreboard/EntryAthleteInfoPair.vue";
 import FormBadge from "../../Components/scoreboard/FormBadge.vue";
 import Timer from "../../Components/scoreboard/Timer.vue";
 import { displayFormName, displayFormSymbolKey } from "../../Shared/Services/symbols";
@@ -101,13 +102,31 @@ const mode = computed(() =>
         : "single",
 );
 
+const withCategoryEntryDetails = (entry) => {
+    const categoryEntry = currentExecution.value?.category?.entries?.find(
+        (item) => String(item.id) === String(entry.id),
+    );
+
+    if (!categoryEntry) return entry;
+
+    return {
+        ...entry,
+        members: Array.isArray(entry.members) && entry.members.length
+            ? entry.members
+            : categoryEntry.members ?? [],
+        country_code: entry.country_code ?? categoryEntry.country_code,
+        country: entry.country ?? categoryEntry.country,
+        flag_url: entry.flag_url ?? categoryEntry.flag_url,
+    };
+};
+
 const visibleEntries = computed(() => {
     const execution = currentExecution.value;
 
     if (!execution) return [];
 
     if (mode.value === "double") {
-        return execution.entries.slice(0, 2);
+        return execution.entries.slice(0, 2).map(withCategoryEntryDetails);
     }
 
     const performanceEntryId = execution.performance.entry_id;
@@ -116,16 +135,23 @@ const visibleEntries = computed(() => {
         (entry) => String(entry.id) === String(performanceEntryId),
     );
 
-    return activeEntry ? [activeEntry] : execution.entries.slice(0, 1);
+    return (activeEntry ? [activeEntry] : execution.entries.slice(0, 1)).map(
+        withCategoryEntryDetails,
+    );
 });
 
 const roundLabel = computed(() => {
-    const name = currentExecution.value?.round?.name ?? "";
+    const sequence = currentExecution.value?.round?.sequence;
 
-    if (!name) return "";
-
-    return /^round/i.test(name) ? name : `${name}`;
+    return sequence == null ? "" : `ROUND ${sequence}`;
 });
+
+const headerStage = computed(
+    () =>
+        currentExecution.value?.round?.stage_label ||
+        tournament.value?.name ||
+        stage.value,
+);
 
 const categoryName = computed(
     () => currentExecution.value?.category?.name ?? "",
@@ -156,16 +182,15 @@ const courts = computed(() => tournament.value?.courts ?? []);
 <template>
     <!-- <Head title="standby"/> -->
     <ScoreboardLayout
-        :stage="stage"
-        :center="roundLabel"
+        :stage="headerStage"
+        :center="categoryName"
         :category="categoryName"
     >
         <template #header>
             <ScoreboardHeader
-                :stage="stage"
-                :event-title="tournament?.name ?? ''"
+                :stage="headerStage"
                 :category="categoryName"
-                :round-label="roundLabel"
+                :right-label="roundLabel"
             />
         </template>
 
@@ -173,26 +198,37 @@ const courts = computed(() => tournament.value?.courts ?? []);
             <template v-if="currentExecution">
                 <!-- ATHLETES -->
                 <section
-                    class="grid w-full shrink-0 items-start gap-10 pt-10"
-                    :class="mode === 'single' ? 'grid-cols-1' : 'grid-cols-2'"
+                    v-if="mode === 'single'"
+                    class="grid w-full shrink-0 grid-cols-1 items-start gap-10 pt-10"
                 >
-                    <AthleteInfo
+                    <EntryAthleteInfo
                         v-for="entry in visibleEntries"
                         :key="entry.id"
-                        :layout="
-                            mode === 'single' ? 'horizontal' : 'vertical-under'
-                        "
-                        :class="
-                            mode === 'single' ? 'justify-self-center' : 'w-full'
-                        "
-                        :size="mode === 'single' ? 'xxl' : 'xl'"
-                        :name="entry.name"
-                        :country="entry.country"
-                        :country-code="entry.country_code"
-                        :flag-url="entry.flag_url"
-                        :side="entry.side"
+                        :entry="entry"
+                        layout="horizontal"
+                        class="w-full"
+                        size="xxl"
+                        name-size="xxxl"
+                        :name-fit="true"
+                        :name-area-min-height="true"
+                        badge-size="xxl"
+                        :fill="false"
                     />
                 </section>
+
+                <EntryAthleteInfoPair
+                    v-else
+                    :entries="visibleEntries"
+                    class="grid w-full shrink-0 grid-cols-2 items-start gap-10 pt-10"
+                    layout="vertical-under"
+                    size="xl"
+                    name-size="xxl"
+                    :name-fit="true"
+                    :name-area-min-height="true"
+                    :responsive-badge="true"
+                    badge-size="lg"
+                    :fill="false"
+                />
 
                 <!-- FORM + TIMER -->
                 <section
@@ -210,10 +246,13 @@ const courts = computed(() => tournament.value?.courts ?? []);
 
                     <!-- TIMER: RIGHT -->
                     <div class="flex items-center justify-center">
-                        <span v-if="phase === 'call'" class="text-6xl font-semibold uppercase text-rtds-gold-bright">READY</span>
+                        <span
+                            v-if="phase === 'call'"
+                            class="text-[clamp(5rem,8vw,7.5rem)] font-bold uppercase leading-none text-rtds-gold-bright"
+                        >READY</span>
                         <Timer
                             v-else-if="durationSeconds != null"
-                            size="xxl"
+                            size="xl"
                             :duration-seconds="durationSeconds"
                             :started-at="
                                 currentExecution.performance.started_at
